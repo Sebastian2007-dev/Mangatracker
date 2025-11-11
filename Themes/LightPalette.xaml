@@ -1,0 +1,59 @@
+<!-- LightPalette.xaml -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Farben -->
+  <Color x:Key="WindowBackgroundColor">#FFFFFFFF</Color>
+  <Color x:Key="TextColor">#FF000000</Color>
+  <Color x:Key="ControlBackgroundColor">#FFF7F8FA</Color>
+  <Color x:Key="BorderColor">#FFCDD2DE</Color>
+  <Color x:Key="ButtonColor">#FFF2F3F7</Color>
+  <Color x:Key="ButtonHoverColor">#FFE9EBF2</Color>
+  <Color x:Key="ItemHoverColor">#FFEFF2F7</Color>
+  <Color x:Key="ItemSelectedColor">#FFE3E8F2</Color>
+  <Color x:Key="AccentColor">#FF2F6DFE</Color>
+
+  <!-- Tabs -->
+  <Color x:Key="TabBackgroundColor">#FFF7F8FA</Color>
+  <Color x:Key="TabHoverColor">#FFE9EBF2</Color>
+  <Color x:Key="TabSelectedColor">#FFFFFFFF</Color>
+  <Color x:Key="TabBorderColor">#FFCDD2DE</Color>
+  <Color x:Key="DisabledTextColor">#FF7A7A7A</Color>
+
+  <!-- Brushes -->
+  <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{StaticResource WindowBackgroundColor}"/>
+  <SolidColorBrush x:Key="TextBrush"              Color="{StaticResource TextColor}"/>
+  <SolidColorBrush x:Key="ControlBackgroundBrush" Color="{StaticResource ControlBackgroundColor}"/>
+  <SolidColorBrush x:Key="BorderBrush"            Color="{StaticResource BorderColor}"/>
+  <SolidColorBrush x:Key="ButtonBrush"            Color="{StaticResource ButtonColor}"/>
+  <SolidColorBrush x:Key="ButtonHoverBrush"       Color="{StaticResource ButtonHoverColor}"/>
+  <SolidColorBrush x:Key="ItemHoverBrush"         Color="{StaticResource ItemHoverColor}"/>
+  <SolidColorBrush x:Key="ItemSelectedBrush"      Color="{StaticResource ItemSelectedColor}"/>
+  <SolidColorBrush x:Key="AccentBrush"            Color="{StaticResource AccentColor}"/>
+
+  <SolidColorBrush x:Key="TabBackgroundBrush"     Color="{StaticResource TabBackgroundColor}"/>
+  <SolidColorBrush x:Key="TabHoverBrush"          Color="{StaticResource TabHoverColor}"/>
+  <SolidColorBrush x:Key="TabSelectedBrush"       Color="{StaticResource TabSelectedColor}"/>
+  <SolidColorBrush x:Key="TabBorderBrush"         Color="{StaticResource TabBorderColor}"/>
+  <SolidColorBrush x:Key="DisabledTextBrush"      Color="{StaticResource DisabledTextColor}"/>
+
+  <SolidColorBrush x:Key="CardBackgroundBrush"    Color="#FFFFFFFF"/>
+    <Color x:Key="InputBackgroundColor">#FFFFFFFF</Color>
+    <Color x:Key="PanelHeaderColor">#FFFFFFFF</Color>
+    <Color x:Key="SeparatorColor">#FFCDD2DE</Color>
+    <SolidColorBrush x:Key="InputBackgroundBrush" Color="{StaticResource InputBackgroundColor}"/>
+    <SolidColorBrush x:Key="PanelHeaderBrush"     Color="{StaticResource PanelHeaderColor}"/>
+    <SolidColorBrush x:Key="SeparatorBrush"       Color="{StaticResource SeparatorColor}"/>
+
+    <!-- Scrollbar (Light) -->
+    <Color x:Key="ScrollRailColor">#E9ECEF</Color>
+    <Color x:Key="ScrollThumbColor">#B8C0CC</Color>
+    <Color x:Key="ScrollThumbHoverColor">#A9B2C0</Color>
+    <Color x:Key="ScrollThumbPressedColor">#98A3B3</Color>
+
+    <SolidColorBrush x:Key="ScrollRailBrush" Color="{StaticResource ScrollRailColor}"/>
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="{StaticResource ScrollThumbColor}"/>
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="{StaticResource ScrollThumbHoverColor}"/>
+    <SolidColorBrush x:Key="ScrollThumbPressedBrush" Color="{StaticResource ScrollThumbPressedColor}"/>
+
+</ResourceDictionary>

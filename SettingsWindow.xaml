@@ -1,0 +1,149 @@
+﻿<!-- SettingsWindow.xaml -->
+<Window x:Class="MangaTracker.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:logging="clr-namespace:MangaTracker.Services.Logging"
+        Title="Einstellungen"
+        Height="600"
+        Width="900"
+        MinHeight="520"
+        MinWidth="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanMinimize"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource TextBrush}">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0">
+            <!-- TAB 1: Allgemein -->
+            <TabItem Header="Allgemein">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <TextBlock Text="Verhalten beim Link-Öffnen:" Margin="0,0,0,6"/>
+                        <ComboBox x:Name="LinkBehaviorBox" Margin="0,0,0,12" Width="260">
+                            <ComboBoxItem Content="Fragen (Standard)" />
+                            <ComboBoxItem Content="Immer Kapitel-Seite" />
+                            <ComboBoxItem Content="Immer Hauptseite" />
+                        </ComboBox>
+
+                        <CheckBox x:Name="UseSystemBrowserCheckBox" Margin="0,0,0,16">
+                            <TextBlock Text="Standard-Browser des Systems verwenden" TextWrapping="Wrap"/>
+                        </CheckBox>
+
+                        <TextBlock Text="Sprache:" Margin="0,0,0,6"/>
+                        <ComboBox x:Name="LanguageBox" Margin="0,0,0,16" Width="200">
+                            <ComboBoxItem Content="Deutsch" />
+                            <ComboBoxItem Content="English" />
+                        </ComboBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- TAB 2: Werbeblockierung -->
+            <TabItem Header="Werbeblockierung">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <CheckBox x:Name="AdblockEnabledCheckBox" Margin="0,0,0,6">
+                            <TextBlock Text="Adblock aktivieren" TextWrapping="Wrap"/>
+                        </CheckBox>
+
+                        <CheckBox x:Name="AdblockDryRunCheckBox" Margin="16,0,0,6">
+                            <TextBlock Text="Nur loggen (DryRun)" TextWrapping="Wrap"/>
+                        </CheckBox>
+
+                        <CheckBox x:Name="AdblockBlockNewWindowsCheckBox" Margin="16,0,0,6">
+                            <TextBlock Text="Popups (window.open / _blank) blockieren" TextWrapping="Wrap"/>
+                        </CheckBox>
+
+                        <CheckBox x:Name="AdblockPopupSameTabCheckBox" Margin="32,0,0,6">
+                            <TextBlock Text="Links mit target=_blank im selben Tab öffnen" TextWrapping="Wrap"/>
+                        </CheckBox>
+
+                        <CheckBox x:Name="AdblockBlockOverlaysCheckBox" Margin="16,0,0,12">
+                            <TextBlock Text="In-Page Overlays/Banner aggressiv entfernen" TextWrapping="Wrap"/>
+                        </CheckBox>
+
+                        <TextBlock Text="Allowlist (nie blocken, ein Host pro Zeile)" Margin="0,0,0,4"/>
+                        <TextBox x:Name="AllowlistText" AcceptsReturn="True" Height="80"
+                                 VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Harte Denylist (Wildcards, ein Pattern pro Zeile)" Margin="0,0,0,4"/>
+                        <TextBox x:Name="DenylistText" AcceptsReturn="True" Height="120"
+                                 VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- TAB 3: Domainverwaltung -->
+            <TabItem Header="Domainverwaltung">
+                <Grid Margin="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Erlaubte Hosts (immer erlauben)" Grid.Column="0"/>
+                    <TextBlock Text="Blockierte Hosts (immer blockieren)" Grid.Column="2"/>
+
+                    <!-- Allowed -->
+                    <ListBox x:Name="AllowedHostsList" Grid.Row="1" Grid.Column="0" Margin="0,6,0,6"/>
+                    <!-- Blocked -->
+                    <ListBox x:Name="BlockedHostsList" Grid.Row="1" Grid.Column="2" Margin="0,6,0,6"/>
+
+                    <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" >
+                        <TextBox x:Name="HostInputBox" Width="220" Margin="0,0,8,0" ToolTip="Host, z. B. cdn.example.com"/>
+                        <Button Content="Zu Erlaubt hinzufügen" Margin="0,0,8,0" Click="AddAllowed_Click"/>
+                        <Button Content="Zu Blockiert hinzufügen" Margin="0,0,8,0" Click="AddBlocked_Click"/>
+                        <Button Content="Aus Erlaubt entfernen" Margin="0,0,8,0" Click="RemoveAllowed_Click"/>
+                        <Button Content="Aus Blockiert entfernen" Click="RemoveBlocked_Click"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB 4: Debug -->
+                        <TabItem Header="Debug">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Diagnose &amp; Log" Margin="0,0,0,8" Grid.Row="0"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="1">
+                        <Button Content="Rescan ausführen" Padding="10,6" Margin="0,0,8,0" Click="Debug_Rescan_Click"/>
+                        <Button Content="Log leeren" Padding="10,6" Margin="0,0,8,0" Click="Debug_ClearLog_Click"/>
+                        <Button Content="Log-Ordner öffnen" Padding="10,6" Click="Debug_OpenLogFolder_Click"/>
+                    </StackPanel>
+
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6" Grid.Row="2">
+                        <ListBox x:Name="DebugLogList"
+                                 ItemsSource="{x:Static logging:DebugLog.Entries}"
+                                 Background="{DynamicResource ControlBackgroundBrush}"
+                                 Foreground="{DynamicResource TextBrush}"
+                                 FontFamily="Consolas, 'Cascadia Code', monospace"
+                                 FontSize="12"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Speichern und Schließen" Click="Save_Click" Padding="16,6" Margin="0,0,8,0"/>
+            <Button Content="Abbrechen" Click="Cancel_Click" Padding="16,6"/>
+        </StackPanel>
+    </Grid>
+</Window>
