@@ -1,0 +1,71 @@
+{
+  "name": "manga-tracker",
+  "version": "1.0.0",
+  "description": "Manga Tracker Desktop App",
+  "main": "./out/main/index.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "dist": "npm run build && electron-builder",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.web.json --composite false && tsc --noEmit -p tsconfig.node.json"
+  },
+  "dependencies": {
+    "@cliqz/adblocker-electron": "^1.27.0",
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^20.14.8",
+    "@vitejs/plugin-vue": "^5.0.5",
+    "@vueuse/core": "^14.2.1",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.3.0",
+    "lucide-vue-next": "^0.577.0",
+    "pinia": "^3.0.4",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.5.2",
+    "vite": "^5.3.1",
+    "vue": "^3.5.0",
+    "vue-i18n": "^11.3.0",
+    "vue-router": "^5.0.3",
+    "vue-tsc": "^2.0.22"
+  },
+  "build": {
+    "appId": "com.mangaTracker.app",
+    "productName": "Manga Tracker",
+    "directories": {
+      "buildResources": "resources",
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "!out/**/*.map"
+    ],
+    "extraMetadata": {
+      "main": "./out/main/index.js"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "resources/app.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "resources/app.ico",
+      "uninstallerIcon": "resources/app.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "resources/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "resources/icon.png"
+    }
+  }
+}

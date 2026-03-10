@@ -1,0 +1,88 @@
+{
+  "tabs": {
+    "reading": "Reading",
+    "plan_to_read": "Plan to Read",
+    "hiatus": "Hiatus",
+    "completed": "Completed",
+    "rereading": "Rereading",
+    "focus": "Focus"
+  },
+  "manga": {
+    "new": "New Manga",
+    "edit": "Edit Manga",
+    "delete": "Delete",
+    "read": "Read",
+    "info": "Edit Info",
+    "title": "Title",
+    "mainUrl": "Main URL",
+    "chapterUrlTemplate": "Chapter URL Template",
+    "chapterUrlHelp": "Use $chapter as a placeholder for the chapter number, e.g. https://example.com/manga/$chapter",
+    "status": "Status",
+    "currentChapter": "Current Chapter",
+    "newChapter": "New chapter available!",
+    "noManga": "No manga in this list",
+    "addFirst": "Add your first manga",
+    "focusFull": "Focus is full (max. 3)",
+    "focusHint": "Add up to 3 manga to Focus",
+    "deleted": "Manga deleted",
+    "undo": "Undo",
+    "save": "Save",
+    "cancel": "Cancel",
+    "search": "Search...",
+    "export": "Export",
+    "import": "Import",
+    "focus": "Focus",
+    "unfocus": "Remove Focus",
+    "scanNow": "Scan for new chapters now"
+  },
+  "reader": {
+    "open": "Open Reader",
+    "close": "Close",
+    "openMain": "Open Main Page",
+    "openChapter": "Open Chapter",
+    "chooseWhat": "What do you want to open?",
+    "domainGuard": {
+      "title": "Different Domain",
+      "message": "You are navigating to a different domain: {domain}",
+      "yes": "Yes",
+      "yesAlways": "Yes, always",
+      "no": "No",
+      "noBlock": "No, block"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "language": "Language",
+    "readBehavior": "Read Behavior",
+    "readMain": "Always Main Page",
+    "readChapter": "Always Chapter",
+    "readAsk": "Always Ask",
+    "notifications": "Notifications",
+    "notificationsEnabled": "Check for new chapters",
+    "desktopNotificationsEnabled": "Show desktop notifications",
+    "checkInterval": "Check Interval",
+    "intervalHours": "Hours",
+    "domainWhitelist": "Allowed Domains",
+    "domainBlocklist": "Blocked Domains",
+    "addDomain": "Add Domain",
+    "noDomains": "No entries",
+    "back": "Back",
+    "reader": "Reader",
+    "readerSeparateWindow": "Open in separate window",
+    "readerSeparateWindowHint": "Reader opens its own window instead of an embedded area"
+  },
+  "nav": {
+    "library": "Library",
+    "settings": "Settings",
+    "log": "Activity Log"
+  },
+  "log": {
+    "title": "Activity Log",
+    "clear": "Clear",
+    "empty": "No entries yet – trigger a scan or wait for the next automatic scan"
+  }
+}

@@ -1,11 +1,6 @@
-# Build-Ordner
-bin/
-obj/
-
-# Visual Studio
-.vs/
-*.user
-*.suo
-
-# Sonstiges
+node_modules
+dist
+out
+.DS_Store
 *.log
+node_modules

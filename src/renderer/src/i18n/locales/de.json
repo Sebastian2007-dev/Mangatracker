@@ -1,0 +1,88 @@
+{
+  "tabs": {
+    "reading": "Am Lesen",
+    "plan_to_read": "Geplant",
+    "hiatus": "Pause",
+    "completed": "Abgeschlossen",
+    "rereading": "Nochmal lesen",
+    "focus": "Fokus"
+  },
+  "manga": {
+    "new": "Neuer Manga",
+    "edit": "Manga bearbeiten",
+    "delete": "Löschen",
+    "read": "Lesen",
+    "info": "Info bearbeiten",
+    "title": "Titel",
+    "mainUrl": "Haupt-URL",
+    "chapterUrlTemplate": "Kapitel-URL Vorlage",
+    "chapterUrlHelp": "Nutze $chapter als Platzhalter für die Kapitelnummer, z.B. https://example.com/manga/$chapter",
+    "status": "Status",
+    "currentChapter": "Aktuelles Kapitel",
+    "newChapter": "Neues Kapitel verfügbar!",
+    "noManga": "Keine Manga in dieser Liste",
+    "addFirst": "Füge deinen ersten Manga hinzu",
+    "focusFull": "Fokus ist voll (max. 3)",
+    "focusHint": "Füge bis zu 3 Manga zum Fokus hinzu",
+    "deleted": "Manga gelöscht",
+    "undo": "Rückgängig",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "search": "Suchen...",
+    "export": "Exportieren",
+    "import": "Importieren",
+    "focus": "Fokussieren",
+    "unfocus": "Fokus aufheben",
+    "scanNow": "Jetzt nach neuen Kapiteln suchen"
+  },
+  "reader": {
+    "open": "Reader öffnen",
+    "close": "Schließen",
+    "openMain": "Hauptseite öffnen",
+    "openChapter": "Kapitel öffnen",
+    "chooseWhat": "Was möchtest du öffnen?",
+    "domainGuard": {
+      "title": "Andere Domain",
+      "message": "Du navigierst zu einer anderen Domain: {domain}",
+      "yes": "Ja",
+      "yesAlways": "Ja, immer",
+      "no": "Nein",
+      "noBlock": "Nein, blockieren"
+    }
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "theme": "Design",
+    "themeLight": "Hell",
+    "themeDark": "Dunkel",
+    "themeSystem": "System",
+    "language": "Sprache",
+    "readBehavior": "Lesen-Verhalten",
+    "readMain": "Immer Hauptseite",
+    "readChapter": "Immer Kapitel",
+    "readAsk": "Immer fragen",
+    "notifications": "Benachrichtigungen",
+    "notificationsEnabled": "Neue Kapitel prüfen",
+    "desktopNotificationsEnabled": "Desktop-Benachrichtigungen anzeigen",
+    "checkInterval": "Prüf-Intervall",
+    "intervalHours": "Stunden",
+    "domainWhitelist": "Erlaubte Domains",
+    "domainBlocklist": "Blockierte Domains",
+    "addDomain": "Domain hinzufügen",
+    "noDomains": "Keine Einträge",
+    "back": "Zurück",
+    "reader": "Reader",
+    "readerSeparateWindow": "In separatem Fenster öffnen",
+    "readerSeparateWindowHint": "Reader öffnet eine eigene Fenster statt eines eingebetteten Bereichs"
+  },
+  "nav": {
+    "library": "Bibliothek",
+    "settings": "Einstellungen",
+    "log": "Aktivitätslog"
+  },
+  "log": {
+    "title": "Aktivitätslog",
+    "clear": "Leeren",
+    "empty": "Noch keine Einträge – starte einen Scan oder warte auf den nächsten automatischen Scan"
+  }
+}
