@@ -73,7 +73,11 @@
     "back": "Zurück",
     "reader": "Reader",
     "readerSeparateWindow": "In separatem Fenster öffnen",
-    "readerSeparateWindowHint": "Reader öffnet eine eigene Fenster statt eines eingebetteten Bereichs"
+    "readerSeparateWindowHint": "Reader öffnet eine eigene Fenster statt eines eingebetteten Bereichs",
+    "elementPickerEnabled": "Element-Picker (F2)",
+    "elementPickerEnabledHint": "Mit F2 im Reader ein Element anklicken, um es dauerhaft auszublenden",
+    "blockNewWindows": "Neue Fenster blockieren",
+    "blockNewWindowsHint": "Verhindert das Öffnen von Popup-Fenstern (z.B. Werbe-Popups)"
   },
   "nav": {
     "library": "Bibliothek",

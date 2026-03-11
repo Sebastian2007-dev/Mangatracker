@@ -22,8 +22,10 @@ provide('searchQuery', searchQuery)
 
 let cleanupMangaListeners: (() => void) | null = null
 let cleanupLogListener: (() => void) | null = null
+let cleanupSettingsListener: (() => void) | null = null
 
 onMounted(async () => {
+  cleanupSettingsListener = settingsStore.setupListeners()
   await settingsStore.load()
   locale.value = settingsStore.language
   await mangaStore.fetchAll()
@@ -36,6 +38,7 @@ onMounted(async () => {
 onUnmounted(() => {
   cleanupMangaListeners?.()
   cleanupLogListener?.()
+  cleanupSettingsListener?.()
 })
 
 useTheme()

@@ -20,7 +20,9 @@ const store = new Store<StoreSchema>({
       notificationIntervalMs: 3_600_000,
       notificationsEnabled: true,
       desktopNotificationsEnabled: true,
-      readerInSeparateWindow: false
+      readerInSeparateWindow: false,
+      elementPickerEnabled: true,
+      blockNewWindows: true
     }
   }
 })

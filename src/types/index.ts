@@ -40,6 +40,8 @@ export interface AppSettings {
   notificationsEnabled: boolean
   desktopNotificationsEnabled: boolean
   readerInSeparateWindow: boolean
+  elementPickerEnabled: boolean
+  blockNewWindows: boolean
 }
 
 export interface ReaderOpenPayload {

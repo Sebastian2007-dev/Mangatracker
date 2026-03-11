@@ -60,6 +60,14 @@ async function setReaderInSeparateWindow(v: boolean): Promise<void> {
   await settings.save({ readerInSeparateWindow: v })
 }
 
+async function setElementPickerEnabled(v: boolean): Promise<void> {
+  await settings.save({ elementPickerEnabled: v })
+}
+
+async function setBlockNewWindows(v: boolean): Promise<void> {
+  await settings.save({ blockNewWindows: v })
+}
+
 async function updateWhitelist(list: string[]): Promise<void> {
   await settings.save({ domainWhitelist: list })
 }
@@ -124,7 +132,7 @@ async function updateBlocklist(list: string[]): Promise<void> {
     <!-- Reader -->
     <section class="settings-section">
       <h2 class="section-title">{{ t('settings.reader') }}</h2>
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between mb-3">
         <div>
           <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.readerSeparateWindow') }}</span>
           <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.readerSeparateWindowHint') }}</p>
@@ -133,6 +141,28 @@ async function updateBlocklist(list: string[]): Promise<void> {
           class="toggle"
           :class="{ on: settings.readerInSeparateWindow }"
           @click="setReaderInSeparateWindow(!settings.readerInSeparateWindow)"
+        />
+      </div>
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.elementPickerEnabled') }}</span>
+          <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.elementPickerEnabledHint') }}</p>
+        </div>
+        <button
+          class="toggle"
+          :class="{ on: settings.elementPickerEnabled }"
+          @click="setElementPickerEnabled(!settings.elementPickerEnabled)"
+        />
+      </div>
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.blockNewWindows') }}</span>
+          <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.blockNewWindowsHint') }}</p>
+        </div>
+        <button
+          class="toggle"
+          :class="{ on: settings.blockNewWindows }"
+          @click="setBlockNewWindows(!settings.blockNewWindows)"
         />
       </div>
     </section>

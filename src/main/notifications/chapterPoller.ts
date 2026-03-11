@@ -63,6 +63,12 @@ async function checkManga(
   // If the response is tiny it's likely an error page returned with 200
   if (body.length < 2000) return null
 
+  // If the chapter number was in the requested URL but is no longer in the final URL
+  // after redirects, the site likely redirected us to a different (existing) chapter.
+  // Note: only apply this when the chapter number appears in the URL template at all.
+  const chapterStr = String(nextChapter)
+  if (res.redirected && url.includes(chapterStr) && !res.url.includes(chapterStr)) return null
+
   return { mangaId: manga.id, title: manga.title, newChapter: nextChapter, statusCode: res.status }
 }
 

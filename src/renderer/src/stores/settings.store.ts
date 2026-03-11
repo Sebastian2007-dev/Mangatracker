@@ -12,20 +12,27 @@ export const useSettingsStore = defineStore('settings', () => {
   const notificationsEnabled = ref<boolean>(true)
   const desktopNotificationsEnabled = ref<boolean>(true)
   const readerInSeparateWindow = ref<boolean>(false)
+  const elementPickerEnabled = ref<boolean>(true)
+  const blockNewWindows = ref<boolean>(true)
+
+  function applySettings(s: AppSettings): void {
+    theme.value = s.theme
+    language.value = s.language
+    readBehavior.value = s.readBehavior
+    domainWhitelist.value = s.domainWhitelist
+    domainBlocklist.value = s.domainBlocklist
+    notificationIntervalMs.value = s.notificationIntervalMs
+    notificationsEnabled.value = s.notificationsEnabled
+    desktopNotificationsEnabled.value = s.desktopNotificationsEnabled ?? true
+    readerInSeparateWindow.value = s.readerInSeparateWindow ?? false
+    elementPickerEnabled.value = s.elementPickerEnabled ?? true
+    blockNewWindows.value = s.blockNewWindows ?? true
+  }
 
   async function load(): Promise<void> {
     const result = await window.api.invoke<{ success: boolean; data: AppSettings }>('settings:get')
     if (result.success && result.data) {
-      const s = result.data
-      theme.value = s.theme
-      language.value = s.language
-      readBehavior.value = s.readBehavior
-      domainWhitelist.value = s.domainWhitelist
-      domainBlocklist.value = s.domainBlocklist
-      notificationIntervalMs.value = s.notificationIntervalMs
-      notificationsEnabled.value = s.notificationsEnabled
-      desktopNotificationsEnabled.value = s.desktopNotificationsEnabled ?? true
-      readerInSeparateWindow.value = s.readerInSeparateWindow ?? false
+      applySettings(result.data)
     }
   }
 
@@ -42,12 +49,23 @@ export const useSettingsStore = defineStore('settings', () => {
       desktopNotificationsEnabled.value = updates.desktopNotificationsEnabled
     }
     if (updates.readerInSeparateWindow !== undefined) readerInSeparateWindow.value = updates.readerInSeparateWindow
+    if (updates.elementPickerEnabled !== undefined) elementPickerEnabled.value = updates.elementPickerEnabled
+    if (updates.blockNewWindows !== undefined) blockNewWindows.value = updates.blockNewWindows
+  }
+
+  function setupListeners(): () => void {
+    const cleanup = window.api.on('settings:changed', (data: any) => {
+      if (!data) return
+      applySettings(data as AppSettings)
+    })
+    return () => cleanup()
   }
 
   return {
     theme, language, readBehavior,
     domainWhitelist, domainBlocklist,
     notificationIntervalMs, notificationsEnabled, desktopNotificationsEnabled, readerInSeparateWindow,
-    load, save
+    elementPickerEnabled, blockNewWindows,
+    load, save, setupListeners
   }
 })

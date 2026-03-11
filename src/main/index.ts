@@ -3,7 +3,7 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 import { registerMangaIpc } from './ipc/manga.ipc'
 import { registerSettingsIpc } from './ipc/settings.ipc'
-import { registerReaderIpc, getReaderView } from './reader/ReaderView'
+import { registerReaderIpc } from './reader/ReaderView'
 import { registerDomainGuardReplyHandler } from './reader/domainGuard'
 import { initAdBlocker } from './reader/adBlocker'
 import { startPoller, runPoll } from './notifications/chapterPoller'
@@ -53,7 +53,7 @@ function createWindow(): BrowserWindow {
   registerMangaIpc()
   registerSettingsIpc()
   registerReaderIpc(mainWindow)
-  registerDomainGuardReplyHandler(getReaderView, mainWindow)
+  registerDomainGuardReplyHandler(mainWindow)
 
   ipcMain.handle('manga:scanNow', async () => {
     await runPoll(mainWindow, true)

@@ -73,7 +73,11 @@
     "back": "Back",
     "reader": "Reader",
     "readerSeparateWindow": "Open in separate window",
-    "readerSeparateWindowHint": "Reader opens its own window instead of an embedded area"
+    "readerSeparateWindowHint": "Reader opens its own window instead of an embedded area",
+    "elementPickerEnabled": "Element Picker (F2)",
+    "elementPickerEnabledHint": "Press F2 in the reader to click an element and hide it permanently",
+    "blockNewWindows": "Block new windows",
+    "blockNewWindowsHint": "Prevents popup windows from opening (e.g. ad popups)"
   },
   "nav": {
     "library": "Library",

@@ -1,15 +1,109 @@
 import { BrowserView, BrowserWindow, WebContents, ipcMain } from 'electron'
 import { existsSync } from 'fs'
 import { join } from 'path'
-import { setupDomainGuard } from './domainGuard'
+import { setDomainGuardContext, setupDomainGuard } from './domainGuard'
 import store from '../store'
+
+const ELEMENT_PICKER_SCRIPT = `
+(function() {
+  if (window.__mangaPickerActive__) return;
+  window.__mangaPickerActive__ = true;
+
+  const overlay = document.createElement('div');
+  overlay.id = '__manga_picker_overlay__';
+  overlay.style.cssText = [
+    'position:fixed', 'pointer-events:none',
+    'border:2px solid #f59e0b', 'background:rgba(245,158,11,0.15)',
+    'z-index:2147483647', 'border-radius:2px',
+    'transition:top 0.06s,left 0.06s,width 0.06s,height 0.06s',
+    'box-sizing:border-box'
+  ].join(';');
+  document.documentElement.appendChild(overlay);
+
+  const label = document.createElement('div');
+  label.id = '__manga_picker_label__';
+  label.style.cssText = [
+    'position:fixed', 'bottom:12px', 'left:50%', 'transform:translateX(-50%)',
+    'background:rgba(0,0,0,0.85)', 'color:#fff',
+    'padding:6px 14px', 'border-radius:6px',
+    'font:12px/1.4 monospace', 'pointer-events:none',
+    'z-index:2147483647', 'white-space:nowrap', 'max-width:90vw', 'overflow:hidden'
+  ].join(';');
+  label.textContent = 'Element auswählen – Klick zum Ausblenden | Esc zum Abbrechen';
+  document.documentElement.appendChild(label);
+
+  document.documentElement.style.cursor = 'crosshair';
+
+  let currentEl = null;
+
+  function generateSelector(el) {
+    if (el.id && /^[a-zA-Z]/.test(el.id)) return '#' + CSS.escape(el.id);
+    const parts = [];
+    let cur = el;
+    while (cur && cur.tagName && cur !== document.documentElement) {
+      if (cur.id && /^[a-zA-Z]/.test(cur.id)) { parts.unshift('#' + CSS.escape(cur.id)); break; }
+      let sel = cur.tagName.toLowerCase();
+      const cls = Array.from(cur.classList)
+        .filter(c => !/^(hover|active|focus|selected|open|closed|js-)/.test(c))
+        .slice(0, 2).map(c => '.' + CSS.escape(c)).join('');
+      if (cls) sel += cls;
+      const parent = cur.parentElement;
+      if (parent) {
+        const sibs = Array.from(parent.children).filter(s => s.tagName === cur.tagName);
+        if (sibs.length > 1) sel += ':nth-of-type(' + (sibs.indexOf(cur) + 1) + ')';
+      }
+      parts.unshift(sel);
+      cur = cur.parentElement;
+    }
+    return parts.join(' > ');
+  }
+
+  function deactivate() {
+    window.__mangaPickerActive__ = false;
+    overlay.remove(); label.remove();
+    document.documentElement.style.cursor = '';
+    document.removeEventListener('mousemove', onMove, true);
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('keydown', onKey, true);
+  }
+
+  function onMove(e) {
+    currentEl = e.target;
+    if (currentEl === overlay || currentEl === label) return;
+    const r = currentEl.getBoundingClientRect();
+    overlay.style.cssText += ';top:' + r.top + 'px;left:' + r.left + 'px;width:' + r.width + 'px;height:' + r.height + 'px';
+    label.textContent = generateSelector(currentEl).slice(0, 100);
+  }
+
+  function onClick(e) {
+    if (!currentEl || currentEl === overlay || currentEl === label) return;
+    e.preventDefault(); e.stopPropagation();
+    const sel = generateSelector(currentEl);
+    let styleEl = document.getElementById('__manga_picker_styles__');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = '__manga_picker_styles__';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent += '\\n' + sel + ' { display: none !important; }';
+    deactivate();
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape' || e.key === 'F2') { e.preventDefault(); deactivate(); }
+  }
+
+  document.addEventListener('mousemove', onMove, true);
+  document.addEventListener('click', onClick, true);
+  document.addEventListener('keydown', onKey, true);
+})();
+`
 
 const TOOLBAR_HEIGHT = 48
 
 let readerView: BrowserView | null = null
 let separateWindow: BrowserWindow | null = null
 let currentMangaId: string | null = null
-let originDomain = ''
 const winIconPath = (() => {
   if (process.platform !== 'win32') return undefined
   const devIcon = join(process.cwd(), 'resources', 'app.ico')
@@ -111,6 +205,25 @@ function attachReaderEvents(webContents: WebContents, mainWindow: BrowserWindow)
       mainWindow.webContents.send('reader:loadingChanged', { loading: false })
     }
   })
+
+  // F2: Element-Picker aktivieren
+  webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F2') {
+      const settings = store.get('settings')
+      if (settings.elementPickerEnabled ?? true) {
+        webContents.executeJavaScript(ELEMENT_PICKER_SCRIPT).catch(() => {})
+      }
+    }
+  })
+
+  // Neue Fenster blockieren (Popup-Ads)
+  webContents.setWindowOpenHandler(() => {
+    const settings = store.get('settings')
+    if (settings.blockNewWindows ?? true) {
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
+  })
 }
 
 function updateBoundsFor(mainWindow: BrowserWindow): void {
@@ -132,6 +245,8 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
 
     if (settings.readerInSeparateWindow) {
       if (separateWindow && !separateWindow.isDestroyed()) {
+        setupDomainGuard(separateWindow.webContents, extractDomain(url), mainWindow)
+        setDomainGuardContext(separateWindow.webContents, url)
         separateWindow.loadURL(url)
         separateWindow.focus()
       } else {
@@ -142,6 +257,8 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
           icon: winIconPath,
           webPreferences: { session: mainWindow.webContents.session }
         })
+        setupDomainGuard(separateWindow.webContents, extractDomain(url), mainWindow)
+        setDomainGuardContext(separateWindow.webContents, url)
         attachReaderEvents(separateWindow.webContents, mainWindow)
         separateWindow.loadURL(url)
         separateWindow.on('closed', () => {
@@ -153,16 +270,18 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
     }
 
     if (readerView) {
+      setupDomainGuard(readerView.webContents, extractDomain(url), mainWindow)
+      setDomainGuardContext(readerView.webContents, url)
       readerView.webContents.loadURL(url)
     } else {
       readerView = new BrowserView()
       mainWindow.addBrowserView(readerView)
-      originDomain = extractDomain(url)
 
       updateBoundsFor(mainWindow)
       mainWindow.on('resize', () => updateBoundsFor(mainWindow))
 
-      setupDomainGuard(readerView, originDomain, mainWindow)
+      setupDomainGuard(readerView.webContents, extractDomain(url), mainWindow)
+      setDomainGuardContext(readerView.webContents, url)
       attachReaderEvents(readerView.webContents, mainWindow)
 
       readerView.webContents.loadURL(url)
