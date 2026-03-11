@@ -10,11 +10,26 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "dist": "npm run build && electron-builder",
-    "typecheck": "vue-tsc --noEmit -p tsconfig.web.json --composite false && tsc --noEmit -p tsconfig.node.json"
+    "typecheck": "vue-tsc --noEmit -p tsconfig.web.json --composite false && tsc --noEmit -p tsconfig.node.json",
+    "build:mobile": "vite build --config vite.mobile.config.mts && node -e \"const fs=require('fs');if(fs.existsSync('dist-mobile/index.mobile.html'))fs.renameSync('dist-mobile/index.mobile.html','dist-mobile/index.html')\"",
+    "cap:sync": "npx cap sync",
+    "cap:android": "npx cap open android",
+    "mobile": "npm run build:mobile && npx cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/background-runner": "^3.0.0",
+    "@capacitor/browser": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/filesystem": "^6.0.0",
+    "@capacitor/local-notifications": "^6.0.0",
+    "@capacitor/preferences": "^6.0.0",
+    "@capacitor/share": "^6.0.0",
     "@cliqz/adblocker-electron": "^1.27.0",
-    "electron-store": "^8.2.0"
+    "electron-store": "^8.2.0",
+    "vue-draggable-plus": "^0.6.0"
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",

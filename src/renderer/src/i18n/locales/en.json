@@ -63,6 +63,8 @@
     "readAsk": "Always Ask",
     "notifications": "Notifications",
     "notificationsEnabled": "Check for new chapters",
+    "mobileNotificationsHint": "Checks in the background and sends push notifications for new chapters",
+    "notifPermissionDenied": "Permission denied – please enable notifications for this app in system settings",
     "desktopNotificationsEnabled": "Show desktop notifications",
     "checkInterval": "Check Interval",
     "intervalHours": "Hours",

@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Manga, MangaStatus } from '../types/index'
+import { getBridge } from '../services/platform'
 
 export const useMangaStore = defineStore('manga', () => {
+  const api = getBridge()
   const items = ref<Manga[]>([])
   const recentlyDeleted = ref<Manga | null>(null)
   const focusFullVisible = ref(false)
@@ -10,14 +12,14 @@ export const useMangaStore = defineStore('manga', () => {
   let focusFullTimerId: ReturnType<typeof setTimeout> | null = null
 
   async function fetchAll(): Promise<void> {
-    const result = await window.api.invoke<{ success: boolean; data: Manga[] }>('manga:getAll')
+    const result = await api.invoke<{ success: boolean; data: Manga[] }>('manga:getAll')
     if (result.success && result.data) {
       items.value = result.data
     }
   }
 
   async function create(payload: Omit<Manga, 'id' | 'createdAt' | 'updatedAt'>): Promise<Manga | null> {
-    const result = await window.api.invoke<{ success: boolean; data: Manga }>('manga:create', payload)
+    const result = await api.invoke<{ success: boolean; data: Manga }>('manga:create', payload)
     if (result.success && result.data) {
       items.value.push(result.data)
       return result.data
@@ -26,7 +28,7 @@ export const useMangaStore = defineStore('manga', () => {
   }
 
   async function update(id: string, updates: Partial<Manga>): Promise<void> {
-    const result = await window.api.invoke<{ success: boolean; data: Manga }>('manga:update', { id, ...updates })
+    const result = await api.invoke<{ success: boolean; data: Manga }>('manga:update', { id, ...updates })
     if (result.success && result.data) {
       const idx = items.value.findIndex((m) => m.id === id)
       if (idx !== -1) items.value[idx] = result.data
@@ -37,14 +39,14 @@ export const useMangaStore = defineStore('manga', () => {
     const manga = items.value.find((m) => m.id === id)
     if (!manga) return
 
-    await window.api.invoke('manga:delete', { id })
+    await api.invoke('manga:delete', { id })
     items.value = items.value.filter((m) => m.id !== id)
 
     // Undo window
     recentlyDeleted.value = manga
     if (undoTimerId !== null) clearTimeout(undoTimerId)
     undoTimerId = setTimeout(async () => {
-      await window.api.invoke('manga:emptyTrash', { id: manga.id })
+      await api.invoke('manga:emptyTrash', { id: manga.id })
       recentlyDeleted.value = null
       undoTimerId = null
     }, 10_000)
@@ -59,7 +61,7 @@ export const useMangaStore = defineStore('manga', () => {
       undoTimerId = null
     }
 
-    const result = await window.api.invoke<{ success: boolean; data: Manga }>('manga:createWithId', manga)
+    const result = await api.invoke<{ success: boolean; data: Manga }>('manga:createWithId', manga)
     if (result.success) {
       items.value.push(manga)
     }
@@ -75,7 +77,7 @@ export const useMangaStore = defineStore('manga', () => {
   }
 
   function setupListeners(): () => void {
-    const cleanup = window.api.on('notifications:newChapter', (data: any) => {
+    const cleanup = api.on('notifications:newChapter', (data: any) => {
       const idx = items.value.findIndex((m) => m.id === data.mangaId)
       if (idx !== -1) {
         items.value[idx] = { ...items.value[idx], hasNewChapter: true }
@@ -125,7 +127,7 @@ export const useMangaStore = defineStore('manga', () => {
     const toIdx = newItems.findIndex((m) => m.id === toId)
     newItems.splice(toIdx === -1 ? newItems.length : toIdx, 0, item)
     items.value = newItems
-    await window.api.invoke('manga:moveItem', { fromId, toId })
+    await api.invoke('manga:moveItem', { fromId, toId })
   }
 
   return {

@@ -7,6 +7,7 @@ import { useMangaStore } from '../stores/manga.store'
 import MangaTabBar from '../components/manga/MangaTabBar.vue'
 import MangaCard from '../components/manga/MangaCard.vue'
 import MangaFormDialog from '../components/manga/MangaFormDialog.vue'
+import { isMobile } from '../composables/usePlatform'
 
 const { t } = useI18n()
 const mangaStore = useMangaStore()
@@ -120,6 +121,7 @@ function onDrop(toId: string): void {
     <button
       v-if="!isFocusFull"
       class="fab"
+      :class="{ 'fab-mobile': isMobile }"
       :title="t('manga.new')"
       @click="openAdd"
     >
@@ -155,6 +157,10 @@ function onDrop(toId: string): void {
 .fab:hover {
   opacity: 0.9;
   transform: scale(1.05);
+}
+/* Auf Mobile: über der Tab-Bar positionieren (64px) + Safe Area Inset */
+.fab-mobile {
+  bottom: calc(64px + 16px + env(safe-area-inset-bottom, 0px));
 }
 .btn-add-first {
   padding: 8px 16px;

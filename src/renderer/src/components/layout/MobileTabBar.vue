@@ -1,0 +1,109 @@
+<script setup lang="ts">
+import { useRouter, useRoute } from 'vue-router'
+import { BookOpen, Settings, ScrollText } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
+import { useLogStore } from '../../stores/log.store'
+
+const router = useRouter()
+const route = useRoute()
+const { t } = useI18n()
+const logStore = useLogStore()
+</script>
+
+<template>
+  <nav
+    class="tab-bar"
+    style="background: hsl(var(--card)); border-color: hsl(var(--border))"
+  >
+    <!-- Library -->
+    <button
+      class="tab-btn"
+      :class="{ active: route.path === '/' }"
+      :aria-label="t('nav.library')"
+      @click="router.push('/')"
+    >
+      <BookOpen :size="22" />
+      <span class="tab-label">{{ t('nav.library') }}</span>
+    </button>
+
+    <!-- Log -->
+    <button
+      class="tab-btn"
+      :class="{ active: route.path === '/log' }"
+      :aria-label="t('nav.log')"
+      @click="router.push('/log')"
+    >
+      <div class="relative">
+        <ScrollText :size="22" />
+        <span v-if="logStore.unreadCount > 0 && route.path !== '/log'" class="unread-badge">
+          {{ logStore.unreadCount > 99 ? '99+' : logStore.unreadCount }}
+        </span>
+      </div>
+      <span class="tab-label">{{ t('nav.log') }}</span>
+    </button>
+
+    <!-- Settings -->
+    <button
+      class="tab-btn"
+      :class="{ active: route.path === '/settings' }"
+      :aria-label="t('nav.settings')"
+      @click="router.push('/settings')"
+    >
+      <Settings :size="22" />
+      <span class="tab-label">{{ t('nav.settings') }}</span>
+    </button>
+  </nav>
+</template>
+
+<style scoped>
+.tab-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-around;
+  height: 64px;
+  border-top: 1px solid;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  flex-shrink: 0;
+}
+.tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  height: 100%;
+  min-height: 44px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  transition: color 0.15s;
+  padding: 0;
+}
+.tab-btn.active {
+  color: hsl(var(--primary));
+}
+.tab-label {
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+}
+.unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: hsl(0 70% 55%);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+</style>

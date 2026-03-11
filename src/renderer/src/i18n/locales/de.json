@@ -63,6 +63,8 @@
     "readAsk": "Immer fragen",
     "notifications": "Benachrichtigungen",
     "notificationsEnabled": "Neue Kapitel prüfen",
+    "mobileNotificationsHint": "Prüft im Hintergrund und sendet Push-Benachrichtigungen bei neuen Kapiteln",
+    "notifPermissionDenied": "Berechtigung abgelehnt – bitte Benachrichtigungen für diese App in den Systemeinstellungen aktivieren",
     "desktopNotificationsEnabled": "Desktop-Benachrichtigungen anzeigen",
     "checkInterval": "Prüf-Intervall",
     "intervalHours": "Stunden",

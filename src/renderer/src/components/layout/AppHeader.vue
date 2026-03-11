@@ -3,6 +3,8 @@ import { Search, Upload, Download, RefreshCw } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { ref } from 'vue'
 import { useMangaStore } from '../../stores/manga.store'
+import { getBridge } from '../../services/platform'
+import { isMobile } from '../../composables/usePlatform'
 
 const { t } = useI18n()
 const mangaStore = useMangaStore()
@@ -13,7 +15,7 @@ async function handleScanNow(): Promise<void> {
   if (isScanning.value) return
   isScanning.value = true
   try {
-    await window.api.invoke('manga:scanNow')
+    await getBridge().invoke('manga:scanNow')
     await mangaStore.fetchAll()
   } finally {
     isScanning.value = false
@@ -23,8 +25,9 @@ async function handleScanNow(): Promise<void> {
 const searchQuery = defineModel<string>('searchQuery', { default: '' })
 
 async function handleExport(): Promise<void> {
-  const result = await window.api.invoke<{ success: boolean; data: string }>('manga:export')
-  if (result.success && result.data) {
+  const result = await getBridge().invoke<{ success: boolean; data: string }>('manga:export')
+  // Auf Mobile: Share-Dialog wurde bereits vom Capacitor-Adapter geöffnet
+  if (!isMobile && result.success && result.data) {
     const blob = new Blob([result.data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -43,7 +46,7 @@ async function handleImport(): Promise<void> {
     const file = input.files?.[0]
     if (!file) return
     const text = await file.text()
-    const result = await window.api.invoke<{ success: boolean; data: any[] }>('manga:import', { json: text })
+    const result = await getBridge().invoke<{ success: boolean; data: any[] }>('manga:import', { json: text })
     if (result.success) {
       await mangaStore.fetchAll()
     }

@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { AppSettings, Theme, Language, ReadBehavior } from '../types/index'
+import { getBridge } from '../services/platform'
 
 export const useSettingsStore = defineStore('settings', () => {
+  const api = getBridge()
   const theme = ref<Theme>('system')
   const language = ref<Language>('de')
   const readBehavior = ref<ReadBehavior>('ask')
@@ -30,14 +32,14 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function load(): Promise<void> {
-    const result = await window.api.invoke<{ success: boolean; data: AppSettings }>('settings:get')
+    const result = await api.invoke<{ success: boolean; data: AppSettings }>('settings:get')
     if (result.success && result.data) {
       applySettings(result.data)
     }
   }
 
   async function save(updates: Partial<AppSettings>): Promise<void> {
-    await window.api.invoke('settings:set', updates)
+    await api.invoke('settings:set', updates)
     if (updates.theme !== undefined) theme.value = updates.theme
     if (updates.language !== undefined) language.value = updates.language
     if (updates.readBehavior !== undefined) readBehavior.value = updates.readBehavior
@@ -54,7 +56,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function setupListeners(): () => void {
-    const cleanup = window.api.on('settings:changed', (data: any) => {
+    const cleanup = api.on('settings:changed', (data: any) => {
       if (!data) return
       applySettings(data as AppSettings)
     })

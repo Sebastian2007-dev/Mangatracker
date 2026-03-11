@@ -118,6 +118,7 @@ function typeClass(entry: LogEntry): string {
 .log-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 0;
 }
 
@@ -129,6 +130,9 @@ function typeClass(entry: LogEntry): string {
   font-size: 12px;
   line-height: 1.5;
   transition: background 0.1s;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .log-entry:hover {
@@ -153,6 +157,9 @@ function typeClass(entry: LogEntry): string {
 .log-msg {
   color: hsl(var(--foreground));
   word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  flex: 1;
 }
 
 /* Type colours */

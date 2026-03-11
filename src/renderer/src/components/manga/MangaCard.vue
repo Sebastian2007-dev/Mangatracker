@@ -8,6 +8,8 @@ import { useMangaStore } from '../../stores/manga.store'
 import { useReaderStore } from '../../stores/reader.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
+import { isMobile } from '../../composables/usePlatform'
+import { Browser } from '@capacitor/browser'
 
 const props = defineProps<{ manga: Manga }>()
 const emit = defineEmits<{ edit: [manga: Manga] }>()
@@ -21,15 +23,23 @@ async function onChapterChange(chapter: number): Promise<void> {
   await mangaStore.setChapter(props.manga.id, chapter)
 }
 
+async function openUrl(url: string): Promise<void> {
+  if (isMobile) {
+    await Browser.open({ url, presentationStyle: 'fullscreen' })
+  } else {
+    await readerStore.open(props.manga.id, url)
+  }
+}
+
 async function onRead(): Promise<void> {
   const behavior = settingsStore.readBehavior
   if (behavior === 'main') {
-    await readerStore.open(props.manga.id, props.manga.mainUrl)
+    await openUrl(props.manga.mainUrl)
   } else if (behavior === 'chapter') {
     const url = buildChapterUrl(props.manga.chapterUrlTemplate, props.manga.currentChapter)
-    await readerStore.open(props.manga.id, url)
+    await openUrl(url)
   } else {
-    // ask — emit event or show inline dialog
+    // ask — show inline dialog
     const url = buildChapterUrl(props.manga.chapterUrlTemplate, props.manga.currentChapter)
     showReadChoiceDialog.value = true
     pendingChapterUrl.value = url
@@ -86,12 +96,12 @@ watch(showStatusPicker, (v) => {
 
 async function openMain(): Promise<void> {
   showReadChoiceDialog.value = false
-  await readerStore.open(props.manga.id, props.manga.mainUrl)
+  await openUrl(props.manga.mainUrl)
 }
 
 async function openChapter(): Promise<void> {
   showReadChoiceDialog.value = false
-  await readerStore.open(props.manga.id, pendingChapterUrl.value)
+  await openUrl(pendingChapterUrl.value)
 }
 </script>
 
@@ -220,6 +230,12 @@ async function openChapter(): Promise<void> {
 .card-btn.focus:hover {
   background: hsl(43 96% 56% / 0.15);
   color: hsl(43 96% 50%);
+}
+@media (pointer: coarse) {
+  .card-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 .modal-backdrop {
   position: fixed;

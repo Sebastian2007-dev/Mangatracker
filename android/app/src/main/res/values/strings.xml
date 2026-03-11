@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Manga Tracker</string>
+    <string name="title_activity_main">Manga Tracker</string>
+    <string name="package_name">com.mangaTracker.app</string>
+    <string name="custom_url_scheme">com.mangaTracker.app</string>
+</resources>

@@ -3,6 +3,7 @@ import { ref, provide, onMounted, onUnmounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppSidebar from './components/layout/AppSidebar.vue'
+import MobileTabBar from './components/layout/MobileTabBar.vue'
 import AppHeader from './components/layout/AppHeader.vue'
 import ReaderView from './views/ReaderView.vue'
 import DeleteUndoToast from './components/manga/DeleteUndoToast.vue'
@@ -11,6 +12,8 @@ import { useSettingsStore } from './stores/settings.store'
 import { useLogStore } from './stores/log.store'
 import { useTheme } from './composables/useTheme'
 import type { LogEntry } from '../../types/index'
+import { getBridge } from './services/platform'
+import { isMobile } from './composables/usePlatform'
 
 const { t, locale } = useI18n()
 const mangaStore = useMangaStore()
@@ -30,7 +33,7 @@ onMounted(async () => {
   locale.value = settingsStore.language
   await mangaStore.fetchAll()
   cleanupMangaListeners = mangaStore.setupListeners()
-  cleanupLogListener = window.api.on('logs:entry', (entry) => {
+  cleanupLogListener = getBridge().on('logs:entry', (entry) => {
     logStore.addEntry(entry as LogEntry)
   })
 })
@@ -45,15 +48,16 @@ useTheme()
 </script>
 
 <template>
-  <div class="app-shell">
-    <AppSidebar />
+  <div class="app-shell" :class="{ 'mobile-layout': isMobile }">
+    <AppSidebar v-if="!isMobile" />
     <div class="main-area">
       <AppHeader v-model:searchQuery="searchQuery" />
       <div class="view-area">
         <RouterView />
       </div>
+      <MobileTabBar v-if="isMobile" />
     </div>
-    <ReaderView />
+    <ReaderView v-if="!isMobile" />
     <DeleteUndoToast />
     <Transition name="slide-up">
       <div v-if="mangaStore.focusFullVisible" class="focus-full-toast">

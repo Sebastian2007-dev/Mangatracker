@@ -1,12 +1,25 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Theme, Language, ReadBehavior } from '../types/index'
 import DomainListManager from '../components/settings/DomainListManager.vue'
+import { platformFeatures, isMobile } from '../composables/usePlatform'
 
 const { t, locale } = useI18n()
 const settings = useSettingsStore()
+
+// Mobile: aktueller Benachrichtigungs-Berechtigungsstatus
+const notifPermissionDenied = ref(false)
+
+onMounted(async () => {
+  if (!isMobile) return
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications')
+    const { display } = await LocalNotifications.checkPermissions()
+    notifPermissionDenied.value = display !== 'granted' && settings.notificationsEnabled
+  } catch { /* ignorieren */ }
+})
 
 // Theme
 const themes: { value: Theme; label: string }[] = [
@@ -42,6 +55,21 @@ async function setReadBehavior(rb: ReadBehavior): Promise<void> {
 }
 
 async function setNotificationsEnabled(v: boolean): Promise<void> {
+  if (v && isMobile) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications')
+      let { display } = await LocalNotifications.checkPermissions()
+      if (display !== 'granted') {
+        const result = await LocalNotifications.requestPermissions()
+        display = result.display
+      }
+      notifPermissionDenied.value = display !== 'granted'
+    } catch {
+      notifPermissionDenied.value = true
+    }
+  } else {
+    notifPermissionDenied.value = false
+  }
   await settings.save({ notificationsEnabled: v })
 }
 
@@ -129,8 +157,8 @@ async function updateBlocklist(list: string[]): Promise<void> {
       </div>
     </section>
 
-    <!-- Reader -->
-    <section class="settings-section">
+    <!-- Reader (nur Desktop) -->
+    <section v-if="platformFeatures.hasDesktopReader" class="settings-section">
       <h2 class="section-title">{{ t('settings.reader') }}</h2>
       <div class="flex items-center justify-between mb-3">
         <div>
@@ -170,15 +198,29 @@ async function updateBlocklist(list: string[]): Promise<void> {
     <!-- Notifications -->
     <section class="settings-section">
       <h2 class="section-title">{{ t('settings.notifications') }}</h2>
-      <div class="flex items-center justify-between mb-3">
-        <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.notificationsEnabled') }}</span>
+
+      <!-- Kapitel-Scan Toggle -->
+      <div class="flex items-center justify-between" :class="isMobile ? 'mb-1' : 'mb-3'">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.notificationsEnabled') }}</span>
+          <p v-if="isMobile" class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">
+            {{ t('settings.mobileNotificationsHint') }}
+          </p>
+        </div>
         <button
           class="toggle"
           :class="{ on: settings.notificationsEnabled }"
           @click="setNotificationsEnabled(!settings.notificationsEnabled)"
         />
       </div>
-      <div class="flex items-center justify-between mb-3">
+
+      <!-- Warnmeldung wenn Permission abgelehnt (nur Mobile) -->
+      <div v-if="isMobile && notifPermissionDenied" class="notif-warning mb-3">
+        <span>⚠ {{ t('settings.notifPermissionDenied') }}</span>
+      </div>
+
+      <!-- Desktop-Benachrichtigungen Toggle (nur Desktop) -->
+      <div v-if="platformFeatures.hasDesktopNotifications" class="flex items-center justify-between mb-3">
         <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.desktopNotificationsEnabled') }}</span>
         <button
           class="toggle"
@@ -186,6 +228,7 @@ async function updateBlocklist(list: string[]): Promise<void> {
           @click="setDesktopNotificationsEnabled(!settings.desktopNotificationsEnabled)"
         />
       </div>
+
       <div class="flex items-center gap-3">
         <label class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.checkInterval') }}</label>
         <input
@@ -199,8 +242,8 @@ async function updateBlocklist(list: string[]): Promise<void> {
       </div>
     </section>
 
-    <!-- Domain Whitelist -->
-    <section class="settings-section">
+    <!-- Domain Whitelist (nur Desktop) -->
+    <section v-if="platformFeatures.hasDomainGuard" class="settings-section">
       <DomainListManager
         :title="t('settings.domainWhitelist')"
         :model-value="settings.domainWhitelist"
@@ -208,8 +251,8 @@ async function updateBlocklist(list: string[]): Promise<void> {
       />
     </section>
 
-    <!-- Domain Blocklist -->
-    <section class="settings-section">
+    <!-- Domain Blocklist (nur Desktop) -->
+    <section v-if="platformFeatures.hasDomainGuard" class="settings-section">
       <DomainListManager
         :title="t('settings.domainBlocklist')"
         :model-value="settings.domainBlocklist"
@@ -309,4 +352,12 @@ async function updateBlocklist(list: string[]): Promise<void> {
   outline: none;
 }
 .field-input:focus { border-color: hsl(var(--primary)); }
+.notif-warning {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: hsl(43 96% 56% / 0.12);
+  color: hsl(43 80% 55%);
+  border: 1px solid hsl(43 96% 56% / 0.3);
+}
 </style>

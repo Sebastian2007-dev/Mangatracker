@@ -2,8 +2,10 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { DomainGuardRequest } from '../types/index'
 import { useMangaStore } from './manga.store'
+import { getBridge } from '../services/platform'
 
 export const useReaderStore = defineStore('reader', () => {
+  const api = getBridge()
   const isOpen = ref(false)
   const currentUrl = ref('')
   const canGoBack = ref(false)
@@ -13,21 +15,21 @@ export const useReaderStore = defineStore('reader', () => {
   const currentMangaId = ref<string | null>(null)
 
   function setupListeners(): () => void {
-    const cleanupUrl = window.api.on('reader:urlChanged', (data: any) => {
+    const cleanupUrl = api.on('reader:urlChanged', (data: any) => {
       currentUrl.value = data.url
       canGoBack.value = data.canGoBack
       canGoForward.value = data.canGoForward
     })
 
-    const cleanupLoading = window.api.on('reader:loadingChanged', (data: any) => {
+    const cleanupLoading = api.on('reader:loadingChanged', (data: any) => {
       isLoading.value = data.loading
     })
 
-    const cleanupDomain = window.api.on('reader:domainGuardRequest', (data: any) => {
+    const cleanupDomain = api.on('reader:domainGuardRequest', (data: any) => {
       pendingDomainGuard.value = data
     })
 
-    const cleanupChapter = window.api.on('reader:chapterDetected', (data: any) => {
+    const cleanupChapter = api.on('reader:chapterDetected', (data: any) => {
       const mangaStore = useMangaStore()
       mangaStore.setChapter(data.mangaId, data.chapter)
     })
@@ -43,14 +45,14 @@ export const useReaderStore = defineStore('reader', () => {
   async function open(mangaId: string, url: string): Promise<void> {
     currentMangaId.value = mangaId
     currentUrl.value = url
-    const result = await window.api.invoke<{ success: boolean; separateWindow: boolean }>('reader:open', { mangaId, url })
+    const result = await api.invoke<{ success: boolean; separateWindow: boolean }>('reader:open', { mangaId, url })
     if (!result?.separateWindow) {
       isOpen.value = true
     }
   }
 
   async function close(): Promise<void> {
-    await window.api.invoke('reader:close')
+    await api.invoke('reader:close')
     isOpen.value = false
     currentUrl.value = ''
     currentMangaId.value = null
@@ -59,24 +61,24 @@ export const useReaderStore = defineStore('reader', () => {
   }
 
   async function goBack(): Promise<void> {
-    await window.api.invoke('reader:goBack')
+    await api.invoke('reader:goBack')
   }
 
   async function goForward(): Promise<void> {
-    await window.api.invoke('reader:goForward')
+    await api.invoke('reader:goForward')
   }
 
   async function reload(): Promise<void> {
-    await window.api.invoke('reader:reload')
+    await api.invoke('reader:reload')
   }
 
   async function navigate(url: string): Promise<void> {
-    await window.api.invoke('reader:navigate', { url })
+    await api.invoke('reader:navigate', { url })
   }
 
   async function respondToDomainGuard(requestId: string, choice: string): Promise<void> {
     pendingDomainGuard.value = null
-    await window.api.invoke('reader:domainGuardReply', { requestId, choice })
+    await api.invoke('reader:domainGuardReply', { requestId, choice })
   }
 
   return {
