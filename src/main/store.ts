@@ -19,6 +19,7 @@ const store = new Store<StoreSchema>({
       domainBlocklist: [],
       notificationIntervalMs: 3_600_000,
       notificationsEnabled: true,
+      backgroundNotificationsEnabled: false,
       desktopNotificationsEnabled: true,
       readerInSeparateWindow: false,
       elementPickerEnabled: true,

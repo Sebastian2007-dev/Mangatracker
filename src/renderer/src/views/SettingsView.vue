@@ -73,6 +73,10 @@ async function setNotificationsEnabled(v: boolean): Promise<void> {
   await settings.save({ notificationsEnabled: v })
 }
 
+async function setBackgroundNotificationsEnabled(v: boolean): Promise<void> {
+  await settings.save({ backgroundNotificationsEnabled: v })
+}
+
 async function setDesktopNotificationsEnabled(v: boolean): Promise<void> {
   await settings.save({ desktopNotificationsEnabled: v })
 }
@@ -237,6 +241,19 @@ async function updateBlocklist(list: string[]): Promise<void> {
       <!-- Warnmeldung wenn Permission abgelehnt (nur Mobile) -->
       <div v-if="isMobile && notifPermissionDenied" class="notif-warning mb-3">
         <span>⚠ {{ t('settings.notifPermissionDenied') }}</span>
+      </div>
+
+      <!-- Hintergrund-Benachrichtigungen Toggle (nur Mobile) -->
+      <div v-if="isMobile" class="flex items-center justify-between mb-3">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.backgroundNotificationsEnabled') }}</span>
+          <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.backgroundNotificationsHint') }}</p>
+        </div>
+        <button
+          class="toggle"
+          :class="{ on: settings.backgroundNotificationsEnabled }"
+          @click="setBackgroundNotificationsEnabled(!settings.backgroundNotificationsEnabled)"
+        />
       </div>
 
       <!-- Desktop-Benachrichtigungen Toggle (nur Desktop) -->

@@ -49,10 +49,10 @@ async function doSearch(): Promise<void> {
     if (res.success) {
       results.value = res.data ?? []
     } else {
-      error.value = t('manga.mdxSearchError')
+      error.value = res.error ? `${t('manga.mdxSearchError')}: ${res.error}` : t('manga.mdxSearchError')
     }
-  } catch {
-    error.value = t('manga.mdxSearchError')
+  } catch (e) {
+    error.value = `${t('manga.mdxSearchError')}: ${e instanceof Error ? e.message : String(e)}`
   } finally {
     searching.value = false
   }

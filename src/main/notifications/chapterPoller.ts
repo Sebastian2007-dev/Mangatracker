@@ -62,10 +62,14 @@ async function checkComicK(
   ses: Electron.Session
 ): Promise<CheckResult> {
   const url =
-    `https://api.comick.fun/comic/${manga.comickHid}/chapters?lang=en&limit=1&tachiyomi=true`
+    `https://api.comick.dev/comic/${manga.comickHid}/chapters?lang=en&limit=1&tachiyomi=true`
 
   const res = await ses.fetch(url, {
-    headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Referer': 'https://comick.dev/'
+    }
   })
 
   if (!res.ok) return { ok: false, reason: `CK_ERR(HTTP_${res.status})` }
@@ -99,8 +103,11 @@ async function checkManga(
       { id: manga.id, title: manga.title, currentChapter: manga.currentChapter, mangaDexId: manga.mangaDexId },
       ses
     )
-    if (mdxResult.ok || mdxResult.reason === 'MDX_SAME') return mdxResult
-    // MDX_NO_DATA oder MDX_ERR → weiter zu ComicK oder HTTP
+    // Neues Kapitel gefunden → sofort zurück
+    if (mdxResult.ok) return mdxResult
+    // MDX_SAME: kein neues Kapitel laut MDX — aber ComicK könnte weiter sein
+    if (mdxResult.reason === 'MDX_SAME' && !manga.comickHid) return mdxResult
+    // MDX_NO_DATA, MDX_ERR oder MDX_SAME+comickHid → weiter zu ComicK
   }
 
   if (manga.comickHid) {

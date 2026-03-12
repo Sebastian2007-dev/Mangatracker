@@ -1,11 +1,13 @@
 {
   "tabs": {
+    "all": "All",
     "reading": "Reading",
     "plan_to_read": "Plan to Read",
     "hiatus": "Hiatus",
     "completed": "Completed",
     "rereading": "Rereading",
-    "focus": "Focus"
+    "focus": "Focus",
+    "new": "New"
   },
   "manga": {
     "new": "New Manga",
@@ -83,6 +85,8 @@
     "notificationsEnabled": "Check for new chapters",
     "mobileNotificationsHint": "Checks in the background and sends push notifications for new chapters",
     "notifPermissionDenied": "Permission denied – please enable notifications for this app in system settings",
+    "backgroundNotificationsEnabled": "Background scan",
+    "backgroundNotificationsHint": "Scans for new chapters even when the app is closed and sends push notifications",
     "desktopNotificationsEnabled": "Show desktop notifications",
     "checkInterval": "Check Interval",
     "intervalHours": "Hours",

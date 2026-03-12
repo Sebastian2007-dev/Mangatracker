@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { BookOpen, Pencil, Trash2, Star } from 'lucide-vue-next'
+import { BookOpen, Pencil, Trash2, Star, Info } from 'lucide-vue-next'
 import type { Manga } from '../../types/index'
 import ChapterInput from './ChapterInput.vue'
 import NewChapterBadge from './NewChapterBadge.vue'
@@ -10,6 +10,7 @@ import { useSettingsStore } from '../../stores/settings.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
+import { getBridge } from '../../services/platform'
 
 const props = defineProps<{ manga: Manga }>()
 const emit = defineEmits<{ edit: [manga: Manga] }>()
@@ -120,6 +121,66 @@ function handleOutsideClick(e: MouseEvent): void {
   }
 }
 
+// Info modal
+const showInfoModal = ref(false)
+const infoLoading = ref(false)
+type InfoData = {
+  description: string
+  status: string | null
+  type: string | null
+  latestChapter: number | null
+  tags: string[]
+  authors: string[]
+  year: number | null
+  demographic: string | null
+  sources: string[]
+}
+const infoData = ref<InfoData | null>(null)
+
+const pubStatusLabels: Record<string, string> = {
+  ongoing: 'Laufend', completed: 'Abgeschlossen', hiatus: 'Pause', cancelled: 'Abgebrochen'
+}
+
+async function openInfo(): Promise<void> {
+  showInfoModal.value = true
+  infoLoading.value = true
+  infoData.value = null
+  try {
+    type ApiData = { description: string; status: string | null; type: string | null; latestChapter: number | null; tags: string[]; authors: string[]; year: number | null; demographic: string | null }
+    type ApiRes = { success: boolean; data?: ApiData }
+    const [ckRes, mdxRes] = await Promise.allSettled([
+      props.manga.comickHid
+        ? (getBridge().invoke('comick:details', { hid: props.manga.comickHid }) as Promise<ApiRes>)
+        : Promise.resolve(null),
+      props.manga.mangaDexId
+        ? (getBridge().invoke('mangadex:details', { id: props.manga.mangaDexId }) as Promise<ApiRes>)
+        : Promise.resolve(null)
+    ])
+    const ck = ckRes.status === 'fulfilled' && ckRes.value?.success ? (ckRes.value.data ?? null) : null
+    const mdx = mdxRes.status === 'fulfilled' && mdxRes.value?.success ? (mdxRes.value.data ?? null) : null
+    if (!ck && !mdx) return
+    const ckTags = ck?.tags ?? []
+    const mdxTags = mdx?.tags ?? []
+    const tagLower = new Set(ckTags.map((t) => t.toLowerCase()))
+    const ckAuthors = ck?.authors ?? []
+    const mdxAuthors = mdx?.authors ?? []
+    const authorLower = new Set(ckAuthors.map((a) => a.toLowerCase()))
+    infoData.value = {
+      description: mdx?.description || ck?.description || '',
+      status: ck?.status ?? mdx?.status ?? null,
+      type: ck?.type ?? mdx?.type ?? null,
+      latestChapter: ck?.latestChapter ?? null,
+      tags: [...ckTags, ...mdxTags.filter((t) => !tagLower.has(t.toLowerCase()))],
+      authors: [...ckAuthors, ...mdxAuthors.filter((a) => !authorLower.has(a.toLowerCase()))],
+      year: ck?.year ?? mdx?.year ?? null,
+      demographic: mdx?.demographic ?? null,
+      sources: [...(ck ? ['ComicK'] : []), ...(mdx ? ['MangaDex'] : [])]
+    }
+  } finally {
+    infoLoading.value = false
+  }
+}
+
 watch(showStatusPicker, (v) => {
   if (v) document.addEventListener('click', handleOutsideClick)
   else document.removeEventListener('click', handleOutsideClick)
@@ -168,10 +229,18 @@ async function openChapter(): Promise<void> {
           <ChapterInput :model-value="manga.currentChapter" @update:model-value="onChapterChange" />
         </div>
 
-        <!-- Status badge -->
+        <!-- Status badge + Info -->
         <div class="status-wrapper mb-2">
           <button ref="statusBadgeRef" class="status-badge status-badge-btn" @click.stop="toggleStatusPicker">
             {{ t('tabs.' + manga.status) }}
+          </button>
+          <button
+            v-if="manga.mangaDexId || manga.comickHid"
+            class="info-icon-btn"
+            title="Infos"
+            @click.stop="openInfo"
+          >
+            <Info :size="12" />
           </button>
         </div>
 
@@ -228,6 +297,43 @@ async function openChapter(): Promise<void> {
           </div>
           <button class="btn-primary w-full" @click="confirmMarkRead">Speichern</button>
           <button class="btn-ghost w-full mt-2" @click="showMarkReadDialog = false">Abbrechen</button>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Info Modal -->
+    <Teleport to="body">
+      <div v-if="showInfoModal" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && (showInfoModal = false)">
+        <div class="modal-box info-modal-box">
+          <div class="info-header">
+            <img
+              v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl"
+              class="info-cover"
+              :src="manga.mangaDexCoverUrl || manga.comickCoverUrl"
+              :alt="manga.title"
+            />
+            <div class="info-header-text">
+              <p class="info-title">{{ manga.title }}</p>
+              <div v-if="infoData" class="info-badges">
+                <span v-if="infoData.type" class="info-badge">{{ infoData.type }}</span>
+                <span v-if="infoData.status" class="info-badge" :class="'pub-' + infoData.status">
+                  {{ pubStatusLabels[infoData.status] ?? infoData.status }}
+                </span>
+                <span v-if="infoData.latestChapter != null" class="info-badge">Kap. {{ infoData.latestChapter }}</span>
+                <span v-if="infoData.year" class="info-badge">{{ infoData.year }}</span>
+                <span v-if="infoData.demographic" class="info-badge">{{ infoData.demographic }}</span>
+              </div>
+              <p v-if="infoData?.authors?.length" class="info-authors">{{ infoData.authors.join(' · ') }}</p>
+            </div>
+          </div>
+          <p v-if="infoLoading" class="info-loading-text">Lade…</p>
+          <p v-else-if="!infoData" class="info-loading-text">Keine Daten verfügbar.</p>
+          <div v-if="infoData?.description" class="info-desc">{{ infoData.description }}</div>
+          <div v-if="infoData?.tags?.length" class="info-tags">
+            <span v-for="tag in infoData.tags" :key="tag" class="info-tag">{{ tag }}</span>
+          </div>
+          <p v-if="infoData?.sources?.length" class="info-sources">{{ infoData.sources.join(' · ') }}</p>
+          <button class="btn-ghost w-full mt-3" @click="showInfoModal = false">Schließen</button>
         </div>
       </div>
     </Teleport>
@@ -360,7 +466,7 @@ async function openChapter(): Promise<void> {
   border: 1px solid hsl(var(--border));
   border-radius: 12px;
   padding: 20px;
-  width: 300px;
+  width: min(300px, 92vw);
 }
 .btn-primary {
   padding: 8px 12px;
@@ -409,7 +515,140 @@ async function openChapter(): Promise<void> {
   background: hsl(var(--accent));
 }
 .status-wrapper {
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+}
+.info-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  padding: 0;
+  flex-shrink: 0;
+}
+.info-icon-btn:hover {
+  color: hsl(var(--foreground));
+}
+@media (pointer: coarse) {
+  .info-icon-btn {
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+.info-modal-box {
+  width: min(600px, 92vw);
+  max-height: calc(88vh - env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px;
+}
+.info-header {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+.info-cover {
+  width: 110px;
+  height: 154px;
+  object-fit: cover;
+  border-radius: 7px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px hsl(0 0% 0% / 0.4);
+}
+@media (max-width: 400px) {
+  .info-modal-box {
+    padding: 16px;
+  }
+  .info-cover {
+    width: 80px;
+    height: 112px;
+  }
+}
+.info-header-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.info-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  line-height: 1.35;
+}
+.info-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.info-badge {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+  font-weight: 500;
+}
+.info-badge.pub-ongoing   { background: hsl(142 50% 18%); color: hsl(142 70% 60%); border-color: hsl(142 40% 28%); }
+.info-badge.pub-completed { background: hsl(210 50% 18%); color: hsl(210 70% 60%); border-color: hsl(210 40% 28%); }
+.info-badge.pub-hiatus    { background: hsl(43 50% 18%);  color: hsl(43 80% 55%);  border-color: hsl(43 40% 28%); }
+.info-badge.pub-cancelled { background: hsl(0 50% 18%);   color: hsl(0 70% 60%);   border-color: hsl(0 40% 28%); }
+.info-loading-text {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+  padding: 16px 0;
+}
+.info-desc {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.6;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding-right: 4px;
+  margin-bottom: 12px;
+}
+.info-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  flex-shrink: 0;
+  margin-bottom: 4px;
+}
+.info-tag {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  border: 1px solid hsl(var(--primary) / 0.2);
+}
+.info-authors {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.info-sources {
+  font-size: 10px;
+  color: hsl(var(--muted-foreground) / 0.5);
+  text-align: right;
+  margin-top: 8px;
+  flex-shrink: 0;
 }
 .status-badge {
   font-size: 11px;

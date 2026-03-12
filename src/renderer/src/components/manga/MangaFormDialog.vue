@@ -257,8 +257,8 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
   border: 1px solid hsl(var(--border));
   border-radius: 12px;
   padding: 20px;
-  width: 420px;
-  max-height: 90vh;
+  width: min(420px, 94vw);
+  max-height: calc(90vh - env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
 }
 .field-label {

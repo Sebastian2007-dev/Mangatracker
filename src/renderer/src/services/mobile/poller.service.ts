@@ -5,6 +5,7 @@
  */
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { App as CapApp } from '@capacitor/app'
+import { CapacitorHttp } from '@capacitor/core'
 import type { LogEntry, LogEntryType } from '../../../../types/index'
 import { getMangaList, setMangaList, getSettings } from './storage.service'
 
@@ -82,10 +83,10 @@ async function checkComicK(manga: {
   comickHid: string
 }): Promise<CheckResult> {
   const url =
-    `https://api.comick.fun/comic/${manga.comickHid}/chapters?lang=en&limit=1&tachiyomi=true`
+    `https://api.comick.dev/comic/${manga.comickHid}/chapters?lang=en&limit=1&tachiyomi=true`
 
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+    headers: { 'Accept': 'application/json, text/plain, */*' }
   })
 
   if (!res.ok) return { ok: false, reason: `CK_ERR(HTTP_${res.status})` }
@@ -112,8 +113,9 @@ async function checkManga(manga: {
 }): Promise<CheckResult> {
   if (manga.mangaDexId) {
     const mdxResult = await checkMangaDex({ id: manga.id, title: manga.title, currentChapter: manga.currentChapter, mangaDexId: manga.mangaDexId })
-    if (mdxResult.ok || mdxResult.reason === 'MDX_SAME') return mdxResult
-    // MDX_NO_DATA oder MDX_ERR → weiter zu ComicK oder HTTP
+    if (mdxResult.ok) return mdxResult
+    if (mdxResult.reason === 'MDX_SAME' && !manga.comickHid) return mdxResult
+    // MDX_NO_DATA, MDX_ERR oder MDX_SAME+comickHid → weiter zu ComicK
   }
 
   if (manga.comickHid) {
@@ -129,21 +131,21 @@ async function checkManga(manga: {
 
   const origin = new URL(url).origin
 
-  const res = await fetch(url, {
+  const res = await CapacitorHttp.request({
     method: 'GET',
+    url,
     headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
       'Cache-Control': 'no-cache',
-      Referer: origin + '/'
+      'Referer': origin + '/'
     }
   })
 
   if (res.status >= 400) return { ok: false, reason: `HTTP_${res.status}` }
 
-  const body = await res.text()
+  const body = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
   if (body.length < 2000) return { ok: false, reason: 'SHORT' }
 
   const chapterStr = String(nextChapter)

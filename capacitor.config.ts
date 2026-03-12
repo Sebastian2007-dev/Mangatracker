@@ -13,7 +13,7 @@ const config: CapacitorConfig = {
       iconColor: '#488AFF'
     },
     CapacitorHttp: {
-      enabled: true
+      enabled: false
     },
     BackgroundRunner: {
       label: 'com.mangaTracker.app.background',

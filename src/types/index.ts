@@ -5,7 +5,7 @@ export type MangaStatus =
   | 'completed'
   | 'rereading'
 
-export type TabId = MangaStatus | 'focus'
+export type TabId = MangaStatus | 'focus' | 'all' | 'new'
 
 export interface Manga {
   id: string
@@ -44,6 +44,7 @@ export interface AppSettings {
   domainBlocklist: string[]
   notificationIntervalMs: number
   notificationsEnabled: boolean
+  backgroundNotificationsEnabled: boolean
   desktopNotificationsEnabled: boolean
   readerInSeparateWindow: boolean
   elementPickerEnabled: boolean

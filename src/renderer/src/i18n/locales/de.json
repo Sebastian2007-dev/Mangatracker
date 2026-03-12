@@ -1,11 +1,13 @@
 {
   "tabs": {
+    "all": "Alle",
     "reading": "Am Lesen",
     "plan_to_read": "Geplant",
     "hiatus": "Pause",
     "completed": "Abgeschlossen",
     "rereading": "Nochmal lesen",
-    "focus": "Fokus"
+    "focus": "Fokus",
+    "new": "Neu"
   },
   "manga": {
     "new": "Neuer Manga",
@@ -83,6 +85,8 @@
     "notificationsEnabled": "Neue Kapitel prüfen",
     "mobileNotificationsHint": "Prüft im Hintergrund und sendet Push-Benachrichtigungen bei neuen Kapiteln",
     "notifPermissionDenied": "Berechtigung abgelehnt – bitte Benachrichtigungen für diese App in den Systemeinstellungen aktivieren",
+    "backgroundNotificationsEnabled": "Hintergrund-Scan",
+    "backgroundNotificationsHint": "Scannt auch wenn die App geschlossen ist und sendet Push-Benachrichtigungen",
     "desktopNotificationsEnabled": "Desktop-Benachrichtigungen anzeigen",
     "checkInterval": "Prüf-Intervall",
     "intervalHours": "Stunden",

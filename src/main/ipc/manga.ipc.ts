@@ -214,13 +214,19 @@ export function registerMangaIpc(): void {
 
   ipcMain.handle('comick:search', async (_event, { title }: { title: string }) => {
     try {
-      const url = `https://api.comick.fun/v1.0/search?q=${encodeURIComponent(title)}&limit=10`
+      const url = `https://api.comick.dev/v1.0/search?q=${encodeURIComponent(title)}&limit=10&tachiyomi=true`
       const res = await electronSession.defaultSession.fetch(url, {
-        headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Referer': 'https://comick.dev/'
+        }
       })
       if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
-      const json = (await res.json()) as { hid: string; title: string; md_covers: { b2key: string }[] }[]
-      const results = (json ?? []).map((item) => ({
+      const json = (await res.json()) as unknown
+      const items: { hid: string; title: string; md_covers?: { b2key: string }[] }[] =
+        Array.isArray(json) ? json : Array.isArray((json as { data?: unknown[] }).data) ? (json as { data: { hid: string; title: string; md_covers?: { b2key: string }[] }[] }).data : []
+      const results = items.map((item) => ({
         id: item.hid,
         title: item.title,
         coverUrl: item.md_covers?.[0]?.b2key
@@ -228,6 +234,104 @@ export function registerMangaIpc(): void {
           : null
       }))
       return { success: true, data: results }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
+  })
+
+  ipcMain.handle('mangadex:details', async (_event, { id }: { id: string }) => {
+    try {
+      const url = `https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`
+      const res = await electronSession.defaultSession.fetch(url, {
+        headers: { 'User-Agent': 'MangaTracker/1.0' }
+      })
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      const json = (await res.json()) as {
+        data: {
+          attributes: {
+            description: Record<string, string>
+            status: string
+            originalLanguage: string
+            year: number | null
+            publicationDemographic: string | null
+            tags: { attributes: { name: Record<string, string>; group: { name: string } } }[]
+          }
+          relationships: { type: string; attributes?: { name?: string } }[]
+        }
+      }
+      const attr = json.data?.attributes
+      if (!attr) return { success: false, error: 'No data' }
+      const desc = attr.description?.en ?? Object.values(attr.description ?? {})[0] ?? ''
+      const langToType = (lang: string) => {
+        if (lang === 'ko') return 'manhwa'
+        if (lang === 'zh' || lang === 'zh-hk') return 'manhua'
+        return 'manga'
+      }
+      const tags = (attr.tags ?? [])
+        .filter((t) => t.attributes?.group?.name === 'genre')
+        .map((t) => t.attributes?.name?.en ?? Object.values(t.attributes?.name ?? {})[0])
+        .filter(Boolean) as string[]
+      const authors = [...new Set(
+        (json.data?.relationships ?? [])
+          .filter((r) => r.type === 'author' || r.type === 'artist')
+          .map((r) => r.attributes?.name)
+          .filter(Boolean) as string[]
+      )]
+      return {
+        success: true,
+        data: {
+          description: desc,
+          status: attr.status ?? null,
+          type: langToType(attr.originalLanguage ?? ''),
+          latestChapter: null as number | null,
+          tags,
+          authors,
+          year: attr.year ?? null,
+          demographic: attr.publicationDemographic ?? null
+        }
+      }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
+  })
+
+  ipcMain.handle('comick:details', async (_event, { hid }: { hid: string }) => {
+    try {
+      const url = `https://api.comick.dev/comic/${hid}?tachiyomi=true`
+      const res = await electronSession.defaultSession.fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Referer': 'https://comick.dev/'
+        }
+      })
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      const json = (await res.json()) as Record<string, unknown>
+      const comic = (json.comic ?? json) as Record<string, unknown>
+      const statusMap: Record<number, string> = { 1: 'ongoing', 2: 'completed', 3: 'cancelled', 4: 'hiatus' }
+      const countryMap: Record<string, string> = { kr: 'manhwa', jp: 'manga', zh: 'manhua', cn: 'manhua' }
+      const genres = Array.isArray(comic.genres) ? (comic.genres as { name?: string }[]).map((g) => g.name ?? '').filter(Boolean) : []
+      const authors: string[] = []
+      if (typeof comic.author === 'string' && comic.author) authors.push(comic.author)
+      if (typeof comic.artist === 'string' && comic.artist && comic.artist !== comic.author) authors.push(comic.artist)
+      if (Array.isArray(comic.md_authors)) {
+        for (const a of comic.md_authors as { name?: string }[]) {
+          if (a.name && !authors.includes(a.name)) authors.push(a.name)
+        }
+      }
+      return {
+        success: true,
+        data: {
+          description: (comic.desc as string) ?? (comic.description as string) ?? '',
+          status: statusMap[(comic.status as number)] ?? null,
+          type: countryMap[(comic.country as string)] ?? null,
+          latestChapter: (comic.last_chapter as number) ?? null,
+          tags: genres,
+          authors,
+          year: (comic.year as number) ?? null,
+          demographic: null as string | null
+        }
+      }
     } catch (e) {
       return { success: false, error: String(e) }
     }

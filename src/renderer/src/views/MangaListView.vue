@@ -22,7 +22,12 @@ const editingManga = ref<Manga | null>(null)
 const filteredManga = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
   return mangaStore.items
-    .filter((m) => activeTab.value === 'focus' ? m.isFocused : m.status === activeTab.value)
+    .filter((m) => {
+      if (activeTab.value === 'all') return true
+      if (activeTab.value === 'new') return m.hasNewChapter === true
+      if (activeTab.value === 'focus') return m.isFocused
+      return m.status === activeTab.value
+    })
     .filter((m) => {
       if (!q) return true
       return (
@@ -39,6 +44,7 @@ const isFocusFull = computed(() =>
 )
 
 function openAdd(): void {
+  if (activeTab.value === 'new') return
   if (activeTab.value === 'focus' && isFocusFull.value) return
   editingManga.value = null
   showForm.value = true
@@ -87,7 +93,7 @@ function onDrop(toId: string): void {
       </p>
 
       <!-- Manga grid -->
-      <div v-if="filteredManga.length > 0" class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))">
+      <div v-if="filteredManga.length > 0" class="manga-grid">
         <div
           v-for="manga in filteredManga"
           :key="manga.id"
@@ -119,7 +125,7 @@ function onDrop(toId: string): void {
 
     <!-- Floating add button -->
     <button
-      v-if="!isFocusFull"
+      v-if="activeTab !== 'new' && !isFocusFull"
       class="fab"
       :class="{ 'fab-mobile': isMobile }"
       :title="t('manga.new')"
@@ -170,6 +176,16 @@ function onDrop(toId: string): void {
   color: hsl(var(--primary));
   border: 1px solid hsl(var(--primary) / 0.3);
   cursor: pointer;
+}
+.manga-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 600px) {
+  .manga-grid {
+    grid-template-columns: repeat(auto-fill, minmax(max(220px, 16%), 1fr));
+  }
 }
 .drag-item {
   border-radius: 8px;

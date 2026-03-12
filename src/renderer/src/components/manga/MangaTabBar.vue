@@ -7,12 +7,14 @@ const { t } = useI18n()
 const activeTab = defineModel<TabId>({ default: 'reading' })
 
 const tabs: { key: TabId; label: string }[] = [
+  { key: 'all', label: 'tabs.all' },
   { key: 'reading', label: 'tabs.reading' },
   { key: 'plan_to_read', label: 'tabs.plan_to_read' },
   { key: 'hiatus', label: 'tabs.hiatus' },
   { key: 'completed', label: 'tabs.completed' },
   { key: 'rereading', label: 'tabs.rereading' },
-  { key: 'focus', label: 'tabs.focus' }
+  { key: 'focus', label: 'tabs.focus' },
+  { key: 'new', label: 'tabs.new' }
 ]
 </script>
 
