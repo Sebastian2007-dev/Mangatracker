@@ -74,7 +74,11 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "installerIcon": "resources/app.ico",
-      "uninstallerIcon": "resources/app.ico"
+      "uninstallerIcon": "resources/app.ico",
+      "guid": "A3F7B2C1-4E5D-4F8A-9B0C-1D2E3F4A5B6C",
+      "include": "resources/installer.nsh",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
     },
     "mac": {
       "target": "dmg",

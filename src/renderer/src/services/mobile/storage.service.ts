@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   notificationIntervalMs: 3_600_000,
   notificationsEnabled: true,
   backgroundNotificationsEnabled: false,
+  autoLinkEnabled: false,
   desktopNotificationsEnabled: true,
   readerInSeparateWindow: false,
   elementPickerEnabled: false,

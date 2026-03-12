@@ -13,6 +13,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const notificationIntervalMs = ref<number>(3_600_000)
   const notificationsEnabled = ref<boolean>(true)
   const backgroundNotificationsEnabled = ref<boolean>(false)
+  const autoLinkEnabled = ref<boolean>(false)
   const desktopNotificationsEnabled = ref<boolean>(true)
   const readerInSeparateWindow = ref<boolean>(false)
   const elementPickerEnabled = ref<boolean>(true)
@@ -28,6 +29,7 @@ export const useSettingsStore = defineStore('settings', () => {
     notificationIntervalMs.value = s.notificationIntervalMs
     notificationsEnabled.value = s.notificationsEnabled
     backgroundNotificationsEnabled.value = s.backgroundNotificationsEnabled ?? false
+    autoLinkEnabled.value = s.autoLinkEnabled ?? false
     desktopNotificationsEnabled.value = s.desktopNotificationsEnabled ?? true
     readerInSeparateWindow.value = s.readerInSeparateWindow ?? false
     elementPickerEnabled.value = s.elementPickerEnabled ?? true
@@ -52,6 +54,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.notificationIntervalMs !== undefined) notificationIntervalMs.value = updates.notificationIntervalMs
     if (updates.notificationsEnabled !== undefined) notificationsEnabled.value = updates.notificationsEnabled
     if (updates.backgroundNotificationsEnabled !== undefined) backgroundNotificationsEnabled.value = updates.backgroundNotificationsEnabled
+    if (updates.autoLinkEnabled !== undefined) autoLinkEnabled.value = updates.autoLinkEnabled
     if (updates.desktopNotificationsEnabled !== undefined) {
       desktopNotificationsEnabled.value = updates.desktopNotificationsEnabled
     }
@@ -72,7 +75,7 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     theme, language, readBehavior,
     domainWhitelist, domainBlocklist,
-    notificationIntervalMs, notificationsEnabled, backgroundNotificationsEnabled, desktopNotificationsEnabled, readerInSeparateWindow,
+    notificationIntervalMs, notificationsEnabled, backgroundNotificationsEnabled, autoLinkEnabled, desktopNotificationsEnabled, readerInSeparateWindow,
     elementPickerEnabled, blockNewWindows, titleExpand,
     load, save, setupListeners
   }

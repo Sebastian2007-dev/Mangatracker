@@ -4,6 +4,8 @@ import { X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { Manga, MangaStatus } from '../../types/index'
 import { useMangaStore } from '../../stores/manga.store'
+import { useSettingsStore } from '../../stores/settings.store'
+import { getBridge } from '../../services/platform'
 import MangaDexSearchModal from './MangaDexSearchModal.vue'
 
 const props = defineProps<{ open: boolean; manga?: Manga | null }>()
@@ -11,6 +13,7 @@ const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
 const { t } = useI18n()
 const mangaStore = useMangaStore()
+const settingsStore = useSettingsStore()
 
 const title = ref('')
 const mainUrl = ref('')
@@ -26,7 +29,73 @@ const comickHid = ref('')
 const comickTitle = ref('')
 const comickCoverUrl = ref<string | undefined>(undefined)
 const showCkModal = ref(false)
+const autoLinking = ref(false)
 let backdropDown = false
+
+type SearchItem = { id: string; title: string; coverUrl: string | null }
+
+function titleSimilarity(a: string, b: string): number {
+  const normalize = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+  const wa = new Set(normalize(a).split(' ').filter(Boolean))
+  const wb = new Set(normalize(b).split(' ').filter(Boolean))
+  if (wa.size === 0 || wb.size === 0) return 0
+  const intersection = [...wa].filter((w) => wb.has(w)).length
+  const union = new Set([...wa, ...wb]).size
+  return intersection / union
+}
+
+async function autoLink(): Promise<void> {
+  const q = title.value.trim()
+  if (!q) return
+  const bridge = getBridge()
+
+  if (!mangaDexId.value) {
+    try {
+      const res = (await bridge.invoke('mangadex:search', { title: q })) as {
+        success: boolean
+        data?: SearchItem[]
+      }
+      if (res.success && res.data && res.data.length > 0) {
+        const best = res.data.reduce(
+          (b, item) => {
+            const s = titleSimilarity(q, item.title)
+            return s > b.score ? { score: s, item } : b
+          },
+          { score: 0, item: res.data[0] }
+        )
+        if (best.score >= 0.5) {
+          mangaDexId.value = best.item.id
+          mangaDexTitle.value = best.item.title
+          mangaDexCoverUrl.value = best.item.coverUrl ?? undefined
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (!comickHid.value) {
+    try {
+      const res = (await bridge.invoke('comick:search', { title: q })) as {
+        success: boolean
+        data?: SearchItem[]
+      }
+      if (res.success && res.data && res.data.length > 0) {
+        const best = res.data.reduce(
+          (b, item) => {
+            const s = titleSimilarity(q, item.title)
+            return s > b.score ? { score: s, item } : b
+          },
+          { score: 0, item: res.data[0] }
+        )
+        if (best.score >= 0.5) {
+          comickHid.value = best.item.id
+          comickTitle.value = best.item.title
+          comickCoverUrl.value = best.item.coverUrl ?? undefined
+        }
+      }
+    } catch { /* ignore */ }
+  }
+}
 
 const statuses: { value: MangaStatus; label: string }[] = [
   { value: 'reading', label: 'tabs.reading' },
@@ -78,6 +147,12 @@ function validate(): boolean {
 
 async function handleSave(): Promise<void> {
   if (!validate()) return
+
+  if (settingsStore.autoLinkEnabled) {
+    autoLinking.value = true
+    await autoLink()
+    autoLinking.value = false
+  }
 
   const payload = {
     title: title.value.trim(),
@@ -218,8 +293,10 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
 
         <!-- Buttons -->
         <div class="flex gap-2 mt-6">
-          <button class="btn-ghost flex-1" @click="emit('update:open', false)">{{ t('manga.cancel') }}</button>
-          <button class="btn-primary flex-1" @click="handleSave">{{ t('manga.save') }}</button>
+          <button class="btn-ghost flex-1" :disabled="autoLinking" @click="emit('update:open', false)">{{ t('manga.cancel') }}</button>
+          <button class="btn-primary flex-1" :disabled="autoLinking" @click="handleSave">
+            {{ autoLinking ? t('manga.autoLinking') : t('manga.save') }}
+          </button>
         </div>
       </div>
     </div>

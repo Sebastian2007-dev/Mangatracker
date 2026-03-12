@@ -53,7 +53,8 @@
     "ckNotLinked": "Not linked",
     "ckHint": "Especially good for manhwa (optional)",
     "ckModalTitle": "Link to ComicK.io",
-    "ckSearchError": "Search failed"
+    "ckSearchError": "Search failed",
+    "autoLinking": "Linking..."
   },
   "reader": {
     "open": "Open Reader",
@@ -104,7 +105,9 @@
     "blockNewWindowsHint": "Prevents popup windows from opening (e.g. ad popups)",
     "library": "Library",
     "titleExpand": "Expand title",
-    "titleExpandHint": "Hovering (desktop) or tapping (mobile) shows the full title"
+    "titleExpandHint": "Hovering (desktop) or tapping (mobile) shows the full title",
+    "autoLinkEnabled": "Auto-link",
+    "autoLinkHint": "On save, automatically searches MangaDex and ComicK.io for the best match and links it"
   },
   "nav": {
     "library": "Library",

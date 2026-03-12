@@ -73,6 +73,10 @@ async function setNotificationsEnabled(v: boolean): Promise<void> {
   await settings.save({ notificationsEnabled: v })
 }
 
+async function setAutoLinkEnabled(v: boolean): Promise<void> {
+  await settings.save({ autoLinkEnabled: v })
+}
+
 async function setBackgroundNotificationsEnabled(v: boolean): Promise<void> {
   await settings.save({ backgroundNotificationsEnabled: v })
 }
@@ -152,7 +156,7 @@ async function updateBlocklist(list: string[]): Promise<void> {
     <!-- Library -->
     <section class="settings-section">
       <h2 class="section-title">{{ t('settings.library') }}</h2>
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between mb-3">
         <div>
           <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.titleExpand') }}</span>
           <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.titleExpandHint') }}</p>
@@ -161,6 +165,20 @@ async function updateBlocklist(list: string[]): Promise<void> {
           class="toggle"
           :class="{ on: settings.titleExpand }"
           @click="setTitleExpand(!settings.titleExpand)"
+        />
+      </div>
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">
+            {{ t('settings.autoLinkEnabled') }}
+            <span class="beta-badge">Beta</span>
+          </span>
+          <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.autoLinkHint') }}</p>
+        </div>
+        <button
+          class="toggle"
+          :class="{ on: settings.autoLinkEnabled }"
+          @click="setAutoLinkEnabled(!settings.autoLinkEnabled)"
         />
       </div>
     </section>
@@ -389,6 +407,18 @@ async function updateBlocklist(list: string[]): Promise<void> {
   outline: none;
 }
 .field-input:focus { border-color: hsl(var(--primary)); }
+.beta-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  background: hsl(270 70% 55% / 0.15);
+  color: hsl(270 70% 65%);
+  border: 1px solid hsl(270 70% 55% / 0.3);
+  vertical-align: middle;
+}
 .notif-warning {
   padding: 8px 12px;
   border-radius: 6px;

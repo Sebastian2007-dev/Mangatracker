@@ -45,6 +45,7 @@ export interface AppSettings {
   notificationIntervalMs: number
   notificationsEnabled: boolean
   backgroundNotificationsEnabled: boolean
+  autoLinkEnabled: boolean
   desktopNotificationsEnabled: boolean
   readerInSeparateWindow: boolean
   elementPickerEnabled: boolean
