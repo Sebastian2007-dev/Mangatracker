@@ -53,6 +53,7 @@
   "build": {
     "appId": "com.mangaTracker.app",
     "productName": "Manga Tracker",
+    "artifactName": "MangaTracker-Installer-${version}.${ext}",
     "directories": {
       "buildResources": "resources",
       "output": "dist"
@@ -66,6 +67,7 @@
     },
     "win": {
       "target": "nsis",
+      "executableName": "MangaTracker",
       "icon": "resources/app.ico"
     },
     "nsis": {
