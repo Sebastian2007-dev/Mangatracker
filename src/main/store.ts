@@ -22,7 +22,8 @@ const store = new Store<StoreSchema>({
       desktopNotificationsEnabled: true,
       readerInSeparateWindow: false,
       elementPickerEnabled: true,
-      blockNewWindows: true
+      blockNewWindows: true,
+      titleExpand: true
     }
   }
 })

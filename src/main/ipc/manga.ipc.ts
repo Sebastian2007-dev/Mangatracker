@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, session as electronSession } from 'electron'
 import { randomUUID } from 'crypto'
 import store from '../store'
 import type { Manga, MangaStatus } from '../../types/index'
@@ -83,7 +83,13 @@ function normalizeImportedEntry(entry: unknown): Manga | null {
     hasNewChapter,
     lastCheckedChapter,
     createdAt: toNumberValue(pickFirst(entry, ['createdAt', 'CreatedAt']), now),
-    updatedAt: toNumberValue(pickFirst(entry, ['updatedAt', 'UpdatedAt']), now)
+    updatedAt: toNumberValue(pickFirst(entry, ['updatedAt', 'UpdatedAt']), now),
+    mangaDexId: toStringValue(pickFirst(entry, ['mangaDexId']), '') || undefined,
+    mangaDexTitle: toStringValue(pickFirst(entry, ['mangaDexTitle']), '') || undefined,
+    mangaDexCoverUrl: toStringValue(pickFirst(entry, ['mangaDexCoverUrl']), '') || undefined,
+    comickHid: toStringValue(pickFirst(entry, ['comickHid']), '') || undefined,
+    comickTitle: toStringValue(pickFirst(entry, ['comickTitle']), '') || undefined,
+    comickCoverUrl: toStringValue(pickFirst(entry, ['comickCoverUrl']), '') || undefined
   }
 }
 
@@ -172,6 +178,59 @@ export function registerMangaIpc(): void {
   ipcMain.handle('manga:export', () => {
     const list = store.get('mangaList')
     return { success: true, data: JSON.stringify(list, null, 2) }
+  })
+
+  ipcMain.handle('mangadex:search', async (_event, { title }: { title: string }) => {
+    try {
+      const url =
+        `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=10&includes[]=cover_art`
+      const res = await electronSession.defaultSession.fetch(url, {
+        headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+      })
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      const json = (await res.json()) as {
+        data: {
+          id: string
+          attributes: { title: Record<string, string> }
+          relationships: { type: string; attributes?: { fileName?: string } }[]
+        }[]
+      }
+      const results = (json.data ?? []).map((item) => {
+        const coverRel = item.relationships.find((r) => r.type === 'cover_art')
+        const coverFile = coverRel?.attributes?.fileName
+        return {
+          id: item.id,
+          title: item.attributes.title?.en ?? Object.values(item.attributes.title ?? {})[0] ?? item.id,
+          coverUrl: coverFile
+            ? `https://uploads.mangadex.org/covers/${item.id}/${coverFile}.256.jpg`
+            : null
+        }
+      })
+      return { success: true, data: results }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
+  })
+
+  ipcMain.handle('comick:search', async (_event, { title }: { title: string }) => {
+    try {
+      const url = `https://api.comick.fun/v1.0/search?q=${encodeURIComponent(title)}&limit=10`
+      const res = await electronSession.defaultSession.fetch(url, {
+        headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+      })
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      const json = (await res.json()) as { hid: string; title: string; md_covers: { b2key: string }[] }[]
+      const results = (json ?? []).map((item) => ({
+        id: item.hid,
+        title: item.title,
+        coverUrl: item.md_covers?.[0]?.b2key
+          ? `https://meo.comick.pictures/${item.md_covers[0].b2key}`
+          : null
+      }))
+      return { success: true, data: results }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
   })
 
   ipcMain.handle('manga:import', (_event, { json }: { json: string }) => {

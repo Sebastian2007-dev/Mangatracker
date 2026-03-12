@@ -36,16 +36,96 @@ function buildChapterUrl(template: string, chapter: number): string {
   return template.replace('$chapter', String(chapter))
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+type CheckOk = { ok: true; mangaId: string; title: string; newChapter: number; statusCode: number; source?: string }
+type CheckReject = { ok: false; reason: string }
+type CheckResult = CheckOk | CheckReject
+
+async function checkMangaDex(manga: {
+  id: string
+  title: string
+  currentChapter: number
+  mangaDexId: string
+}): Promise<CheckResult> {
+  const feedUrl =
+    `https://api.mangadex.org/manga/${manga.mangaDexId}/feed` +
+    `?translatedLanguage[]=en&order[chapter]=desc&limit=1` +
+    `&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`
+
+  const res = await fetch(feedUrl, {
+    headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+  })
+
+  if (!res.ok) return { ok: false, reason: `MDX_ERR(HTTP_${res.status})` }
+
+  const json = (await res.json()) as {
+    data: { attributes: { chapter: string | null } }[]
+  }
+  const data = json.data ?? []
+
+  if (data.length === 0) return { ok: false, reason: 'MDX_NO_DATA' }
+
+  const latest = parseFloat(data[0].attributes.chapter ?? 'NaN')
+  if (isNaN(latest)) return { ok: false, reason: 'MDX_ERR(PARSE)' }
+  if (latest <= manga.currentChapter) return { ok: false, reason: 'MDX_SAME' }
+
+  return { ok: true, mangaId: manga.id, title: manga.title, newChapter: latest, statusCode: res.status, source: 'MDX' }
+}
+
+async function checkComicK(manga: {
+  id: string
+  title: string
+  currentChapter: number
+  comickHid: string
+}): Promise<CheckResult> {
+  const url =
+    `https://api.comick.fun/comic/${manga.comickHid}/chapters?lang=en&limit=1&tachiyomi=true`
+
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+  })
+
+  if (!res.ok) return { ok: false, reason: `CK_ERR(HTTP_${res.status})` }
+
+  const json = (await res.json()) as { chapters?: { chap: string | null }[] }
+  const chapters = json.chapters ?? []
+
+  if (chapters.length === 0) return { ok: false, reason: 'CK_NO_DATA' }
+
+  const latest = parseFloat(chapters[0].chap ?? 'NaN')
+  if (isNaN(latest)) return { ok: false, reason: 'CK_ERR(PARSE)' }
+  if (latest <= manga.currentChapter) return { ok: false, reason: 'CK_SAME' }
+
+  return { ok: true, mangaId: manga.id, title: manga.title, newChapter: latest, statusCode: res.status, source: 'CK' }
+}
+
 async function checkManga(manga: {
   id: string
   title: string
   chapterUrlTemplate: string
   currentChapter: number
-}): Promise<{ mangaId: string; title: string; newChapter: number; statusCode: number } | null> {
+  mangaDexId?: string
+  comickHid?: string
+}): Promise<CheckResult> {
+  if (manga.mangaDexId) {
+    const mdxResult = await checkMangaDex({ id: manga.id, title: manga.title, currentChapter: manga.currentChapter, mangaDexId: manga.mangaDexId })
+    if (mdxResult.ok || mdxResult.reason === 'MDX_SAME') return mdxResult
+    // MDX_NO_DATA oder MDX_ERR → weiter zu ComicK oder HTTP
+  }
+
+  if (manga.comickHid) {
+    const ckResult = await checkComicK({ id: manga.id, title: manga.title, currentChapter: manga.currentChapter, comickHid: manga.comickHid })
+    if (ckResult.ok || ckResult.reason === 'CK_SAME') return ckResult
+    // CK_NO_DATA oder CK_ERR → weiter zu HTTP
+  }
+
   const nextChapter = Math.floor(manga.currentChapter) + 1
   const url = buildChapterUrl(manga.chapterUrlTemplate, nextChapter)
 
-  if (!url || !url.startsWith('http')) return null
+  if (!url || !url.startsWith('http')) return { ok: false, reason: 'NO_URL' }
 
   const origin = new URL(url).origin
 
@@ -61,15 +141,22 @@ async function checkManga(manga: {
     }
   })
 
-  if (res.status >= 400) return null
+  if (res.status >= 400) return { ok: false, reason: `HTTP_${res.status}` }
 
   const body = await res.text()
-  if (body.length < 2000) return null
+  if (body.length < 2000) return { ok: false, reason: 'SHORT' }
 
   const chapterStr = String(nextChapter)
-  if (res.redirected && url.includes(chapterStr) && !res.url.includes(chapterStr)) return null
+  if (url.includes(chapterStr) && !res.url.includes(chapterStr))
+    return { ok: false, reason: `URL_MISMATCH(→${res.url})` }
 
-  return { mangaId: manga.id, title: manga.title, newChapter: nextChapter, statusCode: res.status }
+  const titleMatch = body.match(/<title[^>]*>([^<]*)<\/title>/i)
+  const pageTitle = titleMatch ? titleMatch[1].toLowerCase() : ''
+  const notFoundTitles = ['not found', 'page not found', 'chapter not found', '404 not found', 'error 404']
+  if (pageTitle && notFoundTitles.some((p) => pageTitle.includes(p)))
+    return { ok: false, reason: 'TITLE_404' }
+
+  return { ok: true, mangaId: manga.id, title: manga.title, newChapter: nextChapter, statusCode: res.status }
 }
 
 export async function runPoll(force = false): Promise<void> {
@@ -95,9 +182,10 @@ export async function runPoll(force = false): Promise<void> {
 
     try {
       const result = await checkManga(manga)
-      if (result) {
+      if (result.ok) {
         newCount++
-        pushLog('success', `${manga.title} – Kapitel ${result.newChapter} verfügbar! (HTTP ${result.statusCode})`)
+        const source = result.source ?? `HTTP ${result.statusCode}`
+        pushLog('success', `${manga.title} – Kapitel ${result.newChapter} verfügbar! (${source})`)
 
         const updatedList = (await getMangaList()).map((m) =>
           m.id === manga.id ? { ...m, hasNewChapter: true, lastCheckedChapter: result.newChapter } : m
@@ -118,8 +206,9 @@ export async function runPoll(force = false): Promise<void> {
 
         for (const cb of chapterListeners) cb(result)
       } else {
-        pushLog('info', `${manga.title} – kein neues Kapitel`)
+        pushLog('info', `${manga.title} – kein neues Kapitel [${result.reason}]`)
       }
+      if (manga.mangaDexId || manga.comickHid) await sleep(300)
     } catch (e) {
       errorCount++
       const msg = e instanceof Error ? e.message : String(e)

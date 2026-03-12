@@ -33,7 +33,25 @@
     "import": "Import",
     "focus": "Focus",
     "unfocus": "Remove Focus",
-    "scanNow": "Scan for new chapters now"
+    "scanNow": "Scan for new chapters now",
+    "mdxLink": "Link",
+    "mdxChange": "Change",
+    "mdxUnlink": "Remove link",
+    "mdxNotLinked": "Not linked",
+    "mdxHint": "For more reliable chapter detection (optional)",
+    "mdxModalTitle": "Link to MangaDex",
+    "mdxSearchPlaceholder": "Search title...",
+    "mdxSearchBtn": "Search",
+    "mdxNoResults": "No results",
+    "mdxStartSearch": "Start search",
+    "mdxSearchError": "Search failed",
+    "ckLink": "Link",
+    "ckChange": "Change",
+    "ckUnlink": "Remove link",
+    "ckNotLinked": "Not linked",
+    "ckHint": "Especially good for manhwa (optional)",
+    "ckModalTitle": "Link to ComicK.io",
+    "ckSearchError": "Search failed"
   },
   "reader": {
     "open": "Open Reader",
@@ -79,7 +97,10 @@
     "elementPickerEnabled": "Element Picker (F2)",
     "elementPickerEnabledHint": "Press F2 in the reader to click an element and hide it permanently",
     "blockNewWindows": "Block new windows",
-    "blockNewWindowsHint": "Prevents popup windows from opening (e.g. ad popups)"
+    "blockNewWindowsHint": "Prevents popup windows from opening (e.g. ad popups)",
+    "library": "Library",
+    "titleExpand": "Expand title",
+    "titleExpandHint": "Hovering (desktop) or tapping (mobile) shows the full title"
   },
   "nav": {
     "library": "Library",

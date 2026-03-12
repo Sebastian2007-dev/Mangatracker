@@ -33,7 +33,25 @@
     "import": "Importieren",
     "focus": "Fokussieren",
     "unfocus": "Fokus aufheben",
-    "scanNow": "Jetzt nach neuen Kapiteln suchen"
+    "scanNow": "Jetzt nach neuen Kapiteln suchen",
+    "mdxLink": "Verknüpfen",
+    "mdxChange": "Ändern",
+    "mdxUnlink": "Verknüpfung entfernen",
+    "mdxNotLinked": "Nicht verknüpft",
+    "mdxHint": "Für zuverlässigere Kapitel-Erkennung (optional)",
+    "mdxModalTitle": "Mit MangaDex verknüpfen",
+    "mdxSearchPlaceholder": "Titel suchen...",
+    "mdxSearchBtn": "Suchen",
+    "mdxNoResults": "Keine Ergebnisse",
+    "mdxStartSearch": "Suche starten",
+    "mdxSearchError": "Suche fehlgeschlagen",
+    "ckLink": "Verknüpfen",
+    "ckChange": "Ändern",
+    "ckUnlink": "Verknüpfung entfernen",
+    "ckNotLinked": "Nicht verknüpft",
+    "ckHint": "Besonders gut für Manhwa (optional)",
+    "ckModalTitle": "Mit ComicK.io verknüpfen",
+    "ckSearchError": "Suche fehlgeschlagen"
   },
   "reader": {
     "open": "Reader öffnen",
@@ -79,7 +97,10 @@
     "elementPickerEnabled": "Element-Picker (F2)",
     "elementPickerEnabledHint": "Mit F2 im Reader ein Element anklicken, um es dauerhaft auszublenden",
     "blockNewWindows": "Neue Fenster blockieren",
-    "blockNewWindowsHint": "Verhindert das Öffnen von Popup-Fenstern (z.B. Werbe-Popups)"
+    "blockNewWindowsHint": "Verhindert das Öffnen von Popup-Fenstern (z.B. Werbe-Popups)",
+    "library": "Bibliothek",
+    "titleExpand": "Titel aufklappen",
+    "titleExpandHint": "Beim Hovern (Desktop) oder Antippen (Mobile) wird der vollständige Titel angezeigt"
   },
   "nav": {
     "library": "Bibliothek",

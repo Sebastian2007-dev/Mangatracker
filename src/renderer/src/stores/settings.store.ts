@@ -16,6 +16,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const readerInSeparateWindow = ref<boolean>(false)
   const elementPickerEnabled = ref<boolean>(true)
   const blockNewWindows = ref<boolean>(true)
+  const titleExpand = ref<boolean>(true)
 
   function applySettings(s: AppSettings): void {
     theme.value = s.theme
@@ -29,6 +30,7 @@ export const useSettingsStore = defineStore('settings', () => {
     readerInSeparateWindow.value = s.readerInSeparateWindow ?? false
     elementPickerEnabled.value = s.elementPickerEnabled ?? true
     blockNewWindows.value = s.blockNewWindows ?? true
+    titleExpand.value = s.titleExpand ?? true
   }
 
   async function load(): Promise<void> {
@@ -53,6 +55,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.readerInSeparateWindow !== undefined) readerInSeparateWindow.value = updates.readerInSeparateWindow
     if (updates.elementPickerEnabled !== undefined) elementPickerEnabled.value = updates.elementPickerEnabled
     if (updates.blockNewWindows !== undefined) blockNewWindows.value = updates.blockNewWindows
+    if (updates.titleExpand !== undefined) titleExpand.value = updates.titleExpand
   }
 
   function setupListeners(): () => void {
@@ -67,7 +70,7 @@ export const useSettingsStore = defineStore('settings', () => {
     theme, language, readBehavior,
     domainWhitelist, domainBlocklist,
     notificationIntervalMs, notificationsEnabled, desktopNotificationsEnabled, readerInSeparateWindow,
-    elementPickerEnabled, blockNewWindows,
+    elementPickerEnabled, blockNewWindows, titleExpand,
     load, save, setupListeners
   }
 })

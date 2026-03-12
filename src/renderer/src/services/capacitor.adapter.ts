@@ -60,6 +60,60 @@ const handlers: Record<string, Handler> = {
   'manga:import': (p) => mangaService.importList(p as { json: string }),
   'manga:scanNow': () => runPoll(true).then(() => ({ success: true })),
 
+  'mangadex:search': async (p) => {
+    const { title } = p as { title: string }
+    const url =
+      `https://api.mangadex.org/manga` +
+      `?title=${encodeURIComponent(title)}&limit=10&includes[]=cover_art`
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+      })
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      const json = (await res.json()) as {
+        data: {
+          id: string
+          attributes: { title: Record<string, string> }
+          relationships: { type: string; attributes?: { fileName?: string } }[]
+        }[]
+      }
+      const results = (json.data ?? []).map((item) => {
+        const coverRel = item.relationships.find((r) => r.type === 'cover_art')
+        const coverFile = coverRel?.attributes?.fileName
+        const coverUrl = coverFile
+          ? `https://uploads.mangadex.org/covers/${item.id}/${coverFile}.256.jpg`
+          : null
+        const titleEn = item.attributes.title?.en ?? Object.values(item.attributes.title)[0] ?? item.id
+        return { id: item.id, title: titleEn, coverUrl }
+      })
+      return { success: true, data: results }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  },
+
+  'comick:search': async (p) => {
+    const { title } = p as { title: string }
+    try {
+      const url = `https://api.comick.fun/v1.0/search?q=${encodeURIComponent(title)}&limit=10`
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+      })
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      const json = (await res.json()) as { hid: string; title: string; md_covers: { b2key: string }[] }[]
+      const results = (json ?? []).map((item) => ({
+        id: item.hid,
+        title: item.title,
+        coverUrl: item.md_covers?.[0]?.b2key
+          ? `https://meo.comick.pictures/${item.md_covers[0].b2key}`
+          : null
+      }))
+      return { success: true, data: results }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  },
+
   'settings:get': () => settingsService.settingsGet(),
   'settings:set': (p) => settingsService.settingsSet(p as Parameters<typeof settingsService.settingsSet>[0]),
 

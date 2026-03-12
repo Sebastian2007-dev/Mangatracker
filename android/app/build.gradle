@@ -3,6 +3,16 @@ apply plugin: 'com.android.application'
 android {
     namespace "com.mangaTracker.app"
     compileSdk rootProject.ext.compileSdkVersion
+
+    signingConfigs {
+        release {
+            storeFile file('manga-tracker.jks')
+            storePassword 'MangaTracker2024'
+            keyAlias 'manga-tracker'
+            keyPassword 'MangaTracker2024'
+        }
+    }
+
     defaultConfig {
         applicationId "com.mangaTracker.app"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -20,6 +30,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }

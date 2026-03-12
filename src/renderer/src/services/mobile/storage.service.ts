@@ -21,7 +21,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   desktopNotificationsEnabled: true,
   readerInSeparateWindow: false,
   elementPickerEnabled: false,
-  blockNewWindows: true
+  blockNewWindows: true,
+  titleExpand: true
 }
 
 async function readJsonFile<T>(path: string, fallback: T): Promise<T> {

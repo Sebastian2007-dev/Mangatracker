@@ -17,6 +17,12 @@ export interface Manga {
   currentChapter: number
   hasNewChapter: boolean
   lastCheckedChapter: number
+  mangaDexId?: string
+  mangaDexTitle?: string
+  mangaDexCoverUrl?: string
+  comickHid?: string
+  comickTitle?: string
+  comickCoverUrl?: string
   createdAt: number
   updatedAt: number
 }
@@ -42,6 +48,7 @@ export interface AppSettings {
   readerInSeparateWindow: boolean
   elementPickerEnabled: boolean
   blockNewWindows: boolean
+  titleExpand: boolean
 }
 
 export interface ReaderOpenPayload {

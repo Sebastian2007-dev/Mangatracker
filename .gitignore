@@ -1,6 +1,10 @@
 node_modules
 dist
+dist-mobile
 out
 .DS_Store
 *.log
-node_modules
+# Android signing key — niemals committen!
+android/app/*.jks
+android/app/*.keystore
+.vscode

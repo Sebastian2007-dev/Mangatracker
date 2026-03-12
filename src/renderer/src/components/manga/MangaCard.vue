@@ -23,26 +23,43 @@ async function onChapterChange(chapter: number): Promise<void> {
   await mangaStore.setChapter(props.manga.id, chapter)
 }
 
-async function openUrl(url: string): Promise<void> {
+async function openUrl(url: string, trackFromChapter?: number): Promise<void> {
   if (isMobile) {
     await Browser.open({ url, presentationStyle: 'fullscreen' })
+    if (trackFromChapter !== undefined) {
+      const listener = await Browser.addListener('browserFinished', async () => {
+        await listener.remove()
+        // Dialog anzeigen: bis zu welchem Kapitel hast du gelesen?
+        markReadChapter.value = trackFromChapter
+        showMarkReadDialog.value = true
+      })
+    }
   } else {
     await readerStore.open(props.manga.id, url)
   }
 }
 
+/** Gibt das Kapitel zurück das geöffnet werden soll — neues Kapitel falls verfügbar. */
+function chapterToRead(): number {
+  return props.manga.hasNewChapter && props.manga.lastCheckedChapter > props.manga.currentChapter
+    ? props.manga.lastCheckedChapter
+    : props.manga.currentChapter
+}
+
 async function onRead(): Promise<void> {
   const behavior = settingsStore.readBehavior
+  const chapter = chapterToRead()
   if (behavior === 'main') {
     await openUrl(props.manga.mainUrl)
   } else if (behavior === 'chapter') {
-    const url = buildChapterUrl(props.manga.chapterUrlTemplate, props.manga.currentChapter)
-    await openUrl(url)
+    const url = buildChapterUrl(props.manga.chapterUrlTemplate, chapter)
+    await openUrl(url, chapter)
   } else {
     // ask — show inline dialog
-    const url = buildChapterUrl(props.manga.chapterUrlTemplate, props.manga.currentChapter)
+    const url = buildChapterUrl(props.manga.chapterUrlTemplate, chapter)
     showReadChoiceDialog.value = true
     pendingChapterUrl.value = url
+    pendingChapter.value = chapter
   }
 }
 
@@ -50,9 +67,23 @@ import { ref, watch } from 'vue'
 import type { MangaStatus } from '../../types/index'
 const showReadChoiceDialog = ref(false)
 const pendingChapterUrl = ref('')
+const pendingChapter = ref(0)
+
+// Nach-dem-Lesen-Dialog (Mobile)
+const titleExpanded = ref(false)
+const showMarkReadDialog = ref(false)
+const markReadChapter = ref(0)
+
+async function confirmMarkRead(): Promise<void> {
+  showMarkReadDialog.value = false
+  if (markReadChapter.value > props.manga.currentChapter) {
+    await mangaStore.setChapter(props.manga.id, markReadChapter.value)
+  }
+}
 
 // Status quick-change
 const showStatusPicker = ref(false)
+let backdropDown = false
 const statusBadgeRef = ref<HTMLElement | null>(null)
 const pickerStyle = ref<Record<string, string>>({})
 
@@ -101,6 +132,9 @@ async function openMain(): Promise<void> {
 
 async function openChapter(): Promise<void> {
   showReadChoiceDialog.value = false
+  if (pendingChapter.value > props.manga.currentChapter) {
+    await mangaStore.setChapter(props.manga.id, pendingChapter.value)
+  }
   await openUrl(pendingChapterUrl.value)
 }
 </script>
@@ -110,23 +144,58 @@ async function openChapter(): Promise<void> {
     class="manga-card"
     :class="{ 'has-new': manga.hasNewChapter }"
   >
-    <!-- Header row -->
-    <div class="flex items-start justify-between gap-2 mb-2">
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-semibold truncate" style="color: hsl(var(--foreground))">{{ manga.title }}</p>
-        <div class="flex items-center gap-1.5 mt-0.5">
+    <!-- Card inner: two-column when cover present -->
+    <div class="card-inner" :class="{ 'has-cover': manga.mangaDexCoverUrl || manga.comickCoverUrl }">
+      <!-- Cover panel (left column) -->
+      <div v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl" class="cover-panel">
+        <img :src="manga.mangaDexCoverUrl || manga.comickCoverUrl" :alt="manga.title" loading="lazy" />
+      </div>
+
+      <!-- Content column -->
+      <div class="card-content">
+        <!-- Title row -->
+        <div class="flex items-start justify-between gap-1 mb-0.5">
+          <p
+            class="text-sm font-semibold card-title"
+            :class="{ 'title-expand-enabled': settingsStore.titleExpand, expanded: titleExpanded && settingsStore.titleExpand }"
+            style="color: hsl(var(--foreground))"
+            @click.stop="settingsStore.titleExpand && (titleExpanded = !titleExpanded)"
+          >{{ manga.title }}</p>
+          <NewChapterBadge v-if="manga.hasNewChapter" />
+        </div>
+        <div class="flex items-center gap-1.5 mb-2">
           <span class="text-xs" style="color: hsl(var(--muted-foreground))">Kap. </span>
           <ChapterInput :model-value="manga.currentChapter" @update:model-value="onChapterChange" />
         </div>
-      </div>
-      <NewChapterBadge v-if="manga.hasNewChapter" />
-    </div>
 
-    <!-- Status badge -->
-    <div class="status-wrapper mt-2">
-      <button ref="statusBadgeRef" class="status-badge status-badge-btn" @click.stop="toggleStatusPicker">
-        {{ t('tabs.' + manga.status) }}
-      </button>
+        <!-- Status badge -->
+        <div class="status-wrapper mb-2">
+          <button ref="statusBadgeRef" class="status-badge status-badge-btn" @click.stop="toggleStatusPicker">
+            {{ t('tabs.' + manga.status) }}
+          </button>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="flex items-center gap-1 mt-auto">
+          <button class="card-btn primary" :title="t('manga.read')" @click="onRead">
+            <BookOpen :size="14" />
+          </button>
+          <button class="card-btn" :title="t('manga.info')" @click="emit('edit', manga)">
+            <Pencil :size="14" />
+          </button>
+          <button
+            class="card-btn"
+            :class="{ focus: manga.isFocused }"
+            :title="manga.isFocused ? t('manga.unfocus') : t('manga.focus')"
+            @click="mangaStore.toggleFocus(manga.id)"
+          >
+            <Star :size="14" :fill="manga.isFocused ? 'currentColor' : 'none'" />
+          </button>
+          <button class="card-btn danger" :title="t('manga.delete')" @click="mangaStore.remove(manga.id)">
+            <Trash2 :size="14" />
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Status picker (teleported to body to avoid clip) -->
@@ -144,30 +213,28 @@ async function openChapter(): Promise<void> {
       </div>
     </Teleport>
 
-    <!-- Action buttons -->
-    <div class="flex items-center gap-1 mt-2">
-      <button class="card-btn primary" :title="t('manga.read')" @click="onRead">
-        <BookOpen :size="14" />
-      </button>
-      <button class="card-btn" :title="t('manga.info')" @click="emit('edit', manga)">
-        <Pencil :size="14" />
-      </button>
-      <button
-        class="card-btn"
-        :class="{ focus: manga.isFocused }"
-        :title="manga.isFocused ? t('manga.unfocus') : t('manga.focus')"
-        @click="mangaStore.toggleFocus(manga.id)"
-      >
-        <Star :size="14" :fill="manga.isFocused ? 'currentColor' : 'none'" />
-      </button>
-      <button class="card-btn danger" :title="t('manga.delete')" @click="mangaStore.remove(manga.id)">
-        <Trash2 :size="14" />
-      </button>
-    </div>
+    <!-- Mark-as-read Dialog (Mobile, nach Schließen des Browsers) -->
+    <Teleport to="body">
+      <div v-if="showMarkReadDialog" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && (showMarkReadDialog = false)">
+        <div class="modal-box">
+          <p class="text-sm font-medium mb-1" style="color: hsl(var(--foreground))">
+            Bis zu welchem Kapitel gelesen?
+          </p>
+          <p class="text-xs mb-4 truncate" style="color: hsl(var(--muted-foreground))">{{ manga.title }}</p>
+          <div class="flex items-center justify-center gap-3 mb-4">
+            <button class="chapter-adj-btn" @click="markReadChapter = Math.max(1, markReadChapter - 1)">−</button>
+            <span class="text-lg font-semibold" style="color: hsl(var(--foreground)); min-width: 48px; text-align: center">{{ markReadChapter }}</span>
+            <button class="chapter-adj-btn" @click="markReadChapter++">+</button>
+          </div>
+          <button class="btn-primary w-full" @click="confirmMarkRead">Speichern</button>
+          <button class="btn-ghost w-full mt-2" @click="showMarkReadDialog = false">Abbrechen</button>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Read Choice Dialog -->
     <Teleport to="body">
-      <div v-if="showReadChoiceDialog" class="modal-backdrop" @click.self="showReadChoiceDialog = false">
+      <div v-if="showReadChoiceDialog" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && (showReadChoiceDialog = false)">
         <div class="modal-box">
           <p class="text-sm font-medium mb-4" style="color: hsl(var(--foreground))">
             {{ t('reader.chooseWhat') }}
@@ -198,6 +265,48 @@ async function openChapter(): Promise<void> {
 }
 .manga-card.has-new {
   border-color: hsl(var(--primary) / 0.4);
+}
+.card-inner {
+  display: flex;
+  flex-direction: column;
+}
+.card-inner.has-cover {
+  flex-direction: row;
+  gap: 10px;
+}
+.cover-panel {
+  flex-shrink: 0;
+  width: 72px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: hsl(var(--secondary));
+  align-self: stretch;
+}
+.cover-panel img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.card-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+.card-title.title-expand-enabled:hover,
+.card-title.expanded {
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  text-overflow: unset;
+  cursor: pointer;
 }
 .card-btn {
   display: flex;
@@ -281,6 +390,23 @@ async function openChapter(): Promise<void> {
   color: hsl(var(--muted-foreground));
   border: none;
   cursor: pointer;
+}
+.chapter-adj-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 20px;
+  font-weight: 500;
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chapter-adj-btn:active {
+  background: hsl(var(--accent));
 }
 .status-wrapper {
   display: inline-block;

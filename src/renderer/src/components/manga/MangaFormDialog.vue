@@ -4,6 +4,7 @@ import { X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { Manga, MangaStatus } from '../../types/index'
 import { useMangaStore } from '../../stores/manga.store'
+import MangaDexSearchModal from './MangaDexSearchModal.vue'
 
 const props = defineProps<{ open: boolean; manga?: Manga | null }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
@@ -17,6 +18,15 @@ const chapterUrlTemplate = ref('')
 const status = ref<MangaStatus>('reading')
 const currentChapter = ref(0)
 const errors = ref<Record<string, string>>({})
+const mangaDexId = ref('')
+const mangaDexTitle = ref('')
+const mangaDexCoverUrl = ref<string | undefined>(undefined)
+const showMdxModal = ref(false)
+const comickHid = ref('')
+const comickTitle = ref('')
+const comickCoverUrl = ref<string | undefined>(undefined)
+const showCkModal = ref(false)
+let backdropDown = false
 
 const statuses: { value: MangaStatus; label: string }[] = [
   { value: 'reading', label: 'tabs.reading' },
@@ -34,14 +44,28 @@ watch(() => props.open, (open) => {
       chapterUrlTemplate.value = props.manga.chapterUrlTemplate
       status.value = props.manga.status
       currentChapter.value = props.manga.currentChapter
+      mangaDexId.value = props.manga.mangaDexId ?? ''
+      mangaDexTitle.value = props.manga.mangaDexTitle ?? ''
+      mangaDexCoverUrl.value = props.manga.mangaDexCoverUrl
+      comickHid.value = props.manga.comickHid ?? ''
+      comickTitle.value = props.manga.comickTitle ?? ''
+      comickCoverUrl.value = props.manga.comickCoverUrl
     } else {
       title.value = ''
       mainUrl.value = ''
       chapterUrlTemplate.value = ''
       status.value = 'reading'
       currentChapter.value = 0
+      mangaDexId.value = ''
+      mangaDexTitle.value = ''
+      mangaDexCoverUrl.value = undefined
+      comickHid.value = ''
+      comickTitle.value = ''
+      comickCoverUrl.value = undefined
     }
     errors.value = {}
+    showMdxModal.value = false
+    showCkModal.value = false
   }
 })
 
@@ -63,7 +87,13 @@ async function handleSave(): Promise<void> {
     isFocused: props.manga?.isFocused ?? false,
     currentChapter: currentChapter.value,
     hasNewChapter: false,
-    lastCheckedChapter: currentChapter.value
+    lastCheckedChapter: currentChapter.value,
+    mangaDexId: mangaDexId.value || undefined,
+    mangaDexTitle: mangaDexTitle.value || undefined,
+    mangaDexCoverUrl: mangaDexCoverUrl.value || undefined,
+    comickHid: comickHid.value || undefined,
+    comickTitle: comickTitle.value || undefined,
+    comickCoverUrl: comickCoverUrl.value || undefined
   }
 
   if (props.manga) {
@@ -73,11 +103,23 @@ async function handleSave(): Promise<void> {
   }
   emit('update:open', false)
 }
+
+function onMdxSelect(item: { id: string; title: string; coverUrl: string | null }): void {
+  mangaDexId.value = item.id
+  mangaDexTitle.value = item.title
+  mangaDexCoverUrl.value = item.coverUrl ?? undefined
+}
+
+function onCkSelect(item: { id: string; title: string; coverUrl: string | null }): void {
+  comickHid.value = item.id
+  comickTitle.value = item.title
+  comickCoverUrl.value = item.coverUrl ?? undefined
+}
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="modal-backdrop" @click.self="emit('update:open', false)">
+    <div v-if="open" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && emit('update:open', false)">
       <div class="modal-box">
         <!-- Header -->
         <div class="flex items-center justify-between mb-5">
@@ -126,6 +168,52 @@ async function handleSave(): Promise<void> {
             <label class="field-label">{{ t('manga.currentChapter') }}</label>
             <input v-model.number="currentChapter" type="number" min="0" step="0.5" class="field-input" />
           </div>
+
+          <!-- MangaDex Verknüpfung -->
+          <div>
+            <label class="field-label">MangaDex</label>
+            <div class="mdx-row">
+              <span class="mdx-status" :class="{ linked: !!mangaDexId }">
+                {{ mangaDexId ? '✓ ' + mangaDexTitle : t('manga.mdxNotLinked') }}
+              </span>
+              <button
+                v-if="mangaDexId"
+                type="button"
+                class="mdx-btn"
+                :title="t('manga.mdxUnlink')"
+                @click="mangaDexId = ''; mangaDexTitle = ''; mangaDexCoverUrl = undefined"
+              >✕</button>
+              <button type="button" class="mdx-btn" @click="showMdxModal = true">
+                {{ mangaDexId ? t('manga.mdxChange') : t('manga.mdxLink') }}
+              </button>
+            </div>
+            <p v-if="!mangaDexId" class="text-xs mt-1" style="color: hsl(var(--muted-foreground))">
+              {{ t('manga.mdxHint') }}
+            </p>
+          </div>
+
+          <!-- ComicK.io Verknüpfung -->
+          <div>
+            <label class="field-label">ComicK.io</label>
+            <div class="mdx-row">
+              <span class="mdx-status" :class="{ linked: !!comickHid }">
+                {{ comickHid ? '✓ ' + comickTitle : t('manga.ckNotLinked') }}
+              </span>
+              <button
+                v-if="comickHid"
+                type="button"
+                class="mdx-btn"
+                :title="t('manga.ckUnlink')"
+                @click="comickHid = ''; comickTitle = ''; comickCoverUrl = undefined"
+              >✕</button>
+              <button type="button" class="mdx-btn" @click="showCkModal = true">
+                {{ comickHid ? t('manga.ckChange') : t('manga.ckLink') }}
+              </button>
+            </div>
+            <p v-if="!comickHid" class="text-xs mt-1" style="color: hsl(var(--muted-foreground))">
+              {{ t('manga.ckHint') }}
+            </p>
+          </div>
         </div>
 
         <!-- Buttons -->
@@ -136,6 +224,22 @@ async function handleSave(): Promise<void> {
       </div>
     </div>
   </Teleport>
+
+  <MangaDexSearchModal
+    :open="showMdxModal"
+    :initial-query="title"
+    @close="showMdxModal = false"
+    @select="onMdxSelect"
+  />
+
+  <MangaDexSearchModal
+    :open="showCkModal"
+    :initial-query="title"
+    search-channel="comick:search"
+    :modal-title="t('manga.ckModalTitle')"
+    @close="showCkModal = false"
+    @select="onCkSelect"
+  />
 </template>
 
 <style scoped>
@@ -202,6 +306,38 @@ async function handleSave(): Promise<void> {
 .close-btn:hover {
   background: hsl(var(--secondary));
   color: hsl(var(--foreground));
+}
+.mdx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+}
+.mdx-status {
+  flex: 1;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mdx-status.linked {
+  color: hsl(var(--primary));
+}
+.mdx-btn {
+  flex-shrink: 0;
+  padding: 0 10px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+}
+.mdx-btn:hover {
+  background: hsl(var(--accent));
 }
 .btn-primary {
   padding: 8px 14px;

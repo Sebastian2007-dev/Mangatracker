@@ -96,6 +96,10 @@ async function setBlockNewWindows(v: boolean): Promise<void> {
   await settings.save({ blockNewWindows: v })
 }
 
+async function setTitleExpand(v: boolean): Promise<void> {
+  await settings.save({ titleExpand: v })
+}
+
 async function updateWhitelist(list: string[]): Promise<void> {
   await settings.save({ domainWhitelist: list })
 }
@@ -138,6 +142,22 @@ async function updateBlocklist(list: string[]): Promise<void> {
         >
           {{ lang.label }}
         </button>
+      </div>
+    </section>
+
+    <!-- Library -->
+    <section class="settings-section">
+      <h2 class="section-title">{{ t('settings.library') }}</h2>
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.titleExpand') }}</span>
+          <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.titleExpandHint') }}</p>
+        </div>
+        <button
+          class="toggle"
+          :class="{ on: settings.titleExpand }"
+          @click="setTitleExpand(!settings.titleExpand)"
+        />
       </div>
     </section>
 
