@@ -11,6 +11,7 @@ import { buildChapterUrl } from '../../composables/useChapterUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
 import { getBridge } from '../../services/platform'
+import { setReadingSession, clearReadingSession } from '../../composables/useReadingSession'
 
 const props = defineProps<{ manga: Manga }>()
 const emit = defineEmits<{ edit: [manga: Manga] }>()
@@ -26,8 +27,8 @@ async function onChapterChange(chapter: number): Promise<void> {
 
 async function openUrl(url: string, trackFromChapter?: number): Promise<void> {
   if (isMobile) {
-    await Browser.open({ url, presentationStyle: 'fullscreen' })
     if (trackFromChapter !== undefined) {
+      await setReadingSession({ mangaId: props.manga.id, title: props.manga.title, chapter: trackFromChapter })
       const listener = await Browser.addListener('browserFinished', async () => {
         await listener.remove()
         // Dialog anzeigen: bis zu welchem Kapitel hast du gelesen?
@@ -35,16 +36,15 @@ async function openUrl(url: string, trackFromChapter?: number): Promise<void> {
         showMarkReadDialog.value = true
       })
     }
+    await Browser.open({ url, presentationStyle: 'fullscreen' })
   } else {
     await readerStore.open(props.manga.id, url)
   }
 }
 
-/** Gibt das Kapitel zurück das geöffnet werden soll — neues Kapitel falls verfügbar. */
+/** Immer vom aktuellen Kapitel starten — nie springen. */
 function chapterToRead(): number {
-  return props.manga.hasNewChapter && props.manga.lastCheckedChapter > props.manga.currentChapter
-    ? props.manga.lastCheckedChapter
-    : props.manga.currentChapter
+  return props.manga.currentChapter
 }
 
 async function onRead(): Promise<void> {
@@ -77,9 +77,15 @@ const markReadChapter = ref(0)
 
 async function confirmMarkRead(): Promise<void> {
   showMarkReadDialog.value = false
+  await clearReadingSession()
   if (markReadChapter.value > props.manga.currentChapter) {
     await mangaStore.setChapter(props.manga.id, markReadChapter.value)
   }
+}
+
+async function cancelMarkRead(): Promise<void> {
+  showMarkReadDialog.value = false
+  await clearReadingSession()
 }
 
 // Status quick-change
@@ -284,7 +290,7 @@ async function openChapter(): Promise<void> {
 
     <!-- Mark-as-read Dialog (Mobile, nach Schließen des Browsers) -->
     <Teleport to="body">
-      <div v-if="showMarkReadDialog" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && (showMarkReadDialog = false)">
+      <div v-if="showMarkReadDialog" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && cancelMarkRead()">
         <div class="modal-box">
           <p class="text-sm font-medium mb-1" style="color: hsl(var(--foreground))">
             Bis zu welchem Kapitel gelesen?
@@ -296,7 +302,7 @@ async function openChapter(): Promise<void> {
             <button class="chapter-adj-btn" @click="markReadChapter++">+</button>
           </div>
           <button class="btn-primary w-full" @click="confirmMarkRead">Speichern</button>
-          <button class="btn-ghost w-full mt-2" @click="showMarkReadDialog = false">Abbrechen</button>
+          <button class="btn-ghost w-full mt-2" @click="cancelMarkRead">Abbrechen</button>
         </div>
       </div>
     </Teleport>
@@ -405,6 +411,8 @@ async function openChapter(): Promise<void> {
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: default;
+  min-width: 0;
+  flex: 1;
 }
 .card-title.title-expand-enabled:hover,
 .card-title.expanded {

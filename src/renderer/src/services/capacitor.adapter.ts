@@ -7,6 +7,7 @@
 import type { PlatformBridge } from './platform'
 import * as mangaService from './mobile/manga.service'
 import * as settingsService from './mobile/settings.service'
+import * as gistService from './mobile/gist.service'
 import { runPoll } from './mobile/poller.service'
 import { writeMangaExportFile } from './mobile/storage.service'
 import { Share } from '@capacitor/share'
@@ -208,6 +209,10 @@ const handlers: Record<string, Handler> = {
 
   'settings:get': () => settingsService.settingsGet(),
   'settings:set': (p) => settingsService.settingsSet(p as Parameters<typeof settingsService.settingsSet>[0]),
+
+  'gist:testAuth': (p) => gistService.testAuth(p),
+  'gist:sync': (p) => gistService.sync(p),
+  'gist:disconnect': () => gistService.disconnect(),
 
   // Reader-Channels: auf Mobile werden diese über @capacitor/browser abgehandelt.
   // Der reader.store ruft diese nicht auf Mobile auf, daher Stubs:

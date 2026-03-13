@@ -83,7 +83,7 @@ function onDrop(toId: string): void {
     <MangaTabBar v-model="activeTab" />
 
     <!-- Content -->
-    <div class="flex-1 overflow-y-auto p-4">
+    <div class="flex-1 overflow-y-auto overflow-x-hidden p-4">
       <!-- Focus hint -->
       <p v-if="activeTab === 'focus'" class="text-xs mb-4" style="color: hsl(var(--muted-foreground))">
         {{ t('manga.focusHint') }}

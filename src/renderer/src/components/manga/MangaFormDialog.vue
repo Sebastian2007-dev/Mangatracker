@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { Manga, MangaStatus } from '../../types/index'
@@ -21,6 +21,9 @@ const chapterUrlTemplate = ref('')
 const status = ref<MangaStatus>('reading')
 const currentChapter = ref(0)
 const errors = ref<Record<string, string>>({})
+const chapterTemplateWarning = computed(() =>
+  chapterUrlTemplate.value.trim().length > 0 && !chapterUrlTemplate.value.includes('$chapter')
+)
 const mangaDexId = ref('')
 const mangaDexTitle = ref('')
 const mangaDexCoverUrl = ref<string | undefined>(undefined)
@@ -31,6 +34,9 @@ const comickCoverUrl = ref<string | undefined>(undefined)
 const showCkModal = ref(false)
 const autoLinking = ref(false)
 let backdropDown = false
+const mangaDexManuallyUnlinked = ref(false)
+const comickManuallyUnlinked = ref(false)
+const duplicateOf = ref<import('../../types/index').Manga | null>(null)
 
 type SearchItem = { id: string; title: string; coverUrl: string | null }
 
@@ -50,7 +56,7 @@ async function autoLink(): Promise<void> {
   if (!q) return
   const bridge = getBridge()
 
-  if (!mangaDexId.value) {
+  if (!mangaDexId.value && !mangaDexManuallyUnlinked.value) {
     try {
       const res = (await bridge.invoke('mangadex:search', { title: q })) as {
         success: boolean
@@ -73,7 +79,7 @@ async function autoLink(): Promise<void> {
     } catch { /* ignore */ }
   }
 
-  if (!comickHid.value) {
+  if (!comickHid.value && !comickManuallyUnlinked.value) {
     try {
       const res = (await bridge.invoke('comick:search', { title: q })) as {
         success: boolean
@@ -135,6 +141,9 @@ watch(() => props.open, (open) => {
     errors.value = {}
     showMdxModal.value = false
     showCkModal.value = false
+    mangaDexManuallyUnlinked.value = false
+    comickManuallyUnlinked.value = false
+    duplicateOf.value = null
   }
 })
 
@@ -145,8 +154,26 @@ function validate(): boolean {
   return Object.keys(errors.value).length === 0
 }
 
-async function handleSave(): Promise<void> {
+function findDuplicate(): import('../../types/index').Manga | null {
+  const norm = (url: string) => url.toLowerCase().replace(/\/+$/, '').trim()
+  return mangaStore.items.find((m) => {
+    if (props.manga && m.id === props.manga.id) return false
+    return (
+      norm(m.mainUrl) === norm(mainUrl.value) ||
+      m.title.toLowerCase().trim() === title.value.toLowerCase().trim() ||
+      (!!mangaDexId.value && m.mangaDexId === mangaDexId.value) ||
+      (!!comickHid.value && m.comickHid === comickHid.value)
+    )
+  }) ?? null
+}
+
+async function handleSave(force = false): Promise<void> {
   if (!validate()) return
+  if (!force) {
+    const dup = findDuplicate()
+    if (dup) { duplicateOf.value = dup; return }
+  }
+  duplicateOf.value = null
 
   if (settingsStore.autoLinkEnabled) {
     autoLinking.value = true
@@ -226,7 +253,8 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
           <div>
             <label class="field-label">{{ t('manga.chapterUrlTemplate') }}</label>
             <input v-model="chapterUrlTemplate" type="text" class="field-input" placeholder="https://example.com/manga/$chapter" />
-            <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground))">{{ t('manga.chapterUrlHelp') }}</p>
+            <p v-if="chapterTemplateWarning" class="field-warning">{{ t('manga.chapterUrlNoPlaceholder') }}</p>
+            <p v-else class="text-xs mt-1" style="color: hsl(var(--muted-foreground))">{{ t('manga.chapterUrlHelp') }}</p>
           </div>
 
           <!-- Status -->
@@ -256,7 +284,7 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
                 type="button"
                 class="mdx-btn"
                 :title="t('manga.mdxUnlink')"
-                @click="mangaDexId = ''; mangaDexTitle = ''; mangaDexCoverUrl = undefined"
+                @click="mangaDexId = ''; mangaDexTitle = ''; mangaDexCoverUrl = undefined; mangaDexManuallyUnlinked = true"
               >✕</button>
               <button type="button" class="mdx-btn" @click="showMdxModal = true">
                 {{ mangaDexId ? t('manga.mdxChange') : t('manga.mdxLink') }}
@@ -279,7 +307,7 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
                 type="button"
                 class="mdx-btn"
                 :title="t('manga.ckUnlink')"
-                @click="comickHid = ''; comickTitle = ''; comickCoverUrl = undefined"
+                @click="comickHid = ''; comickTitle = ''; comickCoverUrl = undefined; comickManuallyUnlinked = true"
               >✕</button>
               <button type="button" class="mdx-btn" @click="showCkModal = true">
                 {{ comickHid ? t('manga.ckChange') : t('manga.ckLink') }}
@@ -291,10 +319,20 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
           </div>
         </div>
 
+        <!-- Duplikat-Warnung -->
+        <div v-if="duplicateOf" class="dup-warning">
+          <p class="dup-title">⚠ {{ t('manga.duplicateWarningTitle') }}</p>
+          <p class="dup-text">{{ t('manga.duplicateWarningText', { title: duplicateOf.title }) }}</p>
+          <div class="flex gap-2 mt-3">
+            <button class="btn-ghost flex-1" @click="duplicateOf = null">{{ t('manga.cancel') }}</button>
+            <button class="btn-warn flex-1" @click="handleSave(true)">{{ t('manga.duplicateSaveAnyway') }}</button>
+          </div>
+        </div>
+
         <!-- Buttons -->
-        <div class="flex gap-2 mt-6">
+        <div v-else class="flex gap-2 mt-6">
           <button class="btn-ghost flex-1" :disabled="autoLinking" @click="emit('update:open', false)">{{ t('manga.cancel') }}</button>
-          <button class="btn-primary flex-1" :disabled="autoLinking" @click="handleSave">
+          <button class="btn-primary flex-1" :disabled="autoLinking" @click="handleSave()">
             {{ autoLinking ? t('manga.autoLinking') : t('manga.save') }}
           </button>
         </div>
@@ -368,6 +406,11 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
   color: hsl(0 70% 65%);
   margin-top: 3px;
 }
+.field-warning {
+  font-size: 11px;
+  color: hsl(43 96% 56%);
+  margin-top: 3px;
+}
 .close-btn {
   display: flex;
   align-items: center;
@@ -434,5 +477,34 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
   color: hsl(var(--muted-foreground));
   border: 1px solid hsl(var(--border));
   cursor: pointer;
+}
+.btn-warn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: hsl(43 96% 20%);
+  color: hsl(43 96% 60%);
+  border: 1px solid hsl(43 96% 35%);
+  cursor: pointer;
+}
+.btn-warn:hover { background: hsl(43 96% 25%); }
+.dup-warning {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: hsl(43 96% 56% / 0.08);
+  border: 1px solid hsl(43 96% 56% / 0.3);
+}
+.dup-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(43 96% 56%);
+  margin-bottom: 4px;
+}
+.dup-text {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.5;
 }
 </style>

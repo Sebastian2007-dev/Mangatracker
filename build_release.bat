@@ -27,18 +27,54 @@ echo [3/7] Compiling renderer + main (electron-vite)...
 call npm run build
 if errorlevel 1 goto :error
 
-echo [4/7] Packaging Windows installer (.exe) via electron-builder...
-echo        (NSIS-Kompilierung kann 1-2 Minuten dauern - bitte warten)
-call npx electron-builder --win --publish=never
+if exist "dist\win-unpacked" (
+  echo       Cleaning previous dist\win-unpacked ...
+  rd /S /Q "dist\win-unpacked"
+)
+
+echo [4/7] Packaging Windows app directory for Inno Setup...
+echo        (Erstellt dist\win-unpacked als Installer-Quelle)
+call npx electron-builder --win --dir --publish=never
 if errorlevel 1 goto :error
 
-echo [5/7] Building Android web assets and syncing Capacitor...
+if not exist "dist\win-unpacked\MangaTracker.exe" (
+  echo ERROR: dist\win-unpacked\MangaTracker.exe not found.
+  goto :error
+)
+
+echo [5/7] Building Inno Setup installer...
+set "ISCC_EXE="
+for %%I in (ISCC.exe) do if not defined ISCC_EXE set "ISCC_EXE=%%~$PATH:I"
+if not defined ISCC_EXE if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+if not defined ISCC_EXE if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%ProgramFiles%\Inno Setup 6\ISCC.exe"
+
+if not defined ISCC_EXE (
+  echo ERROR: ISCC.exe not found. Install Inno Setup 6 or add it to PATH.
+  goto :error
+)
+
+for /f "usebackq delims=" %%V in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-Content -Raw 'package.json' | ConvertFrom-Json).version"`) do set "APP_VERSION=%%V"
+if not defined APP_VERSION (
+  echo ERROR: Unable to read version from package.json.
+  goto :error
+)
+
+echo        Compiling Inno Setup installer for version !APP_VERSION! ...
+"%ISCC_EXE%" "/DMyAppVersion=!APP_VERSION!" "installer\MangaTracker.iss"
+if errorlevel 1 goto :error
+
+if not exist "installer\MangaTracker-Installer-!APP_VERSION!.exe" (
+  echo ERROR: Inno installer not found in installer\
+  goto :error
+)
+
+echo [6/7] Building Android web assets and syncing Capacitor...
 call npm run build:mobile
 if errorlevel 1 goto :error
 call npx cap sync android
 if errorlevel 1 goto :error
 
-echo [6/7] Building Android release APK...
+echo [7/7] Building Android release APK and copying artifacts...
 pushd "android" >nul
 call gradlew.bat assembleRelease
 if errorlevel 1 (
@@ -46,19 +82,6 @@ if errorlevel 1 (
   goto :error
 )
 popd >nul
-
-echo [7/7] Copying artifacts to installer\...
-set "EXE_COUNT=0"
-for %%F in ("dist\*.exe") do (
-  echo        Copying %%~nxF ...
-  copy /Y "%%~fF" "installer\" >nul
-  set /A EXE_COUNT+=1
-)
-
-if !EXE_COUNT! EQU 0 (
-  echo ERROR: No .exe file found in dist\
-  goto :error
-)
 
 if not exist "android\app\build\outputs\apk\release\app-release.apk" (
   echo ERROR: app-release.apk not found.

@@ -2,12 +2,14 @@
 import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../stores/settings.store'
+import { useMangaStore } from '../stores/manga.store'
 import type { Theme, Language, ReadBehavior } from '../types/index'
 import DomainListManager from '../components/settings/DomainListManager.vue'
 import { platformFeatures, isMobile } from '../composables/usePlatform'
 
 const { t, locale } = useI18n()
 const settings = useSettingsStore()
+const mangaStore = useMangaStore()
 
 // Mobile: aktueller Benachrichtigungs-Berechtigungsstatus
 const notifPermissionDenied = ref(false)
@@ -114,6 +116,66 @@ async function updateWhitelist(list: string[]): Promise<void> {
 
 async function updateBlocklist(list: string[]): Promise<void> {
   await settings.save({ domainBlocklist: list })
+}
+
+// ─── Gist Sync ────────────────────────────────────────────────────────────
+
+const tokenInput = ref(settings.githubToken)
+const showToken = ref(false)
+const authStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
+const authUsername = ref('')
+const syncStatus = ref<'idle' | 'running' | 'ok' | 'fail'>('idle')
+const syncError = ref('')
+
+async function testAuth(): Promise<void> {
+  if (!tokenInput.value) return
+  authStatus.value = 'testing'
+  const result = await settings.testGistAuth(tokenInput.value)
+  if (result.success && result.username) {
+    authStatus.value = 'ok'
+    authUsername.value = result.username
+    await settings.save({ githubToken: tokenInput.value })
+  } else {
+    authStatus.value = 'fail'
+  }
+}
+
+async function syncNow(): Promise<void> {
+  syncStatus.value = 'running'
+  syncError.value = ''
+  const result = await settings.syncGist()
+  if (result.success) {
+    syncStatus.value = 'ok'
+    await mangaStore.fetchAll()
+  } else {
+    syncStatus.value = 'fail'
+    syncError.value = result.error ?? ''
+  }
+}
+
+async function disconnectGist(): Promise<void> {
+  await settings.disconnectGist()
+  tokenInput.value = ''
+  authStatus.value = 'idle'
+  authUsername.value = ''
+  syncStatus.value = 'idle'
+}
+
+async function setSyncEnabled(v: boolean): Promise<void> {
+  await settings.save({ gistSyncEnabled: v })
+}
+
+async function setAutoSync(v: boolean): Promise<void> {
+  await settings.save({ gistAutoSync: v })
+}
+
+function formatLastSync(ts: number): string {
+  if (!ts) return t('settings.syncNever')
+  const diff = Math.floor((Date.now() - ts) / 60000)
+  if (diff < 1) return '< 1 min'
+  if (diff < 60) return `${diff} min`
+  const h = Math.floor(diff / 60)
+  return h === 1 ? '1 Std.' : `${h} Std.`
 }
 </script>
 
@@ -297,6 +359,99 @@ async function updateBlocklist(list: string[]): Promise<void> {
       </div>
     </section>
 
+    <!-- Gist Sync -->
+    <section class="settings-section">
+      <h2 class="section-title">{{ t('settings.sync') }}</h2>
+
+      <!-- Sync aktivieren -->
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.syncEnabled') }}</span>
+          <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.syncEnabledHint') }}</p>
+        </div>
+        <button class="toggle" :class="{ on: settings.gistSyncEnabled }" @click="setSyncEnabled(!settings.gistSyncEnabled)" />
+      </div>
+
+      <template v-if="settings.gistSyncEnabled">
+        <!-- Token-Eingabe -->
+        <div class="mb-3">
+          <label class="text-xs font-medium mb-1 block" style="color: hsl(var(--muted-foreground))">
+            {{ t('settings.syncToken') }}
+          </label>
+          <p class="text-xs mb-2" style="color: hsl(var(--muted-foreground))">{{ t('settings.syncTokenHint') }}</p>
+          <div class="flex gap-2">
+            <div class="flex-1 relative">
+              <input
+                v-model="tokenInput"
+                :type="showToken ? 'text' : 'password'"
+                :placeholder="t('settings.syncTokenPlaceholder')"
+                class="field-input w-full pr-8"
+                @keyup.enter="testAuth"
+              />
+              <button
+                class="token-eye-btn"
+                @click="showToken = !showToken"
+                :title="showToken ? 'Verbergen' : 'Anzeigen'"
+              >{{ showToken ? '🙈' : '👁' }}</button>
+            </div>
+            <button
+              class="action-btn"
+              :disabled="!tokenInput || authStatus === 'testing'"
+              @click="testAuth"
+            >
+              {{ authStatus === 'testing' ? '…' : t('settings.syncTestBtn') }}
+            </button>
+          </div>
+
+          <!-- Auth-Status -->
+          <div v-if="authStatus === 'ok'" class="status-badge status-ok mt-2">
+            ✓ {{ t('settings.syncTestOk') }} @{{ authUsername }}
+          </div>
+          <div v-else-if="authStatus === 'fail'" class="status-badge status-fail mt-2">
+            ✗ {{ t('settings.syncTestFail') }}
+          </div>
+        </div>
+
+        <!-- Auto-Sync -->
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.syncAutoSync') }}</span>
+          <button class="toggle" :class="{ on: settings.gistAutoSync }" @click="setAutoSync(!settings.gistAutoSync)" />
+        </div>
+
+        <!-- Letzter Sync + Gist-ID -->
+        <div class="sync-info mb-3">
+          <div class="flex justify-between text-xs" style="color: hsl(var(--muted-foreground))">
+            <span>{{ t('settings.syncLastSync') }}</span>
+            <span>{{ formatLastSync(settings.lastGistSync ?? 0) }}</span>
+          </div>
+          <div v-if="settings.gistId" class="flex justify-between text-xs mt-1" style="color: hsl(var(--muted-foreground))">
+            <span>{{ t('settings.syncGistId') }}</span>
+            <span class="font-mono">{{ settings.gistId.slice(0, 12) }}…</span>
+          </div>
+        </div>
+
+        <!-- Sync-Aktionen -->
+        <div class="flex gap-2">
+          <button
+            class="action-btn flex-1"
+            :disabled="!settings.githubToken || syncStatus === 'running'"
+            @click="syncNow"
+          >
+            {{ syncStatus === 'running' ? t('settings.syncRunning') : t('settings.syncNowBtn') }}
+          </button>
+          <button class="action-btn-ghost" @click="disconnectGist">
+            {{ t('settings.syncDisconnectBtn') }}
+          </button>
+        </div>
+
+        <!-- Sync-Status -->
+        <div v-if="syncStatus === 'ok'" class="status-badge status-ok mt-2">✓ {{ t('settings.syncSuccess') }}</div>
+        <div v-else-if="syncStatus === 'fail'" class="status-badge status-fail mt-2">
+          ✗ {{ t('settings.syncError') }}<span v-if="syncError">: {{ syncError }}</span>
+        </div>
+      </template>
+    </section>
+
     <!-- Domain Whitelist (nur Desktop) -->
     <section v-if="platformFeatures.hasDomainGuard" class="settings-section">
       <DomainListManager
@@ -369,6 +524,7 @@ async function updateBlocklist(list: string[]): Promise<void> {
 }
 .toggle {
   width: 40px;
+  min-width: 40px;
   height: 22px;
   border-radius: 11px;
   background: hsl(var(--secondary));
@@ -376,6 +532,8 @@ async function updateBlocklist(list: string[]): Promise<void> {
   cursor: pointer;
   position: relative;
   transition: background 0.2s;
+  flex-shrink: 0;
+  margin-left: 12px;
 }
 .toggle::after {
   content: '';
@@ -426,5 +584,62 @@ async function updateBlocklist(list: string[]): Promise<void> {
   background: hsl(43 96% 56% / 0.12);
   color: hsl(43 80% 55%);
   border: 1px solid hsl(43 96% 56% / 0.3);
+}
+.action-btn {
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.1s;
+  white-space: nowrap;
+}
+.action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.action-btn:not(:disabled):hover { opacity: 0.85; }
+.action-btn-ghost {
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.action-btn-ghost:hover { background: hsl(var(--accent)); }
+.token-eye-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+.status-badge {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.status-ok {
+  background: hsl(142 76% 36% / 0.12);
+  color: hsl(142 76% 36%);
+  border: 1px solid hsl(142 76% 36% / 0.3);
+}
+.status-fail {
+  background: hsl(0 84% 60% / 0.12);
+  color: hsl(0 72% 50%);
+  border: 1px solid hsl(0 84% 60% / 0.3);
+}
+.sync-info {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
 }
 </style>

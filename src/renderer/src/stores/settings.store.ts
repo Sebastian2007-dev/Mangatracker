@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { AppSettings, Theme, Language, ReadBehavior } from '../types/index'
+import type { AppSettings, Theme, Language, ReadBehavior, Manga } from '../types/index'
 import { getBridge } from '../services/platform'
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -19,6 +19,11 @@ export const useSettingsStore = defineStore('settings', () => {
   const elementPickerEnabled = ref<boolean>(true)
   const blockNewWindows = ref<boolean>(true)
   const titleExpand = ref<boolean>(true)
+  const gistSyncEnabled = ref<boolean>(false)
+  const gistAutoSync = ref<boolean>(false)
+  const githubToken = ref<string>('')
+  const gistId = ref<string>('')
+  const lastGistSync = ref<number>(0)
 
   function applySettings(s: AppSettings): void {
     theme.value = s.theme
@@ -35,6 +40,11 @@ export const useSettingsStore = defineStore('settings', () => {
     elementPickerEnabled.value = s.elementPickerEnabled ?? true
     blockNewWindows.value = s.blockNewWindows ?? true
     titleExpand.value = s.titleExpand ?? true
+    gistSyncEnabled.value = s.gistSyncEnabled ?? false
+    gistAutoSync.value = s.gistAutoSync ?? false
+    githubToken.value = s.githubToken ?? ''
+    gistId.value = s.gistId ?? ''
+    lastGistSync.value = s.lastGistSync ?? 0
   }
 
   async function load(): Promise<void> {
@@ -62,6 +72,39 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.elementPickerEnabled !== undefined) elementPickerEnabled.value = updates.elementPickerEnabled
     if (updates.blockNewWindows !== undefined) blockNewWindows.value = updates.blockNewWindows
     if (updates.titleExpand !== undefined) titleExpand.value = updates.titleExpand
+    if (updates.gistSyncEnabled !== undefined) gistSyncEnabled.value = updates.gistSyncEnabled
+    if (updates.gistAutoSync !== undefined) gistAutoSync.value = updates.gistAutoSync
+    if (updates.githubToken !== undefined) githubToken.value = updates.githubToken
+    if (updates.gistId !== undefined) gistId.value = updates.gistId
+    if (updates.lastGistSync !== undefined) lastGistSync.value = updates.lastGistSync
+  }
+
+  async function syncGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
+    const result = await api.invoke<{ success: boolean; data?: Manga[]; gistId?: string; error?: string }>(
+      'gist:sync',
+      { token: githubToken.value, gistId: gistId.value }
+    )
+    if (result.success && result.gistId) {
+      gistId.value = result.gistId
+      lastGistSync.value = Date.now()
+    }
+    return result
+  }
+
+  async function testGistAuth(token: string): Promise<{ success: boolean; username?: string; error?: string }> {
+    const result = await api.invoke<{ success: boolean; data?: { username: string }; error?: string }>(
+      'gist:testAuth',
+      { token }
+    )
+    return { success: result.success, username: result.data?.username, error: result.error }
+  }
+
+  async function disconnectGist(): Promise<void> {
+    await api.invoke('gist:disconnect')
+    githubToken.value = ''
+    gistId.value = ''
+    gistSyncEnabled.value = false
+    lastGistSync.value = 0
   }
 
   function setupListeners(): () => void {
@@ -77,6 +120,7 @@ export const useSettingsStore = defineStore('settings', () => {
     domainWhitelist, domainBlocklist,
     notificationIntervalMs, notificationsEnabled, backgroundNotificationsEnabled, autoLinkEnabled, desktopNotificationsEnabled, readerInSeparateWindow,
     elementPickerEnabled, blockNewWindows, titleExpand,
-    load, save, setupListeners
+    gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
+    load, save, setupListeners, syncGist, testGistAuth, disconnectGist
   }
 })

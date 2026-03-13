@@ -36,6 +36,11 @@ export type Theme = 'light' | 'dark' | 'system'
 export type Language = 'en' | 'de'
 export type ReadBehavior = 'main' | 'chapter' | 'ask'
 
+export interface GistTombstone {
+  id: string
+  deletedAt: number
+}
+
 export interface AppSettings {
   theme: Theme
   language: Language
@@ -51,6 +56,11 @@ export interface AppSettings {
   elementPickerEnabled: boolean
   blockNewWindows: boolean
   titleExpand: boolean
+  gistSyncEnabled: boolean
+  gistAutoSync: boolean
+  githubToken?: string
+  gistId?: string
+  lastGistSync?: number
 }
 
 export interface ReaderOpenPayload {

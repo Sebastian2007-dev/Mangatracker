@@ -5,18 +5,23 @@ import { ref } from 'vue'
 import { useMangaStore } from '../../stores/manga.store'
 import { getBridge } from '../../services/platform'
 import { isMobile } from '../../composables/usePlatform'
+import ScanResultModal from '../manga/ScanResultModal.vue'
+import type { Manga } from '../../types/index'
 
 const { t } = useI18n()
 const mangaStore = useMangaStore()
 
 const isScanning = ref(false)
+const scanResultManga = ref<Manga[]>([])
+const showScanResult = ref(false)
 
 async function handleScanNow(): Promise<void> {
   if (isScanning.value) return
   isScanning.value = true
   try {
-    await getBridge().invoke('manga:scanNow')
-    await mangaStore.fetchAll()
+    const newManga = await mangaStore.scanNow()
+    scanResultManga.value = newManga
+    showScanResult.value = true
   } finally {
     isScanning.value = false
   }
@@ -93,6 +98,12 @@ async function handleImport(): Promise<void> {
       <Download :size="16" />
     </button>
   </header>
+
+  <ScanResultModal
+    v-if="showScanResult"
+    :manga="scanResultManga"
+    @close="showScanResult = false"
+  />
 </template>
 
 <style scoped>

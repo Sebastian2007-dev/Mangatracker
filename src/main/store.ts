@@ -25,7 +25,12 @@ const store = new Store<StoreSchema>({
       readerInSeparateWindow: false,
       elementPickerEnabled: true,
       blockNewWindows: true,
-      titleExpand: true
+      titleExpand: true,
+      gistSyncEnabled: false,
+      gistAutoSync: false,
+      githubToken: '',
+      gistId: '',
+      lastGistSync: 0
     }
   }
 })

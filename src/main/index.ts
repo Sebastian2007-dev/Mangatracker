@@ -1,8 +1,10 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { existsSync } from 'fs'
 import { join } from 'path'
+import store from './store'
 import { registerMangaIpc } from './ipc/manga.ipc'
 import { registerSettingsIpc } from './ipc/settings.ipc'
+import { registerGistIpc, syncGistDirect } from './ipc/gist.ipc'
 import { registerReaderIpc } from './reader/ReaderView'
 import { registerDomainGuardReplyHandler } from './reader/domainGuard'
 import { initAdBlocker } from './reader/adBlocker'
@@ -52,8 +54,21 @@ function createWindow(): BrowserWindow {
 
   registerMangaIpc()
   registerSettingsIpc()
+  registerGistIpc()
   registerReaderIpc(mainWindow)
   registerDomainGuardReplyHandler(mainWindow)
+
+  // Sync vor dem Schließen des Fensters
+  mainWindow.on('close', async (event) => {
+    const settings = store.get('settings')
+    if (settings.gistSyncEnabled && settings.githubToken) {
+      event.preventDefault()
+      try {
+        await syncGistDirect(settings.githubToken, settings.gistId ?? '')
+      } catch { /* Sync-Fehler beim Schließen ignorieren */ }
+      mainWindow.destroy()
+    }
+  })
 
   ipcMain.handle('manga:scanNow', async () => {
     await runPoll(mainWindow, true)

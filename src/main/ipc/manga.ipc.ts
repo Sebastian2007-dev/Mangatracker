@@ -151,9 +151,10 @@ export function registerMangaIpc(): void {
     const list = store.get('mangaList')
     const manga = list.find((m) => m.id === id)
     if (!manga) return { success: false, error: 'Not found' }
-    // Move to trash
+    // Move to trash with a deletion timestamp so tombstone comparison works correctly
     const trash = store.get('mangaTrash')
-    store.set('mangaTrash', [...trash, manga])
+    const trashEntry = { ...manga, deletedAt: Date.now() }
+    store.set('mangaTrash', [...trash, trashEntry])
     store.set('mangaList', list.filter((m) => m.id !== id))
     return { success: true }
   })
