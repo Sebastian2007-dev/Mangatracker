@@ -159,5 +159,19 @@
     "title": "Activity Log",
     "clear": "Clear",
     "empty": "No entries yet – trigger a scan or wait for the next automatic scan"
+  },
+  "mods": {
+    "title": "Mods",
+    "empty": "No mods installed.",
+    "emptyHint": "Drop mods into the mods folder.",
+    "openFolder": "Open Folder",
+    "scan": "Scan Mods",
+    "scanning": "Scanning...",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "by": "by",
+    "settings": "Settings",
+    "loadError": "Load error",
+    "restartHint": "Restart required for changes to take effect."
   }
 }

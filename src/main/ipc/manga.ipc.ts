@@ -2,6 +2,7 @@ import { ipcMain, session as electronSession } from 'electron'
 import { randomUUID } from 'crypto'
 import store from '../store'
 import type { Manga, MangaStatus } from '../../types/index'
+import { emitModEvent } from '../mods/mod-loader'
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -124,6 +125,7 @@ export function registerMangaIpc(): void {
     }
     const list = store.get('mangaList')
     store.set('mangaList', [...list, manga])
+    emitModEvent('manga:created', manga)
     return { success: true, data: manga }
   })
 
@@ -144,6 +146,7 @@ export function registerMangaIpc(): void {
     const updated = { ...list[idx], ...updates, id, updatedAt: Date.now() }
     list[idx] = updated
     store.set('mangaList', list)
+    emitModEvent('manga:updated', updated)
     return { success: true, data: updated }
   })
 
@@ -156,6 +159,7 @@ export function registerMangaIpc(): void {
     const trashEntry = { ...manga, deletedAt: Date.now() }
     store.set('mangaTrash', [...trash, trashEntry])
     store.set('mangaList', list.filter((m) => m.id !== id))
+    emitModEvent('manga:deleted', { id })
     return { success: true }
   })
 

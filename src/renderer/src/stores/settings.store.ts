@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { AppSettings, Theme, Language, ReadBehavior, Manga } from '../types/index'
+import type { LoadedMod } from '../../../types/mod'
 import { getBridge } from '../services/platform'
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -24,6 +25,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const githubToken = ref<string>('')
   const gistId = ref<string>('')
   const lastGistSync = ref<number>(0)
+  const loadedMods = ref<LoadedMod[]>([])
 
   function applySettings(s: AppSettings): void {
     theme.value = s.theme
@@ -115,12 +117,38 @@ export const useSettingsStore = defineStore('settings', () => {
     return () => cleanup()
   }
 
+  async function fetchMods(): Promise<void> {
+    const result = await api.invoke<{ success: boolean; data: LoadedMod[] }>('mods:getAll')
+    if (result.success && result.data) {
+      loadedMods.value = result.data
+    }
+  }
+
+  async function scanMods(): Promise<void> {
+    const result = await api.invoke<{ success: boolean; data: LoadedMod[] }>('mods:scan')
+    if (result.success && result.data) {
+      loadedMods.value = result.data
+    }
+  }
+
+  async function setModEnabled(id: string, enabled: boolean): Promise<void> {
+    await api.invoke('mods:setEnabled', { id, enabled })
+    const mod = loadedMods.value.find((m) => m.manifest.id === id)
+    if (mod) mod.enabled = enabled
+  }
+
+  async function openModsFolder(): Promise<void> {
+    await api.invoke('mods:openFolder')
+  }
+
   return {
     theme, language, readBehavior,
     domainWhitelist, domainBlocklist,
     notificationIntervalMs, notificationsEnabled, backgroundNotificationsEnabled, autoLinkEnabled, desktopNotificationsEnabled, readerInSeparateWindow,
     elementPickerEnabled, blockNewWindows, titleExpand,
     gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
-    load, save, setupListeners, syncGist, testGistAuth, disconnectGist
+    loadedMods,
+    load, save, setupListeners, syncGist, testGistAuth, disconnectGist,
+    fetchMods, scanMods, setModEnabled, openModsFolder
   }
 })

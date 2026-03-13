@@ -1,0 +1,18 @@
+/*
+  Beispiel Theme-Mod: Rote Akzentfarben
+  ======================================
+  Dieses Theme ersetzt die Standard-Primärfarbe (Gold) durch Rot.
+  Kopiere diesen Ordner nach:
+    Windows:  %APPDATA%\Manga Tracker\mods\example-theme\
+    macOS:    ~/Library/Application Support/Manga Tracker/mods/example-theme/
+    Linux:    ~/.config/Manga Tracker/mods/example-theme/
+  Dann starte MangaTracker neu.
+
+  Alle verfügbaren CSS-Variablen sind im MODDING_GUIDE.md aufgelistet.
+*/
+
+:root {
+  /* Primärfarbe: Rot statt Gold */
+  --primary: 0 84% 60%;
+  --primary-foreground: 0 0% 100%;
+}

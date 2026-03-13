@@ -13,9 +13,14 @@ const mangaStore = useMangaStore()
 
 // Mobile: aktueller Benachrichtigungs-Berechtigungsstatus
 const notifPermissionDenied = ref(false)
+const modsScanning = ref(false)
 
 onMounted(async () => {
-  if (!isMobile) return
+  if (!isMobile) {
+    // Fetch installed mods (desktop only — IPC not available on mobile)
+    await settings.fetchMods()
+    return
+  }
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications')
     const { display } = await LocalNotifications.checkPermissions()
@@ -169,6 +174,16 @@ async function setAutoSync(v: boolean): Promise<void> {
   await settings.save({ gistAutoSync: v })
 }
 
+async function scanModsNow(): Promise<void> {
+  if (modsScanning.value) return
+  modsScanning.value = true
+  try {
+    await settings.scanMods()
+  } finally {
+    modsScanning.value = false
+  }
+}
+
 function formatLastSync(ts: number): string {
   if (!ts) return t('settings.syncNever')
   const diff = Math.floor((Date.now() - ts) / 60000)
@@ -180,7 +195,9 @@ function formatLastSync(ts: number): string {
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto p-6 max-w-2xl">
+  <div class="h-full overflow-hidden flex p-6 gap-6">
+    <!-- Left column: settings content -->
+    <div class="flex-1 overflow-y-auto min-w-0 max-w-2xl">
     <h1 class="text-xl font-bold mb-6" style="color: hsl(var(--foreground))">{{ t('settings.title') }}</h1>
 
     <!-- Theme -->
@@ -469,6 +486,48 @@ function formatLastSync(ts: number): string {
         @update:model-value="updateBlocklist"
       />
     </section>
+    </div><!-- end left column -->
+
+    <!-- Right column: Mods sidebar (desktop only) -->
+    <aside v-if="!isMobile" class="mods-sidebar">
+      <div class="mods-header">
+        <span class="mods-title">🧩 {{ t('mods.title') }}</span>
+        <div class="mods-actions">
+          <button class="mods-folder-btn" @click="settings.openModsFolder()">{{ t('mods.openFolder') }}</button>
+          <button class="mods-folder-btn" :disabled="modsScanning" @click="scanModsNow">
+            {{ modsScanning ? t('mods.scanning') : t('mods.scan') }}
+          </button>
+        </div>
+      </div>
+
+      <p v-if="settings.loadedMods.length === 0" class="mods-empty">
+        {{ t('mods.empty') }}<br>
+        <span class="mods-empty-hint">{{ t('mods.emptyHint') }}</span>
+      </p>
+
+      <div v-for="mod in settings.loadedMods" :key="mod.manifest.id" class="mod-card">
+        <div class="mod-card-header">
+          <span class="mod-status-dot" :class="mod.enabled ? 'dot-on' : 'dot-off'" />
+          <span class="mod-name">{{ mod.manifest.name }}</span>
+          <button
+            class="toggle mod-toggle"
+            :class="{ on: mod.enabled }"
+            @click="settings.setModEnabled(mod.manifest.id, !mod.enabled)"
+          />
+        </div>
+        <div class="mod-meta">
+          <span class="mod-version">v{{ mod.manifest.version }}</span>
+          <span v-if="mod.manifest.author" class="mod-author">{{ t('mods.by') }} {{ mod.manifest.author }}</span>
+        </div>
+        <p v-if="mod.manifest.description" class="mod-desc">{{ mod.manifest.description }}</p>
+        <p v-if="mod.error" class="mod-error">⚠ {{ mod.error }}</p>
+        <p v-if="mod.enabled !== mod.enabled" class="mod-restart-hint">{{ t('mods.restartHint') }}</p>
+      </div>
+
+      <p v-if="settings.loadedMods.some(m => !m.enabled)" class="mods-restart-hint">
+        {{ t('mods.restartHint') }}
+      </p>
+    </aside>
   </div>
 </template>
 
@@ -641,5 +700,142 @@ function formatLastSync(ts: number): string {
   border-radius: 6px;
   background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
+}
+
+/* ─── Mods sidebar ─────────────────────────────────────────────────── */
+.mods-sidebar {
+  width: 224px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+.mods-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.mods-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mods-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.mods-folder-btn {
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mods-folder-btn:hover { background: hsl(var(--accent)); color: hsl(var(--foreground)); }
+.mods-folder-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.mods-empty {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.5;
+  text-align: center;
+  padding: 12px 8px;
+}
+.mods-empty-hint {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.mod-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mod-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mod-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-on { background: hsl(142 76% 36%); }
+.dot-off { background: hsl(var(--muted-foreground)); opacity: 0.5; }
+.mod-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mod-toggle {
+  margin-left: 0;
+  width: 36px;
+  min-width: 36px;
+  height: 20px;
+}
+.mod-toggle::after {
+  width: 14px;
+  height: 14px;
+}
+.mod-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.mod-version {
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--secondary));
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid hsl(var(--border));
+}
+.mod-author {
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mod-desc {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.4;
+  margin-top: 2px;
+}
+.mod-error {
+  font-size: 11px;
+  color: hsl(0 72% 50%);
+  background: hsl(0 84% 60% / 0.1);
+  border: 1px solid hsl(0 84% 60% / 0.2);
+  border-radius: 4px;
+  padding: 4px 6px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.mods-restart-hint {
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+  opacity: 0.7;
+  padding: 4px 0;
 }
 </style>

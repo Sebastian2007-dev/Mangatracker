@@ -159,5 +159,19 @@
     "title": "Aktivitätslog",
     "clear": "Leeren",
     "empty": "Noch keine Einträge – starte einen Scan oder warte auf den nächsten automatischen Scan"
+  },
+  "mods": {
+    "title": "Mods",
+    "empty": "Keine Mods installiert.",
+    "emptyHint": "Mods im Mods-Ordner ablegen.",
+    "openFolder": "Ordner öffnen",
+    "scan": "Mods scannen",
+    "scanning": "Scanne...",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "by": "von",
+    "settings": "Einstellungen",
+    "loadError": "Ladefehler",
+    "restartHint": "Neustart erforderlich für Änderungen."
   }
 }

@@ -1,0 +1,9 @@
+{
+  "id": "example-scanner",
+  "name": "Beispiel Scanner",
+  "version": "1.0.0",
+  "author": "MangaTracker",
+  "description": "Zeigt wie ein eigener Kapitel-Scanner gebaut wird.",
+  "type": ["scanner"],
+  "main": "index.js"
+}

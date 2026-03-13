@@ -1469,3 +1469,103 @@ Gilt automatisch für:
 - Installer-Dateiname (`MangaTracker-Installer-1.0.1.exe`)
 - Windows-Deinstallations-Anzeigename
 - APK-Version (über Gradle-Config)
+
+---
+
+## Mod-System
+
+MangaTracker unterstützt Mods — externe Erweiterungen, die beim App-Start aus dem Benutzer-Datenordner geladen werden.
+
+### Mod-Ordner
+
+| Plattform | Pfad |
+|-----------|------|
+| Windows | `%APPDATA%\Manga Tracker\mods\` |
+| macOS | `~/Library/Application Support/Manga Tracker/mods/` |
+| Linux | `~/.config/Manga Tracker/mods/` |
+
+Jeder Unterordner im `mods/`-Verzeichnis mit einer `mod.json` wird als Mod erkannt.
+
+### Architektur
+
+```
+src/types/mod.ts                    — Typen: ModManifest, ChapterScanner, ModApi, LoadedMod
+src/main/mods/mod-loader.ts         — Loader: lädt Mods, baut ModApi, verwaltet Scanner + Events
+src/main/ipc/mod.ipc.ts             — IPC: mods:getAll, mods:setEnabled, mods:openFolder, ...
+src/main/index.ts                   — Startup: loadMods() + CSS-Injection nach did-finish-load
+src/main/notifications/chapterPoller.ts — Custom-Scanner werden vor MangaDex/ComicK aufgerufen
+src/main/ipc/manga.ipc.ts           — Sendet mod-Events: manga:created, manga:updated, manga:deleted
+src/renderer/src/stores/settings.store.ts — loadedMods, fetchMods(), setModEnabled()
+src/renderer/src/views/SettingsView.vue   — Mods-Sidebar (rechte Spalte, Desktop only)
+```
+
+### mod.json Manifest
+
+```json
+{
+  "id": "my-mod",
+  "name": "Mein Mod",
+  "version": "1.0.0",
+  "author": "Name",
+  "description": "Was der Mod macht",
+  "type": ["scanner"],
+  "main": "index.js",
+  "theme": "theme.css",
+  "settings": [
+    { "key": "apiKey", "type": "text", "label": "API Key", "default": "" }
+  ]
+}
+```
+
+Pflichtfelder: `id`, `name`, `version`, `type`. `type` ist ein Array mit `"theme"`, `"scanner"` und/oder `"plugin"`.
+
+### ModApi Interface
+
+```typescript
+interface ModApi {
+  addChapterScanner(scanner: ChapterScanner): void
+  registerHandler(channel: string, handler: (payload: unknown) => Promise<unknown>): void
+  on(event: 'manga:created' | 'manga:updated' | 'manga:deleted' | 'app:ready', cb: (data: unknown) => void): void
+  log(message: string, type?: 'info' | 'success' | 'warning' | 'error'): void
+  getStorage(): { get(key: string): unknown; set(key: string, value: unknown): void }
+}
+```
+
+### ChapterScanner Interface
+
+```typescript
+interface ChapterScanner {
+  name: string
+  priority?: number   // höher = zuerst; Built-ins: -1; Default: 0
+  canHandle(manga: Manga): boolean
+  check(manga: Manga): Promise<{ latestChapter: number | null; error?: string }>
+}
+```
+
+Custom-Scanner werden in `checkManga()` des Pollers **vor** MangaDex und ComicK aufgerufen. Bei `latestChapter !== null && latestChapter > currentChapter` wird der Scan als positiv gewertet.
+
+### Lade-Ablauf
+
+1. `loadMods(mainWindow)` in `index.ts` nach `initAdBlocker()`
+2. Für jeden Mod-Ordner: `mod.json` lesen → Manifest validieren
+3. Theme: `theme.css` lesen → `combinedThemeCSS` anhängen
+4. Scanner/Plugin: `require(index.js)` → `mod.register(api)` aufrufen
+5. Nach `did-finish-load`: `mainWindow.webContents.insertCSS(combinedThemeCSS)`
+6. `emitModEvent('app:ready', {})` signalisiert allen Mods den vollständigen Start
+
+### IPC-Kanäle (Mod-System)
+
+| Kanal | Richtung | Beschreibung |
+|-------|----------|-------------|
+| `mods:getAll` | Renderer → Main | Gibt `LoadedMod[]` zurück |
+| `mods:setEnabled` | Renderer → Main | Aktiviert/deaktiviert einen Mod (persistent) |
+| `mods:getSetting` | Renderer → Main | Liest einen Mod-Setting-Wert |
+| `mods:setSetting` | Renderer → Main | Schreibt einen Mod-Setting-Wert |
+| `mods:openFolder` | Renderer → Main | Öffnet den Mods-Ordner im Explorer |
+| `mod:{channel}` | Renderer → Main | Custom-Handler, registriert via `api.registerHandler()` |
+
+### Sicherheitshinweis
+
+Mods werden mit `require()` im Electron-Main-Prozess geladen. Sie haben vollen Node.js-Zugriff (Dateisystem, Netzwerk, etc.). Nur Mods aus vertrauenswürdigen Quellen installieren.
+
+Weitere Details: [docs/MODDING_GUIDE.md](docs/MODDING_GUIDE.md)

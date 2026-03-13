@@ -1,0 +1,9 @@
+{
+  "id": "example-theme",
+  "name": "Beispiel Theme",
+  "version": "1.0.0",
+  "author": "MangaTracker",
+  "description": "Rote Akzentfarben als Beispiel für ein Theme-Mod.",
+  "type": ["theme"],
+  "theme": "theme.css"
+}

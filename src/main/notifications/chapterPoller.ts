@@ -2,6 +2,7 @@ import { Notification, BrowserWindow, session as electronSession } from 'electro
 import { randomUUID } from 'crypto'
 import store from '../store'
 import type { LogEntryType } from '../../types/index'
+import { getRegisteredScanners } from '../mods/mod-loader'
 
 let pollerTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -98,6 +99,17 @@ async function checkManga(
   },
   ses: Electron.Session
 ): Promise<CheckResult> {
+  // Custom mod scanners run first (sorted by priority desc)
+  const customScanners = getRegisteredScanners().filter((s) => s.canHandle(manga as any))
+  for (const scanner of customScanners) {
+    try {
+      const result = await scanner.check(manga as any)
+      if (result.latestChapter !== null && result.latestChapter > manga.currentChapter) {
+        return { ok: true, mangaId: manga.id, title: manga.title, newChapter: result.latestChapter, statusCode: 200, source: scanner.name }
+      }
+    } catch { /* fallthrough to built-in scanners */ }
+  }
+
   if (manga.mangaDexId) {
     const mdxResult = await checkMangaDex(
       { id: manga.id, title: manga.title, currentChapter: manga.currentChapter, mangaDexId: manga.mangaDexId },

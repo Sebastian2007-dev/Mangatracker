@@ -5,12 +5,16 @@ interface StoreSchema {
   mangaList: Manga[]
   mangaTrash: Manga[]
   settings: AppSettings
+  modDisabled: string[]
+  modSettings: Record<string, Record<string, unknown>>
 }
 
 const store = new Store<StoreSchema>({
   defaults: {
     mangaList: [],
     mangaTrash: [],
+    modDisabled: [],
+    modSettings: {},
     settings: {
       theme: 'system',
       language: 'de',
