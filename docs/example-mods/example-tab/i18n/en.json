@@ -1,0 +1,6 @@
+{
+  "tabLabel": "Test Tab",
+  "tabTitle": "Test Tab",
+  "tabSubtitle": "This text comes from the mod i18n file.",
+  "tabEmpty": "Empty placeholder from mod"
+}

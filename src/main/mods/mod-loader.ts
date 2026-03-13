@@ -35,6 +35,46 @@ function isDisabled(id: string): boolean {
   return disabled.includes(id)
 }
 
+function appendEntryError(entry: LoadedMod, message: string): void {
+  entry.error = entry.error ? `${entry.error} | ${message}` : message
+}
+
+function loadModTranslations(modDir: string, manifest: ModManifest): { translations?: Record<string, Record<string, string>>; error?: string } {
+  const i18nDir = join(modDir, manifest.i18nDir ?? 'i18n')
+  if (!existsSync(i18nDir)) return {}
+
+  let files: string[]
+  try {
+    files = readdirSync(i18nDir, { withFileTypes: true })
+      .filter((d) => d.isFile() && d.name.toLowerCase().endsWith('.json'))
+      .map((d) => d.name)
+  } catch (e) {
+    return { error: `i18n read error: ${e instanceof Error ? e.message : String(e)}` }
+  }
+
+  const translations: Record<string, Record<string, string>> = {}
+
+  for (const file of files) {
+    const locale = file.replace(/\.json$/i, '').toLowerCase()
+    try {
+      const parsed = JSON.parse(readFileSync(join(i18nDir, file), 'utf-8')) as Record<string, unknown>
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return { error: `i18n parse error in ${file}: expected object` }
+      }
+
+      const localeMap: Record<string, string> = {}
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value === 'string') localeMap[key] = value
+      }
+      translations[locale] = localeMap
+    } catch (e) {
+      return { error: `i18n parse error in ${file}: ${e instanceof Error ? e.message : String(e)}` }
+    }
+  }
+
+  return Object.keys(translations).length > 0 ? { translations } : {}
+}
+
 function clearModRuntimeState(): void {
   loadedMods = []
   registeredScanners = []
@@ -145,6 +185,9 @@ export async function loadMods(mainWindow: BrowserWindow): Promise<LoadedMod[]> 
 
     const enabled = !isDisabled(manifest.id)
     const entry: LoadedMod = { manifest, dir: modDir, enabled }
+    const i18nResult = loadModTranslations(modDir, manifest)
+    if (i18nResult.translations) entry.translations = i18nResult.translations
+    if (i18nResult.error) appendEntryError(entry, i18nResult.error)
 
     if (enabled) {
       if (manifest.type.includes('theme')) {
@@ -153,7 +196,7 @@ export async function loadMods(mainWindow: BrowserWindow): Promise<LoadedMod[]> 
           try {
             combinedThemeCSS += `\n${readFileSync(cssFile, 'utf-8')}`
           } catch (e) {
-            entry.error = `CSS error: ${e instanceof Error ? e.message : String(e)}`
+            appendEntryError(entry, `CSS error: ${e instanceof Error ? e.message : String(e)}`)
           }
         }
       }
@@ -168,13 +211,13 @@ export async function loadMods(mainWindow: BrowserWindow): Promise<LoadedMod[]> 
             if (typeof mod.register === 'function') {
               mod.register(buildModApi(manifest.id))
             } else {
-              entry.error = 'index.js does not export a register() function'
+              appendEntryError(entry, 'index.js does not export a register() function')
             }
           } catch (e) {
-            entry.error = `Load error: ${e instanceof Error ? e.message : String(e)}`
+            appendEntryError(entry, `Load error: ${e instanceof Error ? e.message : String(e)}`)
           }
         } else {
-          entry.error = `JS file not found: ${manifest.main ?? 'index.js'}`
+          appendEntryError(entry, `JS file not found: ${manifest.main ?? 'index.js'}`)
         }
       }
     }

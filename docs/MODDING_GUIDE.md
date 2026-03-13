@@ -35,9 +35,9 @@ Or manually:
 
 | Platform | Path |
 | --- | --- |
-| Windows | `%APPDATA%\\Manga Tracker\\mods\\` |
-| macOS | `~/Library/Application Support/Manga Tracker/mods/` |
-| Linux | `~/.config/Manga Tracker/mods/` |
+| Windows | `%APPDATA%\\manga-tracker\\mods\\` |
+| macOS | `~/Library/Application Support/manga-tracker/mods/` |
+| Linux | `~/.config/manga-tracker/mods/` |
 
 ### Install a mod
 
@@ -242,6 +242,38 @@ const data = storage.get('myKey')
 
 Values are stored under `modSettings.{modId}.{key}` in `electron-store`.
 
+### Sidebar tab (optional)
+
+You can add a desktop sidebar tab from a mod manifest via `sidebarTab`.
+Tab texts should live in the mod folder, not in app-level i18n files.
+
+```json
+{
+  "id": "example-tab",
+  "name": "Example Tab",
+  "version": "1.0.0",
+  "type": ["plugin"],
+  "main": "index.js",
+  "sidebarTab": {},
+  "i18nDir": "i18n"
+}
+```
+
+`i18n/en.json` and `i18n/de.json` example:
+
+```json
+{
+  "tabLabel": "Test Tab",
+  "tabTitle": "Test Tab",
+  "tabSubtitle": "This text comes from the mod i18n file.",
+  "tabEmpty": "Empty placeholder from mod"
+}
+```
+
+The tab opens a placeholder view (`/mod/{modId}`), useful for testing and future UI extensions.
+
+Example: [`docs/example-mods/example-tab/`](./example-mods/example-tab/)
+
 ## mod.json Reference
 
 | Field | Type | Required | Description |
@@ -252,6 +284,8 @@ Values are stored under `modSettings.{modId}.{key}` in `electron-store`.
 | `author` | string | no | Author name |
 | `description` | string | no | Short description |
 | `type` | string[] | yes | `theme`, `scanner`, `plugin`, or combination |
+| `sidebarTab` | object | no | Adds a desktop sidebar tab |
+| `i18nDir` | string | no | Mod translation folder (default: `i18n`) |
 | `main` | string | no | JS entry file (default: `index.js`) |
 | `theme` | string | no | CSS file for theme mods (default: `theme.css`) |
 | `settings` | array | no | Optional settings schema |

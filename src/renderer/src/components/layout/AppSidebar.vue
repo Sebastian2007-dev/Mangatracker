@@ -1,13 +1,35 @@
 <script setup lang="ts">
+import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { BookOpen, Settings, ScrollText } from 'lucide-vue-next'
+import { BookOpen, Settings, ScrollText, Puzzle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useLogStore } from '../../stores/log.store'
+import { useSettingsStore } from '../../stores/settings.store'
+import type { LoadedMod } from '../../../../types/mod'
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const logStore = useLogStore()
+const settingsStore = useSettingsStore()
+
+const modTabs = computed(() =>
+  settingsStore.loadedMods.filter((mod) => mod.enabled && !!mod.manifest.sidebarTab)
+)
+
+function getModTabLabel(mod: LoadedMod): string {
+  const lang = settingsStore.language
+  return (
+    mod.translations?.[lang]?.tabLabel
+    ?? mod.translations?.en?.tabLabel
+    ?? mod.manifest.sidebarTab?.label
+    ?? mod.manifest.name
+  )
+}
+
+onMounted(async () => {
+  await settingsStore.fetchMods()
+})
 </script>
 
 <template>
@@ -41,6 +63,18 @@ const logStore = useLogStore()
       <span v-if="logStore.unreadCount > 0 && route.path !== '/log'" class="unread-badge">
         {{ logStore.unreadCount > 99 ? '99+' : logStore.unreadCount }}
       </span>
+    </button>
+
+    <!-- Mod Tabs -->
+    <button
+      v-for="mod in modTabs"
+      :key="mod.manifest.id"
+      class="nav-btn"
+      :class="{ active: route.path === `/mod/${mod.manifest.id}` }"
+      :title="getModTabLabel(mod)"
+      @click="router.push(`/mod/${mod.manifest.id}`)"
+    >
+      <Puzzle :size="20" />
     </button>
 
     <!-- Spacer -->

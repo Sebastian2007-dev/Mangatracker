@@ -7,12 +7,21 @@ export interface ModManifest {
   author?: string
   description?: string
   type: ('theme' | 'scanner' | 'plugin')[]
+  /** Optional desktop sidebar tab for this mod */
+  sidebarTab?: ModSidebarTab
   /** JS entry file, default: 'index.js' */
   main?: string
   /** CSS file for theme mods, default: 'theme.css' */
   theme?: string
+  /** Optional i18n folder path, default: 'i18n' */
+  i18nDir?: string
   /** Optional settings schema shown in the UI */
   settings?: ModSettingsField[]
+}
+
+export interface ModSidebarTab {
+  /** Label shown as tooltip and heading (defaults to mod.name) */
+  label?: string
 }
 
 export interface ModSettingsField {
@@ -56,5 +65,6 @@ export interface LoadedMod {
   manifest: ModManifest
   dir: string
   enabled: boolean
+  translations?: Record<string, Record<string, string>>
   error?: string
 }

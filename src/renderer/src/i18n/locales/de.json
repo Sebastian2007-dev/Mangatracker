@@ -167,6 +167,8 @@
     "openFolder": "Ordner öffnen",
     "scan": "Mods scannen",
     "scanning": "Scanne...",
+    "tabMissingTitle": "Mod-Tab nicht verfügbar",
+    "tabMissingHint": "Der Mod wurde entfernt, deaktiviert oder konnte nicht geladen werden.",
     "enabled": "Aktiviert",
     "disabled": "Deaktiviert",
     "by": "von",

@@ -1,0 +1,6 @@
+{
+  "tabLabel": "Test Tab",
+  "tabTitle": "Test Tab",
+  "tabSubtitle": "Dieser Text kommt aus der Mod-i18n-Datei.",
+  "tabEmpty": "Leerer Platzhalter aus dem Mod"
+}

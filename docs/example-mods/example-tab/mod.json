@@ -1,0 +1,10 @@
+{
+  "id": "example-tab",
+  "name": "Example Tab",
+  "version": "1.0.0",
+  "author": "MangaTracker",
+  "description": "Adds an empty sidebar tab for testing.",
+  "type": ["plugin"],
+  "main": "index.js",
+  "sidebarTab": {}
+}

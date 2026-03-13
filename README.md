@@ -28,13 +28,15 @@ Output artifacts are written to the `installer/` directory.
 
 ## Mods
 
-- Mods are loaded from your user data folder: `.../Manga Tracker/mods/`
+- Mods are loaded from your user data folder: `.../manga-tracker/mods/`
 - Open it in-app: `Settings -> Mods -> Open Folder`
 - After dropping a new mod into the folder, click `Scan Mods` in Settings  
   (no app restart needed for registration)
+- Mods can ship their own translations via `i18n/<locale>.json` inside the mod folder
 
 Detailed modding docs:
 
 - [docs/MODDING_GUIDE.md](docs/MODDING_GUIDE.md)
 - [docs/example-mods/example-theme](docs/example-mods/example-theme)
 - [docs/example-mods/example-scanner](docs/example-mods/example-scanner)
+- [docs/example-mods/example-tab](docs/example-mods/example-tab)
