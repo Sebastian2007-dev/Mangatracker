@@ -11,10 +11,12 @@ import {
   buildSyncPayload,
   GIST_FILE_NAME,
   mergeLists,
+  mergeProfile,
   mergeStatisticsPayload,
   parseSyncPayload
 } from '../../shared/gist.sync'
 import { notifyStatsUpdated } from '../stats.service'
+import { broadcastSettingsChanged } from './settings.ipc'
 
 const GITHUB_API = 'https://api.github.com'
 
@@ -103,6 +105,13 @@ export async function syncGistDirect(
       events: (store.get('statsEvents') ?? []) as StatisticsEvent[],
       tagCache: (store.get('statsTagCache') ?? null) as StatisticsTagCache | null
     }
+    const localProfile = (settings.profileName || settings.profileAvatar)
+      ? {
+          name: settings.profileName ?? '',
+          avatar: settings.profileAvatar ?? '',
+          updatedAt: settings.profileUpdatedAt ?? 0
+        }
+      : undefined
 
     const { manga: mergedManga, deleted: mergedDeleted } = mergeLists(
       localManga,
@@ -111,6 +120,7 @@ export async function syncGistDirect(
       remotePayload.deleted
     )
     const mergedStats = mergeStatisticsPayload(localStats, remotePayload.stats)
+    const mergedProfile = mergeProfile(localProfile, remotePayload.profile)
 
     const patchRes = await electronSession.defaultSession.fetch(`${GITHUB_API}/gists/${gistId}`, {
       method: 'PATCH',
@@ -118,18 +128,29 @@ export async function syncGistDirect(
       body: JSON.stringify({
         files: {
           [GIST_FILE_NAME]: {
-            content: buildSyncPayload(mergedManga, mergedDeleted, mergedStats)
+            content: buildSyncPayload(mergedManga, mergedDeleted, mergedStats, mergedProfile)
           }
         }
       })
     })
     if (!patchRes.ok) throw new Error(`Gist konnte nicht aktualisiert werden: HTTP ${patchRes.status}`)
 
+    const profileUpdated = mergedProfile && mergedProfile.updatedAt > (settings.profileUpdatedAt ?? 0)
     store.set('mangaList', mergedManga)
     store.set('statsEvents', mergedStats.events)
     store.set('statsTagCache', mergedStats.tagCache)
-    store.set('settings', { ...settings, gistId, lastGistSync: Date.now() })
+    store.set('settings', {
+      ...settings,
+      gistId,
+      lastGistSync: Date.now(),
+      ...(profileUpdated ? {
+        profileName: mergedProfile!.name,
+        profileAvatar: mergedProfile!.avatar,
+        profileUpdatedAt: mergedProfile!.updatedAt
+      } : {})
+    })
     notifyStatsUpdated()
+    if (profileUpdated) broadcastSettingsChanged()
 
     return { success: true, gistId }
   } catch (error) {

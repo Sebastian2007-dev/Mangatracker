@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { BookOpen, ChartColumn, Settings, ScrollText, Puzzle, Terminal } from 'lucide-vue-next'
+import { BookOpen, ChartColumn, Settings, ScrollText, Puzzle, Terminal, GitBranch } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useLogStore } from '../../stores/log.store'
 import { useSettingsStore } from '../../stores/settings.store'
@@ -85,6 +85,16 @@ onMounted(async () => {
       @click="router.push(`/mod/${mod.manifest.id}`)"
     >
       <Puzzle :size="20" />
+    </button>
+
+    <!-- Skill Tree -->
+    <button
+      class="nav-btn"
+      :class="{ active: route.path === '/skills' }"
+      title="Skill Tree"
+      @click="router.push('/skills')"
+    >
+      <GitBranch :size="20" />
     </button>
 
     <!-- Spacer -->

@@ -35,10 +35,12 @@ import {
 import { useI18n } from 'vue-i18n'
 import { useStatisticsStore } from '../stores/statistics.store'
 import { useSettingsStore } from '../stores/settings.store'
+import { useSkillTreeStore } from '../stores/skill-tree.store'
 
 const { t, locale } = useI18n()
 const statisticsStore = useStatisticsStore()
 const settingsStore = useSettingsStore()
+const skillTreeStore = useSkillTreeStore()
 const mode = ref<'game' | 'plain'>('game')
 let cleanupListener: (() => void) | null = null
 
@@ -49,6 +51,25 @@ const avatarInput = ref<HTMLInputElement | null>(null)
 const editingName = ref(false)
 const tempName = ref('')
 const nameInputEl = ref<HTMLInputElement | null>(null)
+
+const editingCustomTitle = ref(false)
+const tempCustomTitle = ref('')
+const customTitleInputEl = ref<HTMLInputElement | null>(null)
+
+function startEditCustomTitle(): void {
+  tempCustomTitle.value = settingsStore.customTitle ?? ''
+  editingCustomTitle.value = true
+  nextTick(() => customTitleInputEl.value?.select())
+}
+
+async function saveCustomTitle(): Promise<void> {
+  await settingsStore.save({ customTitle: tempCustomTitle.value.trim() })
+  editingCustomTitle.value = false
+}
+
+function cancelEditCustomTitle(): void {
+  editingCustomTitle.value = false
+}
 
 function triggerAvatarUpload(): void {
   avatarInput.value?.click()
@@ -270,7 +291,7 @@ onUnmounted(() => {
 
       <template v-else-if="overview">
         <section class="hero-card">
-          <div class="hero-avatar-wrap" :title="t('statistics.changeAvatar')" @click="triggerAvatarUpload">
+          <div class="hero-avatar-wrap" :class="{ 'has-avatar-frame': skillTreeStore.isUnlocked('avatar_frame') }" :title="t('statistics.changeAvatar')" @click="triggerAvatarUpload">
             <img v-if="settingsStore.profileAvatar" :src="settingsStore.profileAvatar" class="hero-avatar-img" />
             <div v-else class="hero-orb">
               <component :is="resolveIcon(overview.jobIcon)" :size="26" />
@@ -298,6 +319,25 @@ onUnmounted(() => {
               {{ settingsStore.profileName || overview.jobClass }}
               <span class="edit-hint"><Pencil :size="13" /></span>
             </h2>
+
+            <template v-if="skillTreeStore.isUnlocked('custom_title')">
+              <div v-if="editingCustomTitle" class="hero-custom-title-edit">
+                <input
+                  ref="customTitleInputEl"
+                  v-model="tempCustomTitle"
+                  class="name-input"
+                  :placeholder="t('statistics.customTitlePlaceholder')"
+                  @keydown.enter="saveCustomTitle"
+                  @keydown.escape="cancelEditCustomTitle"
+                  @blur="saveCustomTitle"
+                />
+              </div>
+              <p v-else class="hero-custom-title" @click="startEditCustomTitle">
+                {{ settingsStore.customTitle || t('statistics.customTitlePlaceholder') }}
+                <span class="edit-hint"><Pencil :size="11" /></span>
+              </p>
+            </template>
+
             <p class="hero-secondary">
               {{ overview.jobClass }}{{ overview.secondaryClass ? ' · ' + overview.secondaryClass : '' }}
             </p>
@@ -1172,6 +1212,45 @@ onUnmounted(() => {
 
 .hero-avatar-wrap:hover .hero-avatar-overlay {
   opacity: 1;
+}
+
+.hero-avatar-wrap.has-avatar-frame {
+  box-shadow:
+    0 0 0 3px #f59e0b,
+    0 0 0 6px #f59e0b33,
+    0 0 20px 4px #f59e0b66;
+  animation: avatar-frame-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes avatar-frame-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px #f59e0b,
+      0 0 0 6px #f59e0b33,
+      0 0 20px 4px #f59e0b66;
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px #fcd34d,
+      0 0 0 8px #fcd34d44,
+      0 0 32px 8px #f59e0b99;
+  }
+}
+
+.hero-custom-title {
+  font-size: 11px;
+  color: hsl(var(--primary));
+  font-style: italic;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 4px;
+  opacity: 0.9;
+}
+
+.hero-custom-title-edit {
+  margin: 2px 0 4px;
 }
 
 .hero-avatar-overlay {

@@ -4,6 +4,7 @@ import type { StatisticsOverview } from '../types/index'
 import { getBridge } from '../services/platform'
 import { useAchievementToastStore } from './achievement-toast.store'
 import { useLevelUpStore } from './level-up.store'
+import { useSkillTreeStore } from './skill-tree.store'
 
 export const useStatisticsStore = defineStore('statistics', () => {
   const api = getBridge()
@@ -32,6 +33,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
     error.value = ''
     useAchievementToastStore().checkNew(result.data.achievements)
     useLevelUpStore().checkLevel(result.data.level)
+    useSkillTreeStore().updateBonusSP(result.data.achievements)
   }
 
   async function refreshTags(): Promise<void> {
@@ -49,6 +51,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
     error.value = ''
     useAchievementToastStore().checkNew(result.data.achievements)
     useLevelUpStore().checkLevel(result.data.level)
+    useSkillTreeStore().updateBonusSP(result.data.achievements)
   }
 
   function setupListeners(): () => void {

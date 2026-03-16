@@ -4,6 +4,7 @@ import { Plus } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { Manga, TabId } from '../types/index'
 import { useMangaStore } from '../stores/manga.store'
+import { useSkillTreeStore } from '../stores/skill-tree.store'
 import MangaTabBar from '../components/manga/MangaTabBar.vue'
 import MangaCard from '../components/manga/MangaCard.vue'
 import MangaFormDialog from '../components/manga/MangaFormDialog.vue'
@@ -11,6 +12,7 @@ import { isMobile } from '../composables/usePlatform'
 
 const { t } = useI18n()
 const mangaStore = useMangaStore()
+const skillTreeStore = useSkillTreeStore()
 
 // Injected from App.vue
 const searchQuery = inject<{ value: string }>('searchQuery', { value: '' })
@@ -40,7 +42,7 @@ const filteredManga = computed(() => {
 })
 
 const isFocusFull = computed(() =>
-  activeTab.value === 'focus' && mangaStore.items.filter((m) => m.isFocused).length >= 3
+  activeTab.value === 'focus' && mangaStore.items.filter((m) => m.isFocused).length >= skillTreeStore.maxFocusSlots
 )
 
 function openAdd(): void {
@@ -86,9 +88,9 @@ function onDrop(toId: string): void {
     <div class="flex-1 overflow-y-auto overflow-x-hidden p-4">
       <!-- Focus hint -->
       <p v-if="activeTab === 'focus'" class="text-xs mb-4" style="color: hsl(var(--muted-foreground))">
-        {{ t('manga.focusHint') }}
+        {{ t('manga.focusHint', { max: skillTreeStore.maxFocusSlots }) }}
         <span v-if="isFocusFull" class="ml-2 font-medium" style="color: hsl(var(--primary))">
-          {{ t('manga.focusFull') }}
+          {{ t('manga.focusFull', { max: skillTreeStore.maxFocusSlots }) }}
         </span>
       </p>
 

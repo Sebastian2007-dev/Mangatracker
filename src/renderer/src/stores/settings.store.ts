@@ -27,6 +27,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const lastGistSync = ref<number>(0)
   const profileName = ref<string>('')
   const profileAvatar = ref<string>('')
+  const profileUpdatedAt = ref<number>(0)
+  const customTitle = ref<string>('')
   const loadedMods = ref<LoadedMod[]>([])
 
   function applySettings(s: AppSettings): void {
@@ -51,6 +53,8 @@ export const useSettingsStore = defineStore('settings', () => {
     lastGistSync.value = s.lastGistSync ?? 0
     profileName.value = s.profileName ?? ''
     profileAvatar.value = s.profileAvatar ?? ''
+    profileUpdatedAt.value = s.profileUpdatedAt ?? 0
+    customTitle.value = s.customTitle ?? ''
   }
 
   async function load(): Promise<void> {
@@ -61,6 +65,9 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function save(updates: Partial<AppSettings>): Promise<void> {
+    if (updates.profileName !== undefined || updates.profileAvatar !== undefined) {
+      updates = { ...updates, profileUpdatedAt: Date.now() }
+    }
     await api.invoke('settings:set', updates)
     if (updates.theme !== undefined) theme.value = updates.theme
     if (updates.language !== undefined) language.value = updates.language
@@ -85,6 +92,8 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.lastGistSync !== undefined) lastGistSync.value = updates.lastGistSync
     if (updates.profileName !== undefined) profileName.value = updates.profileName
     if (updates.profileAvatar !== undefined) profileAvatar.value = updates.profileAvatar
+    if (updates.profileUpdatedAt !== undefined) profileUpdatedAt.value = updates.profileUpdatedAt
+    if (updates.customTitle !== undefined) customTitle.value = updates.customTitle ?? ''
   }
 
   async function syncGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
@@ -159,7 +168,7 @@ export const useSettingsStore = defineStore('settings', () => {
     notificationIntervalMs, notificationsEnabled, backgroundNotificationsEnabled, autoLinkEnabled, desktopNotificationsEnabled, readerInSeparateWindow,
     elementPickerEnabled, blockNewWindows, titleExpand,
     gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
-    profileName, profileAvatar,
+    profileName, profileAvatar, profileUpdatedAt, customTitle,
     loadedMods,
     load, save, setupListeners, syncGist, testGistAuth, disconnectGist,
     fetchMods, scanMods, setModEnabled, openModsFolder

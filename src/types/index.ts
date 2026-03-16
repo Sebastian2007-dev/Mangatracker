@@ -24,6 +24,9 @@ export interface Manga {
   comickTitle?: string
   comickCoverUrl?: string
   tags?: string[]
+  bookmarkedChapter?: number
+  note?: string
+  rating?: number
   createdAt: number
   updatedAt: number
 }
@@ -151,6 +154,11 @@ export type Theme = 'light' | 'dark' | 'system'
 export type Language = 'en' | 'de'
 export type ReadBehavior = 'main' | 'chapter' | 'ask'
 
+export interface SkillTreeState {
+  unlockedSkills: string[]
+  version: number
+}
+
 export interface GistTombstone {
   id: string
   deletedAt: number
@@ -178,6 +186,8 @@ export interface AppSettings {
   lastGistSync?: number
   profileName?: string
   profileAvatar?: string
+  profileUpdatedAt?: number
+  customTitle?: string
 }
 
 export interface ReaderOpenPayload {

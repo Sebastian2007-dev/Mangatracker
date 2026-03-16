@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Manga, MangaStatus } from '../types/index'
 import { getBridge } from '../services/platform'
+import { useSkillTreeStore } from './skill-tree.store'
 
 export const useMangaStore = defineStore('manga', () => {
   const api = getBridge()
@@ -122,7 +123,7 @@ export const useMangaStore = defineStore('manga', () => {
       await update(id, { isFocused: false })
     } else {
       const focusCount = items.value.filter((m) => m.isFocused).length
-      if (focusCount >= 3) {
+      if (focusCount >= useSkillTreeStore().maxFocusSlots) {
         focusFullVisible.value = true
         if (focusFullTimerId !== null) clearTimeout(focusFullTimerId)
         focusFullTimerId = setTimeout(() => {

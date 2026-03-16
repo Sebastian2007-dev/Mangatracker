@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { BookOpen, Pencil, Trash2, Star, Info } from 'lucide-vue-next'
+import { BookOpen, Pencil, Trash2, Star, Info, Bookmark, FileText } from 'lucide-vue-next'
 import type { Manga } from '../../types/index'
 import ChapterInput from './ChapterInput.vue'
 import NewChapterBadge from './NewChapterBadge.vue'
 import { useMangaStore } from '../../stores/manga.store'
 import { useReaderStore } from '../../stores/reader.store'
 import { useSettingsStore } from '../../stores/settings.store'
+import { useSkillTreeStore } from '../../stores/skill-tree.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
@@ -25,6 +26,22 @@ const { t } = useI18n()
 const mangaStore = useMangaStore()
 const readerStore = useReaderStore()
 const settingsStore = useSettingsStore()
+const skillTreeStore = useSkillTreeStore()
+
+const showNote = ref(false)
+
+async function toggleBookmark(): Promise<void> {
+  if (props.manga.bookmarkedChapter != null) {
+    await mangaStore.update(props.manga.id, { bookmarkedChapter: undefined })
+  } else {
+    await mangaStore.update(props.manga.id, { bookmarkedChapter: props.manga.currentChapter })
+  }
+}
+
+async function saveNote(e: Event): Promise<void> {
+  const value = (e.target as HTMLTextAreaElement).value.trim()
+  await mangaStore.update(props.manga.id, { note: value || undefined })
+}
 
 async function onChapterChange(chapter: number): Promise<void> {
   await mangaStore.setChapter(props.manga.id, chapter)
@@ -272,6 +289,39 @@ async function openChapter(): Promise<void> {
           <button class="card-btn danger" :title="t('manga.delete')" @click="mangaStore.remove(manga.id)">
             <Trash2 :size="14" />
           </button>
+        </div>
+
+        <!-- Bookmark (Lesezeichen-Skill) -->
+        <div v-if="skillTreeStore.isUnlocked('bookmark')" class="skill-row bookmark-row" @click.stop>
+          <button
+            class="skill-icon-btn"
+            :class="{ 'bookmark-active': manga.bookmarkedChapter != null }"
+            title="Lesezeichen"
+            @click.stop="toggleBookmark"
+          >
+            <Bookmark :size="12" :fill="manga.bookmarkedChapter != null ? 'currentColor' : 'none'" />
+          </button>
+          <span v-if="manga.bookmarkedChapter != null" class="bookmark-chip">
+            Kap. {{ manga.bookmarkedChapter }}
+          </span>
+          <span v-else class="skill-hint">Kein Lesezeichen</span>
+        </div>
+
+        <!-- Note (Lesenotiz-Skill) -->
+        <div v-if="skillTreeStore.isUnlocked('note')" class="skill-row note-row" @click.stop>
+          <button class="skill-icon-btn note-toggle" @click.stop="showNote = !showNote">
+            <FileText :size="12" />
+            <span>{{ manga.note ? 'Notiz' : 'Notiz hinzufügen' }}</span>
+          </button>
+          <textarea
+            v-if="showNote"
+            class="note-textarea"
+            :value="manga.note ?? ''"
+            placeholder="Deine Notiz…"
+            rows="2"
+            @blur="saveNote"
+            @click.stop
+          />
         </div>
       </div>
     </div>
@@ -668,6 +718,55 @@ async function openChapter(): Promise<void> {
   text-align: right;
   margin-top: 8px;
   flex-shrink: 0;
+}
+.skill-row {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.skill-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  padding: 0;
+  line-height: 1;
+}
+.skill-icon-btn:hover { color: hsl(var(--foreground)); }
+.bookmark-active { color: hsl(43 96% 56%); }
+.bookmark-chip {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: hsl(43 96% 56% / 0.12);
+  color: hsl(43 96% 56%);
+  border: 1px solid hsl(43 96% 56% / 0.25);
+}
+.skill-hint {
+  font-size: 10px;
+  color: hsl(var(--muted-foreground) / 0.5);
+}
+.note-toggle {
+  color: hsl(var(--muted-foreground));
+}
+.note-textarea {
+  margin-top: 4px;
+  width: 100%;
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  color: hsl(var(--foreground));
+  font-size: 11px;
+  padding: 6px 8px;
+  resize: none;
+  font-family: inherit;
+  line-height: 1.4;
 }
 .status-badge {
   font-size: 11px;

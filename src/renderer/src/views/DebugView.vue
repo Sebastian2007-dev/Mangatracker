@@ -3,10 +3,13 @@ import { nextTick, onMounted, ref } from 'vue'
 import { useStatisticsStore } from '../stores/statistics.store'
 import { useLevelUpStore } from '../stores/level-up.store'
 import { useAchievementToastStore } from '../stores/achievement-toast.store'
+import { useSkillTreeStore } from '../stores/skill-tree.store'
+import { SKILLS } from '../../../shared/skill-tree'
 
 const statisticsStore = useStatisticsStore()
 const levelUpStore = useLevelUpStore()
 const achievementStore = useAchievementToastStore()
+const skillTreeStore = useSkillTreeStore()
 
 type OutputLine = { text: string; type: 'cmd' | 'ok' | 'err' | 'info' }
 
@@ -26,6 +29,9 @@ const HELP_TEXT = [
   '  achievement all         — queue all achievements as toasts',
   '  clearlevel              — reset stored level (localStorage)',
   '  clearachievements       — reset seen achievements (localStorage)',
+  '  skills list             — list all skills and their status',
+  '  skills unlock <id>      — force unlock a skill (bypasses SP/level check)',
+  '  skills reset            — reset all unlocked skills',
   '  help                    — show this list',
 ]
 
@@ -119,6 +125,41 @@ function execute(raw: string): void {
   if (name === 'clearachievements') {
     localStorage.removeItem('mangatracker:seen_achievements')
     print('✓ Cleared mangatracker:seen_achievements', 'ok')
+    return
+  }
+
+  if (name === 'skills') {
+    const sub = args[0]?.toLowerCase()
+    if (sub === 'list') {
+      const level = statisticsStore.overview?.level ?? 1
+      print(`Skills (Level ${level} · ${skillTreeStore.availableSP(level)} SP verfügbar):`, 'info')
+      SKILLS.forEach((skill) => {
+        const state = skillTreeStore.isUnlocked(skill.id)
+          ? '✓ unlocked'
+          : skillTreeStore.isAvailable(skill.id, level)
+            ? '⚡ available'
+            : '✗ locked'
+        print(`  ${state.padEnd(14)} [${skill.id}] ${skill.name} (${skill.cost} SP, Lv${skill.requiresLevel})`, 'info')
+      })
+      return
+    }
+    if (sub === 'unlock') {
+      const id = args[1]
+      if (!id) { print('Error: usage: skills unlock <id>', 'err'); return }
+      const skill = SKILLS.find((s) => s.id === id)
+      if (!skill) { print(`Error: unknown skill id "${id}"`, 'err'); return }
+      if (skillTreeStore.isUnlocked(id)) { print(`Already unlocked: ${id}`, 'info'); return }
+      skillTreeStore.unlockedSkills.push(id)
+      skillTreeStore.save()
+      print(`✓ Force-unlocked: ${skill.name} [${id}]`, 'ok')
+      return
+    }
+    if (sub === 'reset') {
+      skillTreeStore.reset()
+      print('✓ Skill tree reset — all skills cleared', 'ok')
+      return
+    }
+    print('Error: usage: skills list | skills unlock <id> | skills reset', 'err')
     return
   }
 

@@ -32,8 +32,8 @@
     "newChapter": "Neues Kapitel verfuegbar!",
     "noManga": "Keine Manga in dieser Liste",
     "addFirst": "Fuege deinen ersten Manga hinzu",
-    "focusFull": "Fokus ist voll (max. 3)",
-    "focusHint": "Fuege bis zu 3 Manga zum Fokus hinzu",
+    "focusFull": "Fokus ist voll (max. {max})",
+    "focusHint": "Fuege bis zu {max} Manga zum Fokus hinzu",
     "deleted": "Manga geloescht",
     "undo": "Rueckgaengig",
     "save": "Speichern",
@@ -211,6 +211,7 @@
     "changeAvatar": "Profilbild ändern",
     "editName": "Namen bearbeiten",
     "namePlaceholder": "Dein Name...",
+    "customTitlePlaceholder": "Dein Benutzertitel...",
     "badges": {
       "currentLibrary": "{value} aktuelle Manga",
       "allTimeChapters": "{value} Kapitel all-time",

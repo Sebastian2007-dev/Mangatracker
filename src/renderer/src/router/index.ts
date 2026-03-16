@@ -13,6 +13,7 @@ const router = createRouter({
     { path: '/settings', component: SettingsView },
     { path: '/log', component: LogView },
     { path: '/mod/:modId', component: ModView },
+    { path: '/skills', component: () => import('../views/SkillTreeView.vue') },
     { path: '/debug', component: () => import('../views/DebugView.vue') }
   ]
 })
