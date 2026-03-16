@@ -96,7 +96,7 @@ Example: [`docs/example-mods/example-theme/`](./example-mods/example-theme/)
 
 Scanner mods add custom chapter detection and run before built-in scanners.
 
-### Folder structure
+### Scanner folder structure
 
 ```text
 mods/
@@ -105,7 +105,7 @@ mods/
     index.js
 ```
 
-### mod.json
+### Scanner mod.json
 
 ```json
 {
@@ -119,7 +119,7 @@ mods/
 }
 ```
 
-### index.js
+### Scanner index.js
 
 ```js
 module.exports = {
@@ -164,7 +164,7 @@ Example: [`docs/example-mods/example-scanner/`](./example-mods/example-scanner/)
 
 Plugin mods can subscribe to app events, register custom IPC handlers, and store settings.
 
-### mod.json
+### Plugin mod.json
 
 ```json
 {
@@ -244,33 +244,49 @@ Values are stored under `modSettings.{modId}.{key}` in `electron-store`.
 
 ### Sidebar tab (optional)
 
-You can add a desktop sidebar tab from a mod manifest via `sidebarTab`.
-Tab texts should live in the mod folder, not in app-level i18n files.
+Add a desktop sidebar tab by setting `sidebarTab` in `mod.json`.
+
+#### Option A — HTML file (recommended)
+
+Provide a `tab.html` file that is rendered in a sandboxed iframe:
 
 ```json
 {
-  "id": "example-tab",
-  "name": "Example Tab",
+  "id": "my-tab",
+  "name": "My Tab",
   "version": "1.0.0",
   "type": ["plugin"],
   "main": "index.js",
-  "sidebarTab": {},
+  "sidebarTab": {
+    "label": "My Tab",
+    "html": "tab.html"
+  }
+}
+```
+
+The HTML file can include any CSS and JavaScript. It runs in a sandboxed iframe (`sandbox="allow-scripts"`), so it cannot access the app's IPC directly.
+
+#### Option B — i18n placeholder
+
+Without `html`, the tab shows a translated placeholder from the mod's i18n files:
+
+```json
+{
+  "sidebarTab": { "label": "My Tab" },
   "i18nDir": "i18n"
 }
 ```
 
-`i18n/en.json` and `i18n/de.json` example:
+`i18n/en.json`:
 
 ```json
 {
-  "tabLabel": "Test Tab",
-  "tabTitle": "Test Tab",
-  "tabSubtitle": "This text comes from the mod i18n file.",
-  "tabEmpty": "Empty placeholder from mod"
+  "tabLabel": "My Tab",
+  "tabTitle": "My Tab",
+  "tabSubtitle": "Subtitle text from the mod.",
+  "tabEmpty": "Nothing here yet"
 }
 ```
-
-The tab opens a placeholder view (`/mod/{modId}`), useful for testing and future UI extensions.
 
 Example: [`docs/example-mods/example-tab/`](./example-mods/example-tab/)
 
@@ -347,6 +363,23 @@ Write to the app activity log. `type` can be `info`, `success`, `warning`, or `e
 ### `api.getStorage()`
 
 Return namespaced persistent storage (`get` / `set`) for the current mod.
+
+### `api.getDir()`
+
+Returns the absolute path to the mod's own folder. Use this to read local files from within your mod:
+
+```js
+const fs = require('fs')
+const path = require('path')
+
+module.exports = {
+  register(api) {
+    const dir = api.getDir()
+    const config = JSON.parse(fs.readFileSync(path.join(dir, 'config.json'), 'utf-8'))
+    api.log('Config loaded: ' + config.name, 'success')
+  }
+}
+```
 
 ## CSS Variable Reference
 

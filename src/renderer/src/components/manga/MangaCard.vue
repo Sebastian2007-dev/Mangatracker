@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { BookOpen, Pencil, Trash2, Star, Info } from 'lucide-vue-next'
 import type { Manga } from '../../types/index'
@@ -10,8 +11,12 @@ import { useSettingsStore } from '../../stores/settings.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
-import { getBridge } from '../../services/platform'
 import { setReadingSession, clearReadingSession } from '../../composables/useReadingSession'
+import {
+  areTagListsEqual,
+  fetchLinkedMangaDetails,
+  mergeTagLists
+} from '../../services/manga-details.service'
 
 const props = defineProps<{ manga: Manga }>()
 const emit = defineEmits<{ edit: [manga: Manga] }>()
@@ -64,7 +69,6 @@ async function onRead(): Promise<void> {
   }
 }
 
-import { ref, watch } from 'vue'
 import type { MangaStatus } from '../../types/index'
 const showReadChoiceDialog = ref(false)
 const pendingChapterUrl = ref('')
@@ -90,7 +94,11 @@ async function cancelMarkRead(): Promise<void> {
 
 // Status quick-change
 const showStatusPicker = ref(false)
-let backdropDown = false
+let backdropDown: boolean = false
+
+function onBackdropMouseDown(event: MouseEvent): void {
+  backdropDown = event.target === event.currentTarget
+}
 const statusBadgeRef = ref<HTMLElement | null>(null)
 const pickerStyle = ref<Record<string, string>>({})
 
@@ -142,6 +150,7 @@ type InfoData = {
   sources: string[]
 }
 const infoData = ref<InfoData | null>(null)
+const displayTags = computed(() => mergeTagLists(infoData.value?.tags, props.manga.tags))
 
 const pubStatusLabels: Record<string, string> = {
   ongoing: 'Laufend', completed: 'Abgeschlossen', hiatus: 'Pause', cancelled: 'Abgebrochen'
@@ -150,37 +159,31 @@ const pubStatusLabels: Record<string, string> = {
 async function openInfo(): Promise<void> {
   showInfoModal.value = true
   infoLoading.value = true
-  infoData.value = null
+  infoData.value = props.manga.tags?.length
+    ? {
+      description: '',
+      status: null,
+      type: null,
+      latestChapter: null,
+      tags: mergeTagLists(props.manga.tags),
+      authors: [],
+      year: null,
+      demographic: null,
+      sources: []
+    }
+    : null
   try {
-    type ApiData = { description: string; status: string | null; type: string | null; latestChapter: number | null; tags: string[]; authors: string[]; year: number | null; demographic: string | null }
-    type ApiRes = { success: boolean; data?: ApiData }
-    const [ckRes, mdxRes] = await Promise.allSettled([
-      props.manga.comickHid
-        ? (getBridge().invoke('comick:details', { hid: props.manga.comickHid }) as Promise<ApiRes>)
-        : Promise.resolve(null),
-      props.manga.mangaDexId
-        ? (getBridge().invoke('mangadex:details', { id: props.manga.mangaDexId }) as Promise<ApiRes>)
-        : Promise.resolve(null)
-    ])
-    const ck = ckRes.status === 'fulfilled' && ckRes.value?.success ? (ckRes.value.data ?? null) : null
-    const mdx = mdxRes.status === 'fulfilled' && mdxRes.value?.success ? (mdxRes.value.data ?? null) : null
-    if (!ck && !mdx) return
-    const ckTags = ck?.tags ?? []
-    const mdxTags = mdx?.tags ?? []
-    const tagLower = new Set(ckTags.map((t) => t.toLowerCase()))
-    const ckAuthors = ck?.authors ?? []
-    const mdxAuthors = mdx?.authors ?? []
-    const authorLower = new Set(ckAuthors.map((a) => a.toLowerCase()))
+    const details = await fetchLinkedMangaDetails(props.manga)
+    if (!details) return
+
+    const tags = mergeTagLists(details.tags, props.manga.tags)
     infoData.value = {
-      description: mdx?.description || ck?.description || '',
-      status: ck?.status ?? mdx?.status ?? null,
-      type: ck?.type ?? mdx?.type ?? null,
-      latestChapter: ck?.latestChapter ?? null,
-      tags: [...ckTags, ...mdxTags.filter((t) => !tagLower.has(t.toLowerCase()))],
-      authors: [...ckAuthors, ...mdxAuthors.filter((a) => !authorLower.has(a.toLowerCase()))],
-      year: ck?.year ?? mdx?.year ?? null,
-      demographic: mdx?.demographic ?? null,
-      sources: [...(ck ? ['ComicK'] : []), ...(mdx ? ['MangaDex'] : [])]
+      ...details,
+      tags
+    }
+
+    if (!areTagListsEqual(props.manga.tags, tags)) {
+      await mangaStore.update(props.manga.id, { tags })
     }
   } finally {
     infoLoading.value = false
@@ -290,7 +293,7 @@ async function openChapter(): Promise<void> {
 
     <!-- Mark-as-read Dialog (Mobile, nach Schließen des Browsers) -->
     <Teleport to="body">
-      <div v-if="showMarkReadDialog" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && cancelMarkRead()">
+      <div v-if="showMarkReadDialog" class="modal-backdrop" @mousedown="onBackdropMouseDown" @click.self="backdropDown && cancelMarkRead()">
         <div class="modal-box">
           <p class="text-sm font-medium mb-1" style="color: hsl(var(--foreground))">
             Bis zu welchem Kapitel gelesen?
@@ -309,7 +312,7 @@ async function openChapter(): Promise<void> {
 
     <!-- Info Modal -->
     <Teleport to="body">
-      <div v-if="showInfoModal" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && (showInfoModal = false)">
+      <div v-if="showInfoModal" class="modal-backdrop" @mousedown="onBackdropMouseDown" @click.self="backdropDown && (showInfoModal = false)">
         <div class="modal-box info-modal-box">
           <div class="info-header">
             <img
@@ -335,8 +338,9 @@ async function openChapter(): Promise<void> {
           <p v-if="infoLoading" class="info-loading-text">Lade…</p>
           <p v-else-if="!infoData" class="info-loading-text">Keine Daten verfügbar.</p>
           <div v-if="infoData?.description" class="info-desc">{{ infoData.description }}</div>
-          <div v-if="infoData?.tags?.length" class="info-tags">
-            <span v-for="tag in infoData.tags" :key="tag" class="info-tag">{{ tag }}</span>
+          <p v-if="displayTags.length" class="info-genres-label">{{ t('manga.tags') }}</p>
+          <div v-if="displayTags.length" class="info-tags">
+            <span v-for="tag in displayTags" :key="tag" class="info-tag">{{ tag }}</span>
           </div>
           <p v-if="infoData?.sources?.length" class="info-sources">{{ infoData.sources.join(' · ') }}</p>
           <button class="btn-ghost w-full mt-3" @click="showInfoModal = false">Schließen</button>
@@ -346,7 +350,7 @@ async function openChapter(): Promise<void> {
 
     <!-- Read Choice Dialog -->
     <Teleport to="body">
-      <div v-if="showReadChoiceDialog" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && (showReadChoiceDialog = false)">
+      <div v-if="showReadChoiceDialog" class="modal-backdrop" @mousedown="onBackdropMouseDown" @click.self="backdropDown && (showReadChoiceDialog = false)">
         <div class="modal-box">
           <p class="text-sm font-medium mb-4" style="color: hsl(var(--foreground))">
             {{ t('reader.chooseWhat') }}
@@ -629,6 +633,13 @@ async function openChapter(): Promise<void> {
   min-height: 0;
   padding-right: 4px;
   margin-bottom: 12px;
+}
+.info-genres-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground) / 0.7);
+  margin-bottom: 6px;
 }
 .info-tags {
   display: flex;

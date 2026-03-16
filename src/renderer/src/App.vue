@@ -57,7 +57,7 @@ async function confirmRecovery(): Promise<void> {
   recoverySession.value = null
   await clearReadingSession()
   if (session && recoveryChapter.value > 0) {
-    const manga = mangaStore.mangaList.find((m) => m.id === session.mangaId)
+    const manga = mangaStore.items.find((m) => m.id === session.mangaId)
     if (manga && recoveryChapter.value > manga.currentChapter) {
       await mangaStore.setChapter(session.mangaId, recoveryChapter.value)
     }
@@ -122,7 +122,7 @@ onMounted(async () => {
   if (isMobile) {
     const session = await getReadingSession()
     if (session) {
-      const manga = mangaStore.mangaList.find((m) => m.id === session.mangaId)
+      const manga = mangaStore.items.find((m) => m.id === session.mangaId)
       if (manga) {
         recoverySession.value = session
         recoveryChapter.value = session.chapter

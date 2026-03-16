@@ -3,11 +3,13 @@ import MangaListView from '../views/MangaListView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import LogView from '../views/LogView.vue'
 import ModView from '../views/ModView.vue'
+import StatisticsView from '../views/StatisticsView.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', component: MangaListView },
+    { path: '/statistics', component: StatisticsView },
     { path: '/settings', component: SettingsView },
     { path: '/log', component: LogView },
     { path: '/mod/:modId', component: ModView }

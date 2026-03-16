@@ -17,11 +17,15 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-let backdropDown = false
+let backdropDown: boolean = false
 const query = ref('')
 const results = ref<{ id: string; title: string; coverUrl: string | null }[]>([])
 const searching = ref(false)
 const error = ref('')
+
+function onBackdropMouseDown(event: MouseEvent): void {
+  backdropDown = event.target === event.currentTarget
+}
 
 watch(
   () => props.open,
@@ -66,7 +70,7 @@ function onSelect(item: { id: string; title: string; coverUrl: string | null }):
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="mdx-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && emit('close')">
+    <div v-if="open" class="mdx-backdrop" @mousedown="onBackdropMouseDown" @click.self="backdropDown && emit('close')">
       <div class="mdx-box">
         <!-- Header -->
         <div class="mdx-header">

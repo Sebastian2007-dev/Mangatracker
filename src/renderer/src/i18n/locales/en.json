@@ -28,6 +28,7 @@
     "duplicatesClose": "Close",
     "status": "Status",
     "currentChapter": "Current Chapter",
+    "tags": "Tags",
     "newChapter": "New chapter available!",
     "noManga": "No manga in this list",
     "addFirst": "Add your first manga",
@@ -62,6 +63,7 @@
     "ckModalTitle": "Link to ComicK.io",
     "ckSearchError": "Search failed",
     "autoLinking": "Linking...",
+    "saving": "Saving...",
     "recoveryTitle": "Update Reading Progress",
     "recoveryHint": "You closed the app without saving the chapter you read.",
     "recoverySkip": "Skip",
@@ -131,6 +133,14 @@
     "titleExpandHint": "Hovering (desktop) or tapping (mobile) shows the full title",
     "autoLinkEnabled": "Auto-link",
     "autoLinkHint": "On save, automatically searches MangaDex and ComicK.io for the best match and links it",
+    "metadataRefresh": "Metadata refresh",
+    "metadataRefreshHint": "Fetches tags for all linked manga and stores them in your library.",
+    "metadataRefreshBtn": "Update metadata",
+    "metadataRefreshRunning": "Updating...",
+    "metadataRefreshDone": "Updated {updated} manga, checked {scanned} linked entries.",
+    "metadataRefreshNoLinks": "No linked manga found.",
+    "metadataRefreshNoChanges": "No metadata changes found across {scanned} linked entries.",
+    "metadataRefreshFail": "Metadata refresh failed",
     "sync": "Synchronisation",
     "syncEnabled": "Enable GitHub Gist Sync",
     "syncEnabledHint": "Syncs your manga list across devices using a private GitHub Gist",
@@ -152,6 +162,7 @@
   },
   "nav": {
     "library": "Library",
+    "statistics": "Statistics",
     "settings": "Settings",
     "log": "Activity Log"
   },
@@ -175,5 +186,80 @@
     "settings": "Settings",
     "loadError": "Load error",
     "restartHint": "Restart required for changes to take effect."
+  },
+  "statistics": {
+    "eyebrow": "Built-in analytics",
+    "title": "Statistics",
+    "subtitle": "Read your library like a character sheet.",
+    "loading": "Loading statistics...",
+    "refreshTags": "Refresh tags",
+    "game": "Game",
+    "plain": "Plain",
+    "tagRefreshing": "Refreshing tag cache...",
+    "tagNotLoaded": "Tag data has not been loaded yet.",
+    "tagFresh": "Updated {minutes} min ago",
+    "tagStale": "Cache is stale ({minutes} min old)",
+    "noTags": "No tag data yet. Link manga to MangaDex or ComicK to fill this section.",
+    "noActivity": "No tracked activity yet.",
+    "never": "Never",
+    "levelLabel": "Level {level}",
+    "secondaryFallback": "No secondary class yet",
+    "xpLabel": "{current} / {target} XP",
+    "badges": {
+      "currentLibrary": "{value} current manga",
+      "allTimeChapters": "{value} all-time chapters",
+      "noTag": "No favorite tag yet"
+    },
+    "sections": {
+      "attributes": "Character stats",
+      "achievements": "Skills and achievements",
+      "tags": "Top tags",
+      "activity": "Activity and streaks",
+      "collection": "Collection",
+      "chapters": "Chapters",
+      "statusBreakdown": "Status breakdown",
+      "records": "Records and milestones",
+      "activityTimeline": "Monthly activity"
+    },
+    "attributes": {
+      "pwr": "Power",
+      "spd": "Speed",
+      "wis": "Wisdom",
+      "stm": "Stamina",
+      "end": "Endurance",
+      "arc": "Arc"
+    },
+    "metrics": {
+      "activeDays": "Active days",
+      "currentStreak": "Current streak",
+      "bestStreak": "Best streak",
+      "busiestDay": "Busiest day"
+    },
+    "cards": {
+      "currentLibrary": "Current library",
+      "allTimeLibrary": "All-time library",
+      "allTimeChapters": "All-time chapters",
+      "currentStreak": "Current streak"
+    },
+    "plain": {
+      "currentLibrary": "Current manga",
+      "deletedLibrary": "Deleted manga",
+      "allTimeLibrary": "All-time manga",
+      "focusCount": "Focus slots used",
+      "mangadexLinks": "MangaDex links",
+      "comickLinks": "ComicK links",
+      "currentChapters": "Current chapter total",
+      "allTimeChapters": "All-time chapters read",
+      "trackedChapters": "Tracked chapter ceiling",
+      "unreadBacklog": "Unread backlog",
+      "averagePerManga": "Average chapters per manga",
+      "historyEvents": "Tracked history events",
+      "longestManga": "Longest manga",
+      "longestMangaChapters": "Longest manga chapters",
+      "favoriteTag": "Favorite tag",
+      "firstTracked": "First tracked",
+      "bestStreak": "Best streak",
+      "currentClass": "Current class"
+    }
   }
 }

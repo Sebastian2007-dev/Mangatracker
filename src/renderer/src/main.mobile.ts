@@ -11,6 +11,7 @@ import './assets/main.css'
 import { setBridge } from './services/platform'
 import { capacitorAdapter } from './services/capacitor.adapter'
 import { onLogEntry, onNewChapter, initPollerLifecycle } from './services/mobile/poller.service'
+import { notifyStatsUpdated } from './services/mobile/stats.service'
 import { useLogStore } from './stores/log.store'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import type { LogEntry } from '../../types/index'
@@ -39,6 +40,7 @@ onLogEntry((entry: LogEntry) => {
 onNewChapter(() => {
   // Manga-Liste neu laden nach neuem Kapitel
   capacitorAdapter.invoke('manga:getAll')
+  notifyStatsUpdated()
 })
 
 // App-Lifecycle für Poller initialisieren

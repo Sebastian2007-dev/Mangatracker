@@ -22,6 +22,8 @@ export interface ModManifest {
 export interface ModSidebarTab {
   /** Label shown as tooltip and heading (defaults to mod.name) */
   label?: string
+  /** HTML file path (relative to mod dir) to render as the tab content */
+  html?: string
 }
 
 export interface ModSettingsField {
@@ -59,6 +61,12 @@ export interface ModApi {
   log(message: string, type?: 'info' | 'success' | 'warning' | 'error'): void
   /** Get namespaced persistent storage for this mod */
   getStorage(): ModStorage
+  /** Returns the absolute path to this mod's folder — useful for reading local files */
+  getDir(): string
+  /** Read-only snapshot of the active manga list */
+  getMangaList(): Manga[]
+  /** Read-only snapshot of soft-deleted manga (each entry has a deletedAt timestamp) */
+  getMangaTrash(): Manga[]
 }
 
 export interface LoadedMod {
@@ -66,5 +74,7 @@ export interface LoadedMod {
   dir: string
   enabled: boolean
   translations?: Record<string, Record<string, string>>
+  /** HTML string for the sidebar tab view (read from sidebarTab.html) */
+  tabHtml?: string
   error?: string
 }

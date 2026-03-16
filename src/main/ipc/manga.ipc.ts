@@ -1,8 +1,26 @@
 import { ipcMain, session as electronSession } from 'electron'
 import { randomUUID } from 'crypto'
 import store from '../store'
-import type { Manga, MangaStatus } from '../../types/index'
+import type { Manga, MangaStatus, TrashedManga } from '../../types/index'
 import { emitModEvent } from '../mods/mod-loader'
+import { normalizeTagList } from '../../shared/statistics'
+import {
+  notifyStatsUpdated,
+  refreshLibraryMetadata,
+  recordStatisticsForCreate,
+  recordStatisticsForDelete,
+  recordStatisticsForImportedManga,
+  recordStatisticsForRestore,
+  recordStatisticsForUpdate
+} from '../stats.service'
+
+function registerHandler(
+  channel: string,
+  listener: Parameters<typeof ipcMain.handle>[1]
+): void {
+  ipcMain.removeHandler(channel)
+  ipcMain.handle(channel, listener)
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -39,6 +57,11 @@ function toBooleanValue(value: unknown, fallback = false): boolean {
     if (normalized === 'false' || normalized === '0' || normalized === 'no') return false
   }
   return fallback
+}
+
+function toStringArrayValue(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  return normalizeTagList(value.filter((entry): entry is string => typeof entry === 'string'))
 }
 
 function normalizeStatus(value: unknown): MangaStatus {
@@ -90,7 +113,8 @@ function normalizeImportedEntry(entry: unknown): Manga | null {
     mangaDexCoverUrl: toStringValue(pickFirst(entry, ['mangaDexCoverUrl']), '') || undefined,
     comickHid: toStringValue(pickFirst(entry, ['comickHid']), '') || undefined,
     comickTitle: toStringValue(pickFirst(entry, ['comickTitle']), '') || undefined,
-    comickCoverUrl: toStringValue(pickFirst(entry, ['comickCoverUrl']), '') || undefined
+    comickCoverUrl: toStringValue(pickFirst(entry, ['comickCoverUrl']), '') || undefined,
+    tags: toStringArrayValue(pickFirst(entry, ['tags', 'Tags', 'genres', 'Genres']))
   }
 }
 
@@ -110,15 +134,16 @@ function normalizeImportData(parsed: unknown): Manga[] {
 }
 
 export function registerMangaIpc(): void {
-  ipcMain.handle('manga:getAll', () => {
+  registerHandler('manga:getAll', () => {
     return { success: true, data: store.get('mangaList') }
   })
 
-  ipcMain.handle('manga:create', (_event, payload: Omit<Manga, 'id' | 'createdAt' | 'updatedAt'>) => {
+  registerHandler('manga:create', (_event, payload: Omit<Manga, 'id' | 'createdAt' | 'updatedAt'>) => {
     const now = Date.now()
     const manga: Manga = {
       ...payload,
       isFocused: payload.isFocused ?? false,
+      tags: normalizeTagList(payload.tags),
       id: randomUUID(),
       createdAt: now,
       updatedAt: now
@@ -126,50 +151,67 @@ export function registerMangaIpc(): void {
     const list = store.get('mangaList')
     store.set('mangaList', [...list, manga])
     emitModEvent('manga:created', manga)
+    recordStatisticsForCreate(manga, now)
+    notifyStatsUpdated()
     return { success: true, data: manga }
   })
 
-  ipcMain.handle('manga:createWithId', (_event, payload: Manga) => {
+  registerHandler('manga:createWithId', (_event, payload: Manga) => {
     const list = store.get('mangaList')
+    const normalizedPayload: Manga = { ...payload, tags: normalizeTagList(payload.tags) }
     // Remove from trash if restoring
-    const trash = store.get('mangaTrash').filter((m) => m.id !== payload.id)
+    const trash = store.get('mangaTrash').filter((m) => m.id !== normalizedPayload.id)
     store.set('mangaTrash', trash)
-    store.set('mangaList', [...list, payload])
-    return { success: true, data: payload }
+    store.set('mangaList', [...list, normalizedPayload])
+    recordStatisticsForRestore(normalizedPayload, Date.now())
+    notifyStatsUpdated()
+    return { success: true, data: normalizedPayload }
   })
 
-  ipcMain.handle('manga:update', (_event, payload: { id: string } & Partial<Manga>) => {
+  registerHandler('manga:update', (_event, payload: { id: string } & Partial<Manga>) => {
     const { id, ...updates } = payload
     const list = store.get('mangaList')
     const idx = list.findIndex((m) => m.id === id)
     if (idx === -1) return { success: false, error: 'Not found' }
-    const updated = { ...list[idx], ...updates, id, updatedAt: Date.now() }
+    const before = list[idx]
+    const updated = {
+      ...before,
+      ...updates,
+      tags: updates.tags === undefined ? before.tags : normalizeTagList(updates.tags),
+      id,
+      updatedAt: Date.now()
+    }
     list[idx] = updated
     store.set('mangaList', list)
     emitModEvent('manga:updated', updated)
+    recordStatisticsForUpdate(before, updated, updated.updatedAt)
+    notifyStatsUpdated()
     return { success: true, data: updated }
   })
 
-  ipcMain.handle('manga:delete', (_event, { id }: { id: string }) => {
+  registerHandler('manga:delete', (_event, { id }: { id: string }) => {
     const list = store.get('mangaList')
     const manga = list.find((m) => m.id === id)
     if (!manga) return { success: false, error: 'Not found' }
     // Move to trash with a deletion timestamp so tombstone comparison works correctly
-    const trash = store.get('mangaTrash')
-    const trashEntry = { ...manga, deletedAt: Date.now() }
+    const trash = store.get('mangaTrash') as TrashedManga[]
+    const trashEntry: TrashedManga = { ...manga, deletedAt: Date.now() }
     store.set('mangaTrash', [...trash, trashEntry])
     store.set('mangaList', list.filter((m) => m.id !== id))
     emitModEvent('manga:deleted', { id })
+    recordStatisticsForDelete(manga, trashEntry.deletedAt)
+    notifyStatsUpdated()
     return { success: true }
   })
 
-  ipcMain.handle('manga:emptyTrash', (_event, { id }: { id: string }) => {
+  registerHandler('manga:emptyTrash', (_event, { id }: { id: string }) => {
     const trash = store.get('mangaTrash').filter((m) => m.id !== id)
     store.set('mangaTrash', trash)
+    notifyStatsUpdated()
     return { success: true }
   })
 
-  ipcMain.handle('manga:moveItem', (_event, { fromId, toId }: { fromId: string; toId: string }) => {
+  registerHandler('manga:moveItem', (_event, { fromId, toId }: { fromId: string; toId: string }) => {
     const list = [...store.get('mangaList')]
     const fromIdx = list.findIndex((m) => m.id === fromId)
     if (fromIdx === -1) return { success: false }
@@ -180,12 +222,20 @@ export function registerMangaIpc(): void {
     return { success: true }
   })
 
-  ipcMain.handle('manga:export', () => {
+  registerHandler('manga:refreshMetadata', async () => {
+    try {
+      return { success: true, data: await refreshLibraryMetadata() }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  registerHandler('manga:export', () => {
     const list = store.get('mangaList')
     return { success: true, data: JSON.stringify(list, null, 2) }
   })
 
-  ipcMain.handle('mangadex:search', async (_event, { title }: { title: string }) => {
+  registerHandler('mangadex:search', async (_event, { title }: { title: string }) => {
     try {
       const url =
         `https://api.mangadex.org/manga?title=${encodeURIComponent(title)}&limit=10&includes[]=cover_art`
@@ -217,7 +267,7 @@ export function registerMangaIpc(): void {
     }
   })
 
-  ipcMain.handle('comick:search', async (_event, { title }: { title: string }) => {
+  registerHandler('comick:search', async (_event, { title }: { title: string }) => {
     try {
       const url = `https://api.comick.dev/v1.0/search?q=${encodeURIComponent(title)}&limit=10&tachiyomi=true`
       const res = await electronSession.defaultSession.fetch(url, {
@@ -244,7 +294,7 @@ export function registerMangaIpc(): void {
     }
   })
 
-  ipcMain.handle('mangadex:details', async (_event, { id }: { id: string }) => {
+  registerHandler('mangadex:details', async (_event, { id }: { id: string }) => {
     try {
       const url = `https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`
       const res = await electronSession.defaultSession.fetch(url, {
@@ -273,7 +323,6 @@ export function registerMangaIpc(): void {
         return 'manga'
       }
       const tags = (attr.tags ?? [])
-        .filter((t) => t.attributes?.group?.name === 'genre')
         .map((t) => t.attributes?.name?.en ?? Object.values(t.attributes?.name ?? {})[0])
         .filter(Boolean) as string[]
       const authors = [...new Set(
@@ -300,7 +349,7 @@ export function registerMangaIpc(): void {
     }
   })
 
-  ipcMain.handle('comick:details', async (_event, { hid }: { hid: string }) => {
+  registerHandler('comick:details', async (_event, { hid }: { hid: string }) => {
     try {
       const url = `https://api.comick.dev/comic/${hid}?tachiyomi=true`
       const res = await electronSession.defaultSession.fetch(url, {
@@ -315,7 +364,7 @@ export function registerMangaIpc(): void {
       const comic = (json.comic ?? json) as Record<string, unknown>
       const statusMap: Record<number, string> = { 1: 'ongoing', 2: 'completed', 3: 'cancelled', 4: 'hiatus' }
       const countryMap: Record<string, string> = { kr: 'manhwa', jp: 'manga', zh: 'manhua', cn: 'manhua' }
-      const genres = Array.isArray(comic.genres) ? (comic.genres as { name?: string }[]).map((g) => g.name ?? '').filter(Boolean) : []
+      const tags = Array.isArray(comic.genres) ? (comic.genres as { name?: string }[]).map((g) => g.name ?? '').filter(Boolean) : []
       const authors: string[] = []
       if (typeof comic.author === 'string' && comic.author) authors.push(comic.author)
       if (typeof comic.artist === 'string' && comic.artist && comic.artist !== comic.author) authors.push(comic.artist)
@@ -331,7 +380,7 @@ export function registerMangaIpc(): void {
           status: statusMap[(comic.status as number)] ?? null,
           type: countryMap[(comic.country as string)] ?? null,
           latestChapter: (comic.last_chapter as number) ?? null,
-          tags: genres,
+          tags,
           authors,
           year: (comic.year as number) ?? null,
           demographic: null as string | null
@@ -342,7 +391,7 @@ export function registerMangaIpc(): void {
     }
   })
 
-  ipcMain.handle('manga:import', (_event, { json }: { json: string }) => {
+  registerHandler('manga:import', (_event, { json }: { json: string }) => {
     try {
       const parsed = JSON.parse(json) as unknown
       const imported = normalizeImportData(parsed)
@@ -353,11 +402,18 @@ export function registerMangaIpc(): void {
       // Merge: replace existing by id, append new
       const existing = store.get('mangaList')
       const existingMap = new Map(existing.map((m) => [m.id, m]))
+      const newlyAdded: Manga[] = []
       for (const m of imported) {
+        if (!existingMap.has(m.id)) newlyAdded.push(m)
         existingMap.set(m.id, m)
       }
       const merged = Array.from(existingMap.values())
       store.set('mangaList', merged)
+      const importedAt = Date.now()
+      for (const manga of newlyAdded) {
+        recordStatisticsForImportedManga(manga, importedAt)
+      }
+      notifyStatsUpdated()
       return { success: true, data: merged }
     } catch (e) {
       return { success: false, error: String(e) }

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Example Tab</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f0f11;
+      color: #e8e8ea;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    p.sub {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: #1a1a1e;
+      border: 1px solid #2e2e35;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+    }
+
+    .card h2 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    code {
+      display: block;
+      font-family: 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 12px;
+      color: #c9a227;
+      background: #0f0f11;
+      border: 1px solid #2e2e35;
+      border-radius: 6px;
+      padding: 10px 14px;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
+    a { color: #c9a227; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Example Tab</h1>
+  <p class="sub">This view is served from <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">tab.html</code> inside the mod folder.</p>
+
+  <div class="card">
+    <h2>How to create your own tab</h2>
+    <code>{
+  "sidebarTab": {
+    "label": "My Tab",
+    "html": "tab.html"
+  }
+}</code>
+    <p class="hint">
+      Add this to your <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">mod.json</code>.
+      The HTML file is rendered in a sandboxed iframe — you can use any CSS or JS you like.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Reading local files from index.js</h2>
+    <code>const fs = require('fs')
+const path = require('path')
+
+module.exports = {
+  register(api) {
+    const dir = api.getDir()
+    const data = JSON.parse(
+      fs.readFileSync(path.join(dir, 'data.json'), 'utf-8')
+    )
+    api.log('Loaded ' + data.length + ' items', 'success')
+  }
+}</code>
+    <p class="hint">
+      <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">api.getDir()</code> returns the absolute path to your mod's folder.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Translations</h2>
+    <p class="hint">
+      Place <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">i18n/en.json</code> and
+      <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">i18n/de.json</code> in your mod folder
+      to provide translated labels for the sidebar and tab view.
+      Keys <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">tabLabel</code>,
+      <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">tabTitle</code>,
+      <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">tabSubtitle</code>,
+      <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">tabEmpty</code>
+      are used when no <code style="display:inline;background:none;border:none;padding:0;color:#c9a227">tab.html</code> is provided.
+    </p>
+  </div>
+</body>
+</html>

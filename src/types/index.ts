@@ -23,13 +23,128 @@ export interface Manga {
   comickHid?: string
   comickTitle?: string
   comickCoverUrl?: string
+  tags?: string[]
   createdAt: number
   updatedAt: number
+}
+
+export interface TrashedManga extends Manga {
+  deletedAt: number
 }
 
 export interface DeletedMangaEntry {
   manga: Manga
   deletedAt: number
+}
+
+export type StatisticsEventType =
+  | 'manga_added'
+  | 'manga_deleted'
+  | 'manga_restored'
+  | 'chapter_progress'
+  | 'status_changed'
+
+export interface StatisticsEvent {
+  id: string
+  type: StatisticsEventType
+  mangaId: string
+  at: number
+  synthetic?: boolean
+  amount?: number
+  fromChapter?: number
+  toChapter?: number
+  fromStatus?: MangaStatus
+  toStatus?: MangaStatus
+}
+
+export interface StatisticsTagCache {
+  fetchedAt: number
+  sourceKey: string
+  tags: Record<string, number>
+}
+
+export interface StatisticsAchievement {
+  id: string
+  icon: string
+  name: string
+  hint: string
+  unlocked: boolean
+}
+
+export interface StatisticsAttributeScores {
+  pwr: number
+  spd: number
+  wis: number
+  stm: number
+  end: number
+  arc: number
+}
+
+export interface StatisticsFavoriteTag {
+  name: string
+  count: number
+}
+
+export interface StatisticsBusiestDay {
+  date: string
+  count: number
+}
+
+export interface StatisticsLongestManga {
+  id: string | null
+  title: string
+  chapters: number
+}
+
+export interface StatisticsOverview {
+  generatedAt: number
+  historyEventCount: number
+  counts: {
+    current: number
+    deleted: number
+    allTime: number
+  }
+  chapters: {
+    current: number
+    allTime: number
+    tracked: number
+    unread: number
+    averagePerManga: number
+  }
+  linked: {
+    mangaDex: number
+    comick: number
+  }
+  focusCount: number
+  statusCounts: Record<MangaStatus, number>
+  firstTrackedAt: number | null
+  longestManga: StatisticsLongestManga
+  activityByDay: Record<string, number>
+  activityByMonth: Record<string, number>
+  activeDays: number
+  currentStreak: number
+  bestStreak: number
+  busiestDay: StatisticsBusiestDay | null
+  tags: Record<string, number>
+  favoriteTag: StatisticsFavoriteTag | null
+  uniqueTags: number
+  level: number
+  xpCurrent: number
+  xpRequired: number
+  xpPercent: number
+  jobClass: string
+  jobIcon: string
+  secondaryClass: string | null
+  stats: StatisticsAttributeScores
+  achievements: StatisticsAchievement[]
+  tagCache: {
+    fetchedAt: number | null
+    ageMinutes: number | null
+    stale: boolean
+    refreshing: boolean
+    sourceKey: string
+    sourceCount: number
+  }
 }
 
 export type Theme = 'light' | 'dark' | 'system'

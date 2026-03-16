@@ -110,11 +110,17 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function setupListeners(): () => void {
-    const cleanup = api.on('settings:changed', (data: any) => {
+    const cleanupSettings = api.on('settings:changed', (data: any) => {
       if (!data) return
       applySettings(data as AppSettings)
     })
-    return () => cleanup()
+    const cleanupMods = api.on('mods:updated', (data: any) => {
+      if (Array.isArray(data)) loadedMods.value = data as LoadedMod[]
+    })
+    return () => {
+      cleanupSettings()
+      cleanupMods()
+    }
   }
 
   async function fetchMods(): Promise<void> {

@@ -14,6 +14,8 @@ const mangaStore = useMangaStore()
 // Mobile: aktueller Benachrichtigungs-Berechtigungsstatus
 const notifPermissionDenied = ref(false)
 const modsScanning = ref(false)
+const metadataRefreshStatus = ref<'idle' | 'running' | 'ok' | 'fail'>('idle')
+const metadataRefreshMessage = ref('')
 
 onMounted(async () => {
   if (!isMobile) {
@@ -184,6 +186,30 @@ async function scanModsNow(): Promise<void> {
   }
 }
 
+async function refreshMetadataNow(): Promise<void> {
+  metadataRefreshStatus.value = 'running'
+  metadataRefreshMessage.value = ''
+
+  const result = await mangaStore.refreshMetadata()
+  if (!result.success) {
+    metadataRefreshStatus.value = 'fail'
+    metadataRefreshMessage.value = result.error ?? t('settings.metadataRefreshFail')
+    return
+  }
+
+  metadataRefreshStatus.value = 'ok'
+  if (!result.scannedCount) {
+    metadataRefreshMessage.value = t('settings.metadataRefreshNoLinks')
+  } else if (!result.updatedCount) {
+    metadataRefreshMessage.value = t('settings.metadataRefreshNoChanges', { scanned: result.scannedCount })
+  } else {
+    metadataRefreshMessage.value = t('settings.metadataRefreshDone', {
+      updated: result.updatedCount,
+      scanned: result.scannedCount
+    })
+  }
+}
+
 function formatLastSync(ts: number): string {
   if (!ts) return t('settings.syncNever')
   const diff = Math.floor((Date.now() - ts) / 60000)
@@ -260,6 +286,17 @@ function formatLastSync(ts: number): string {
           @click="setAutoLinkEnabled(!settings.autoLinkEnabled)"
         />
       </div>
+      <div class="library-action-row">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.metadataRefresh') }}</span>
+          <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.metadataRefreshHint') }}</p>
+        </div>
+        <button class="action-btn" :disabled="metadataRefreshStatus === 'running'" @click="refreshMetadataNow">
+          {{ metadataRefreshStatus === 'running' ? t('settings.metadataRefreshRunning') : t('settings.metadataRefreshBtn') }}
+        </button>
+      </div>
+      <div v-if="metadataRefreshStatus === 'ok'" class="status-badge status-ok mt-3">{{ metadataRefreshMessage }}</div>
+      <div v-else-if="metadataRefreshStatus === 'fail'" class="status-badge status-fail mt-3">{{ metadataRefreshMessage }}</div>
     </section>
 
     <!-- Read Behavior -->
@@ -635,6 +672,13 @@ function formatLastSync(ts: number): string {
   color: hsl(270 70% 65%);
   border: 1px solid hsl(270 70% 55% / 0.3);
   vertical-align: middle;
+}
+.library-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
 }
 .notif-warning {
   padding: 8px 12px;

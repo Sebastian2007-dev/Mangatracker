@@ -2,6 +2,7 @@ node_modules
 dist
 dist-mobile
 out
+.test-dist
 .DS_Store
 *.log
 # Android signing key — niemals committen!

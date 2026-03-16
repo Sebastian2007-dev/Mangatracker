@@ -6,6 +6,7 @@ import type { Manga, MangaStatus } from '../../types/index'
 import { useMangaStore } from '../../stores/manga.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { getBridge } from '../../services/platform'
+import { fetchLinkedMangaDetails, mergeTagLists } from '../../services/manga-details.service'
 import MangaDexSearchModal from './MangaDexSearchModal.vue'
 
 const props = defineProps<{ open: boolean; manga?: Manga | null }>()
@@ -32,8 +33,12 @@ const comickHid = ref('')
 const comickTitle = ref('')
 const comickCoverUrl = ref<string | undefined>(undefined)
 const showCkModal = ref(false)
-const autoLinking = ref(false)
-let backdropDown = false
+const isSaving = ref(false)
+let backdropDown: boolean = false
+
+function onBackdropMouseDown(event: MouseEvent): void {
+  backdropDown = event.target === event.currentTarget
+}
 const mangaDexManuallyUnlinked = ref(false)
 const comickManuallyUnlinked = ref(false)
 const duplicateOf = ref<import('../../types/index').Manga | null>(null)
@@ -175,35 +180,52 @@ async function handleSave(force = false): Promise<void> {
   }
   duplicateOf.value = null
 
-  if (settingsStore.autoLinkEnabled) {
-    autoLinking.value = true
-    await autoLink()
-    autoLinking.value = false
-  }
+  isSaving.value = true
+  try {
+    if (settingsStore.autoLinkEnabled) {
+      await autoLink()
+    }
 
-  const payload = {
-    title: title.value.trim(),
-    mainUrl: mainUrl.value.trim(),
-    chapterUrlTemplate: chapterUrlTemplate.value.trim(),
-    status: status.value,
-    isFocused: props.manga?.isFocused ?? false,
-    currentChapter: currentChapter.value,
-    hasNewChapter: false,
-    lastCheckedChapter: currentChapter.value,
-    mangaDexId: mangaDexId.value || undefined,
-    mangaDexTitle: mangaDexTitle.value || undefined,
-    mangaDexCoverUrl: mangaDexCoverUrl.value || undefined,
-    comickHid: comickHid.value || undefined,
-    comickTitle: comickTitle.value || undefined,
-    comickCoverUrl: comickCoverUrl.value || undefined
-  }
+    const selectedMangaDexId = mangaDexId.value || undefined
+    const selectedComickHid = comickHid.value || undefined
+    const sourcesChanged =
+      (props.manga?.mangaDexId ?? undefined) !== selectedMangaDexId ||
+      (props.manga?.comickHid ?? undefined) !== selectedComickHid
+    const details = await fetchLinkedMangaDetails({
+      mangaDexId: selectedMangaDexId,
+      comickHid: selectedComickHid
+    })
+    const tags = details
+      ? mergeTagLists(details.tags, sourcesChanged ? [] : props.manga?.tags)
+      : mergeTagLists(sourcesChanged ? [] : props.manga?.tags)
 
-  if (props.manga) {
-    await mangaStore.update(props.manga.id, payload)
-  } else {
-    await mangaStore.create(payload)
+    const payload = {
+      title: title.value.trim(),
+      mainUrl: mainUrl.value.trim(),
+      chapterUrlTemplate: chapterUrlTemplate.value.trim(),
+      status: status.value,
+      isFocused: props.manga?.isFocused ?? false,
+      currentChapter: currentChapter.value,
+      hasNewChapter: false,
+      lastCheckedChapter: currentChapter.value,
+      mangaDexId: selectedMangaDexId,
+      mangaDexTitle: mangaDexTitle.value || undefined,
+      mangaDexCoverUrl: mangaDexCoverUrl.value || undefined,
+      comickHid: selectedComickHid,
+      comickTitle: comickTitle.value || undefined,
+      comickCoverUrl: comickCoverUrl.value || undefined,
+      tags: tags.length > 0 ? tags : undefined
+    }
+
+    if (props.manga) {
+      await mangaStore.update(props.manga.id, payload)
+    } else {
+      await mangaStore.create(payload)
+    }
+    emit('update:open', false)
+  } finally {
+    isSaving.value = false
   }
-  emit('update:open', false)
 }
 
 function onMdxSelect(item: { id: string; title: string; coverUrl: string | null }): void {
@@ -221,7 +243,7 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="modal-backdrop" @mousedown="backdropDown = ($event.target as Element) === ($event.currentTarget as Element)" @click.self="backdropDown && emit('update:open', false)">
+    <div v-if="open" class="modal-backdrop" @mousedown="onBackdropMouseDown" @click.self="backdropDown && emit('update:open', false)">
       <div class="modal-box">
         <!-- Header -->
         <div class="flex items-center justify-between mb-5">
@@ -331,9 +353,9 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
 
         <!-- Buttons -->
         <div v-else class="flex gap-2 mt-6">
-          <button class="btn-ghost flex-1" :disabled="autoLinking" @click="emit('update:open', false)">{{ t('manga.cancel') }}</button>
-          <button class="btn-primary flex-1" :disabled="autoLinking" @click="handleSave()">
-            {{ autoLinking ? t('manga.autoLinking') : t('manga.save') }}
+          <button class="btn-ghost flex-1" :disabled="isSaving" @click="emit('update:open', false)">{{ t('manga.cancel') }}</button>
+          <button class="btn-primary flex-1" :disabled="isSaving" @click="handleSave()">
+            {{ isSaving ? t('manga.saving') : t('manga.save') }}
           </button>
         </div>
       </div>

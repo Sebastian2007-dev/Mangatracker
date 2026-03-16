@@ -1,13 +1,17 @@
 /**
- * Mobile Storage Service — nutzt @capacitor/preferences für einfache Key-Value Daten
- * und @capacitor/filesystem für größere JSON-Dateien (Manga-Liste).
+ * Mobile Storage Service - nutzt @capacitor/preferences fuer einfache Key-Value Daten
+ * und @capacitor/filesystem fuer groessere JSON-Dateien (Manga-Liste).
  */
 import { Preferences } from '@capacitor/preferences'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
-import type { Manga, AppSettings } from '../../../../types/index'
+import type { AppSettings, Manga, StatisticsEvent, StatisticsTagCache, TrashedManga } from '../../../../types/index'
+import { normalizeMangaList, normalizeTagCache, normalizeTrashedMangaList } from '../../../../shared/manga'
 
 const MANGA_FILE = 'manga-list.json'
 const MANGA_TRASH_FILE = 'manga-trash.json'
+const STATS_EVENTS_FILE = 'stats-events.json'
+const STATS_TAG_CACHE_FILE = 'stats-tag-cache.json'
+const LEGACY_STATS_TAG_CACHE_FILE = 'stats-genre-cache.json'
 const SETTINGS_KEY = 'app-settings'
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -24,7 +28,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   readerInSeparateWindow: false,
   elementPickerEnabled: false,
   blockNewWindows: true,
-  titleExpand: true
+  titleExpand: true,
+  gistSyncEnabled: false,
+  gistAutoSync: false,
+  githubToken: '',
+  gistId: '',
+  lastGistSync: 0
 }
 
 async function readJsonFile<T>(path: string, fallback: T): Promise<T> {
@@ -50,17 +59,29 @@ async function writeJsonFile<T>(path: string, data: T): Promise<void> {
   })
 }
 
-// Key used by background runner (CapacitorKV = same as Preferences)
 const MANGA_BG_KEY = 'manga-list'
 
 export async function getMangaList(): Promise<Manga[]> {
-  // Try Preferences first so background runner updates are picked up on resume
   const { value } = await Preferences.get({ key: MANGA_BG_KEY })
   if (value) {
-    try { return JSON.parse(value) as Manga[] } catch { /* fall through */ }
+    try {
+      const raw = JSON.parse(value) as unknown
+      const normalized = normalizeMangaList(raw)
+      if (JSON.stringify(raw) !== JSON.stringify(normalized)) {
+        await Preferences.set({ key: MANGA_BG_KEY, value: JSON.stringify(normalized) })
+        await writeJsonFile(MANGA_FILE, normalized)
+      }
+      return normalized
+    } catch {
+      // fall through
+    }
   }
-  // Fall back to filesystem (first launch or migration)
-  const fromFile = await readJsonFile<Manga[]>(MANGA_FILE, [])
+
+  const fromFileRaw = await readJsonFile<unknown>(MANGA_FILE, [])
+  const fromFile = normalizeMangaList(fromFileRaw)
+  if (JSON.stringify(fromFileRaw) !== JSON.stringify(fromFile)) {
+    await writeJsonFile(MANGA_FILE, fromFile)
+  }
   if (fromFile.length > 0) {
     await Preferences.set({ key: MANGA_BG_KEY, value: JSON.stringify(fromFile) })
   }
@@ -68,17 +89,51 @@ export async function getMangaList(): Promise<Manga[]> {
 }
 
 export async function setMangaList(list: Manga[]): Promise<void> {
-  // Write to both: Preferences (accessible by background runner) + filesystem (backup)
   await Preferences.set({ key: MANGA_BG_KEY, value: JSON.stringify(list) })
   await writeJsonFile(MANGA_FILE, list)
 }
 
-export async function getMangaTrash(): Promise<Manga[]> {
-  return readJsonFile<Manga[]>(MANGA_TRASH_FILE, [])
+export async function getMangaTrash(): Promise<TrashedManga[]> {
+  const raw = await readJsonFile<unknown>(MANGA_TRASH_FILE, [])
+  const trash = normalizeTrashedMangaList(raw)
+  if (JSON.stringify(raw) !== JSON.stringify(trash)) {
+    await writeJsonFile(MANGA_TRASH_FILE, trash)
+  }
+  return trash
 }
 
-export async function setMangaTrash(trash: Manga[]): Promise<void> {
+export async function setMangaTrash(trash: TrashedManga[]): Promise<void> {
   await writeJsonFile(MANGA_TRASH_FILE, trash)
+}
+
+export async function getStatsEvents(): Promise<StatisticsEvent[]> {
+  return readJsonFile<StatisticsEvent[]>(STATS_EVENTS_FILE, [])
+}
+
+export async function setStatsEvents(events: StatisticsEvent[]): Promise<void> {
+  await writeJsonFile(STATS_EVENTS_FILE, events)
+}
+
+export async function getStatsTagCache(): Promise<StatisticsTagCache | null> {
+  const raw = await readJsonFile<unknown>(STATS_TAG_CACHE_FILE, null)
+  if (raw !== null) {
+    const cache = normalizeTagCache(raw)
+    if (JSON.stringify(raw) !== JSON.stringify(cache)) {
+      await writeJsonFile(STATS_TAG_CACHE_FILE, cache)
+    }
+    return cache
+  }
+
+  const legacyRaw = await readJsonFile<unknown>(LEGACY_STATS_TAG_CACHE_FILE, null)
+  const legacyCache = normalizeTagCache(legacyRaw)
+  if (legacyCache) {
+    await writeJsonFile(STATS_TAG_CACHE_FILE, legacyCache)
+  }
+  return legacyCache
+}
+
+export async function setStatsTagCache(cache: StatisticsTagCache | null): Promise<void> {
+  await writeJsonFile(STATS_TAG_CACHE_FILE, cache)
 }
 
 export async function getSettings(): Promise<AppSettings> {
@@ -97,7 +152,6 @@ export async function exportMangaListJson(): Promise<string> {
   return JSON.stringify(list, null, 2)
 }
 
-/** Gibt den absoluten Dateipfad der Exportdatei zurück (für @capacitor/share). */
 export async function writeMangaExportFile(): Promise<string> {
   const json = await exportMangaListJson()
   const result = await Filesystem.writeFile({

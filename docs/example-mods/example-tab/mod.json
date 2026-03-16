@@ -3,8 +3,12 @@
   "name": "Example Tab",
   "version": "1.0.0",
   "author": "MangaTracker",
-  "description": "Adds an empty sidebar tab for testing.",
+  "description": "Adds a sidebar tab with a custom HTML view.",
   "type": ["plugin"],
   "main": "index.js",
-  "sidebarTab": {}
+  "sidebarTab": {
+    "label": "Example Tab",
+    "html": "tab.html"
+  },
+  "i18nDir": "i18n"
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { BookOpen, Settings, ScrollText, Puzzle } from 'lucide-vue-next'
+import { BookOpen, ChartColumn, Settings, ScrollText, Puzzle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useLogStore } from '../../stores/log.store'
 import { useSettingsStore } from '../../stores/settings.store'
@@ -63,6 +63,16 @@ onMounted(async () => {
       <span v-if="logStore.unreadCount > 0 && route.path !== '/log'" class="unread-badge">
         {{ logStore.unreadCount > 99 ? '99+' : logStore.unreadCount }}
       </span>
+    </button>
+
+    <!-- Statistics -->
+    <button
+      class="nav-btn"
+      :class="{ active: route.path === '/statistics' }"
+      :title="t('nav.statistics')"
+      @click="router.push('/statistics')"
+    >
+      <ChartColumn :size="20" />
     </button>
 
     <!-- Mod Tabs -->

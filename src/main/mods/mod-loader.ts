@@ -1,5 +1,6 @@
 import { app, ipcMain, BrowserWindow } from 'electron'
-import { existsSync, readdirSync, readFileSync } from 'fs'
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, watch } from 'fs'
+import type { FSWatcher } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import store from '../store'
@@ -11,6 +12,7 @@ let registeredScanners: ChapterScanner[] = []
 let combinedThemeCSS = ''
 let mainWin: BrowserWindow | null = null
 let themeCssKey: string | null = null
+let modsWatcher: FSWatcher | null = null
 
 const modListeners = new Map<ModEventName, Array<(data: unknown) => void>>()
 const modIpcChannels = new Set<string>()
@@ -98,7 +100,7 @@ function clearRequireCache(modulePath: string): void {
   }
 }
 
-function buildModApi(modId: string): ModApi {
+function buildModApi(modId: string, modDir: string): ModApi {
   return {
     addChapterScanner(scanner: ChapterScanner): void {
       registeredScanners.push(scanner)
@@ -126,6 +128,10 @@ function buildModApi(modId: string): ModApi {
 
     log(message: string, type: LogEntryType = 'info'): void {
       pushLog(type, `[${modId}] ${message}`)
+      try {
+        const ts = new Date().toISOString().replace('T', ' ').slice(0, 19)
+        appendFileSync(join(modDir, 'mod.log'), `[${ts}] [${type}] ${message}\n`, 'utf-8')
+      } catch { /* ignore log write errors */ }
     },
 
     getStorage() {
@@ -142,6 +148,18 @@ function buildModApi(modId: string): ModApi {
           ;(store as any).set('modSettings', all)
         }
       }
+    },
+
+    getDir(): string {
+      return modDir
+    },
+
+    getMangaList(): Manga[] {
+      return ((store as any).get('mangaList') ?? []) as Manga[]
+    },
+
+    getMangaTrash(): Manga[] {
+      return ((store as any).get('mangaTrash') ?? []) as Manga[]
     }
   }
 }
@@ -209,7 +227,7 @@ export async function loadMods(mainWindow: BrowserWindow): Promise<LoadedMod[]> 
             // eslint-disable-next-line @typescript-eslint/no-require-imports
             const mod = require(jsFile) as { register?: (api: ModApi) => void }
             if (typeof mod.register === 'function') {
-              mod.register(buildModApi(manifest.id))
+              mod.register(buildModApi(manifest.id, modDir))
             } else {
               appendEntryError(entry, 'index.js does not export a register() function')
             }
@@ -218,6 +236,17 @@ export async function loadMods(mainWindow: BrowserWindow): Promise<LoadedMod[]> 
           }
         } else {
           appendEntryError(entry, `JS file not found: ${manifest.main ?? 'index.js'}`)
+        }
+      }
+
+      if (manifest.sidebarTab?.html) {
+        const htmlFile = join(modDir, manifest.sidebarTab.html)
+        if (existsSync(htmlFile)) {
+          try {
+            entry.tabHtml = readFileSync(htmlFile, 'utf-8')
+          } catch (e) {
+            appendEntryError(entry, `Tab HTML error: ${e instanceof Error ? e.message : String(e)}`)
+          }
         }
       }
     }
@@ -255,6 +284,9 @@ export async function scanMods(): Promise<LoadedMod[]> {
   if (!mainWin || mainWin.isDestroyed()) return loadedMods
   const mods = await loadMods(mainWin)
   await applyThemeCSS()
+  if (!mainWin.isDestroyed()) {
+    mainWin.webContents.send('mods:updated', mods)
+  }
   return mods
 }
 
@@ -311,6 +343,38 @@ export function setModSetting(modId: string, key: string, value: unknown): void 
 export function getModSettings(modId: string): Record<string, unknown> {
   const all = ((store as any).get('modSettings') ?? {}) as Record<string, Record<string, unknown>>
   return all[modId] ?? {}
+}
+
+/**
+ * Watches the mods directory for changes and re-scans automatically.
+ * Call once after the initial loadMods() to enable hot-reload without restart.
+ */
+export function startModsWatcher(): void {
+  if (modsWatcher) return
+  const dir = getModsDir()
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    modsWatcher = watch(dir, () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null
+        scanMods().catch(() => {/* ignore watcher scan errors */})
+      }, 800)
+    })
+    modsWatcher.on('error', () => {
+      modsWatcher = null
+    })
+  } catch {
+    modsWatcher = null
+  }
+}
+
+export function stopModsWatcher(): void {
+  modsWatcher?.close()
+  modsWatcher = null
 }
 
 export type { Manga }

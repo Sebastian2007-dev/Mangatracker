@@ -12,6 +12,12 @@ export const useMangaStore = defineStore('manga', () => {
   let undoTimerId: ReturnType<typeof setTimeout> | null = null
   let focusFullTimerId: ReturnType<typeof setTimeout> | null = null
 
+  type RefreshMetadataData = {
+    items: Manga[]
+    updatedCount: number
+    scannedCount: number
+  }
+
   async function fetchAll(): Promise<void> {
     const result = await api.invoke<{ success: boolean; data: Manga[] }>('manga:getAll')
     if (result.success && result.data) {
@@ -147,6 +153,26 @@ export const useMangaStore = defineStore('manga', () => {
     await api.invoke('manga:moveItem', { fromId, toId })
   }
 
+  async function refreshMetadata(): Promise<{
+    success: boolean
+    updatedCount?: number
+    scannedCount?: number
+    error?: string
+  }> {
+    const result = await api.invoke<{ success: boolean; data?: RefreshMetadataData; error?: string }>('manga:refreshMetadata')
+    if (result.success && result.data) {
+      items.value = result.data.items
+      if (result.data.updatedCount > 0) lastMutationAt.value = Date.now()
+      return {
+        success: true,
+        updatedCount: result.data.updatedCount,
+        scannedCount: result.data.scannedCount
+      }
+    }
+
+    return { success: false, error: result.error ?? 'Metadata refresh failed' }
+  }
+
   function detectDuplicates(list?: Manga[]): Array<[Manga, Manga]> {
     const source = list ?? items.value
     const norm = (url: string) => url.toLowerCase().replace(/\/+$/, '').trim()
@@ -183,6 +209,7 @@ export const useMangaStore = defineStore('manga', () => {
     toggleFocus,
     reorder,
     scanNow,
-    detectDuplicates
+    detectDuplicates,
+    refreshMetadata
   }
 })

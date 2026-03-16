@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import store from '../store'
 import type { LogEntryType } from '../../types/index'
 import { getRegisteredScanners } from '../mods/mod-loader'
+import { notifyStatsUpdated } from '../stats.service'
 
 let pollerTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -224,6 +225,7 @@ export async function runPoll(mainWindow: BrowserWindow, force = false): Promise
           m.id === manga.id ? { ...m, hasNewChapter: true, lastCheckedChapter: result.newChapter } : m
         )
         store.set('mangaList', updatedList)
+        notifyStatsUpdated()
 
         if (desktopNotificationsEnabled && Notification.isSupported()) {
           new Notification({

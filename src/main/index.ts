@@ -5,11 +5,12 @@ import store from './store'
 import { registerMangaIpc } from './ipc/manga.ipc'
 import { registerSettingsIpc } from './ipc/settings.ipc'
 import { registerGistIpc, syncGistDirect } from './ipc/gist.ipc'
+import { registerStatsIpc } from './ipc/stats.ipc'
 import { registerReaderIpc } from './reader/ReaderView'
 import { registerDomainGuardReplyHandler } from './reader/domainGuard'
 import { initAdBlocker } from './reader/adBlocker'
 import { startPoller, runPoll } from './notifications/chapterPoller'
-import { loadMods, applyThemeCSS, emitModEvent } from './mods/mod-loader'
+import { loadMods, applyThemeCSS, emitModEvent, startModsWatcher, stopModsWatcher } from './mods/mod-loader'
 import { registerModIpc } from './ipc/mod.ipc'
 
 const isDev = process.env['NODE_ENV'] === 'development' || !!process.env['ELECTRON_RENDERER_URL']
@@ -23,6 +24,11 @@ const winIconPath = (() => {
 })()
 
 function createWindow(): BrowserWindow {
+  registerMangaIpc()
+  registerSettingsIpc()
+  registerStatsIpc()
+  registerGistIpc()
+
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -53,10 +59,6 @@ function createWindow(): BrowserWindow {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
-
-  registerMangaIpc()
-  registerSettingsIpc()
-  registerGistIpc()
   registerReaderIpc(mainWindow)
   registerDomainGuardReplyHandler(mainWindow)
 
@@ -72,6 +74,7 @@ function createWindow(): BrowserWindow {
     }
   })
 
+  ipcMain.removeHandler('manga:scanNow')
   ipcMain.handle('manga:scanNow', async () => {
     await runPoll(mainWindow, true)
     return { success: true }
@@ -93,6 +96,7 @@ app.whenReady().then(async () => {
   await loadMods(mainWindow)
   await applyThemeCSS()
   registerModIpc()
+  startModsWatcher()
 
   // Re-apply theme CSS from mods after each page load
   mainWindow.webContents.on('did-finish-load', () => {
@@ -107,6 +111,10 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('will-quit', () => {
+  stopModsWatcher()
 })
 
 app.on('window-all-closed', () => {

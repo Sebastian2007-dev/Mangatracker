@@ -8,6 +8,7 @@ import type { PlatformBridge } from './platform'
 import * as mangaService from './mobile/manga.service'
 import * as settingsService from './mobile/settings.service'
 import * as gistService from './mobile/gist.service'
+import * as statsService from './mobile/stats.service'
 import { runPoll } from './mobile/poller.service'
 import { writeMangaExportFile } from './mobile/storage.service'
 import { Share } from '@capacitor/share'
@@ -36,6 +37,10 @@ settingsService.onSettingsChanged((settings) => {
   emit('settings:changed', settings)
 })
 
+statsService.onStatsUpdated(() => {
+  emit('stats:updated')
+})
+
 // ─── Invoke-Handler Map ───────────────────────────────────────────────────
 
 type Handler = (payload?: unknown) => Promise<unknown>
@@ -48,6 +53,7 @@ const handlers: Record<string, Handler> = {
   'manga:delete': (p) => mangaService.deleteManga(p as { id: string }),
   'manga:emptyTrash': (p) => mangaService.emptyTrash(p as { id: string }),
   'manga:moveItem': (p) => mangaService.moveItem(p as { fromId: string; toId: string }),
+  'manga:refreshMetadata': () => mangaService.refreshMetadata(),
   'manga:export': async () => {
     // Auf Mobile: Datei schreiben und Share-Dialog öffnen, dann JSON zurückgeben
     try {
@@ -143,7 +149,6 @@ const handlers: Record<string, Handler> = {
         return 'manga'
       }
       const tags = (attr.tags ?? [])
-        .filter((t) => t.attributes?.group?.name === 'genre')
         .map((t) => t.attributes?.name?.en ?? Object.values(t.attributes?.name ?? {})[0])
         .filter(Boolean) as string[]
       const authors = [...new Set(
@@ -180,7 +185,7 @@ const handlers: Record<string, Handler> = {
       const comic = (json.comic ?? json) as Record<string, unknown>
       const statusMap: Record<number, string> = { 1: 'ongoing', 2: 'completed', 3: 'cancelled', 4: 'hiatus' }
       const countryMap: Record<string, string> = { kr: 'manhwa', jp: 'manga', zh: 'manhua', cn: 'manhua' }
-      const genres = Array.isArray(comic.genres) ? (comic.genres as { name?: string }[]).map((g) => g.name ?? '').filter(Boolean) : []
+      const tags = Array.isArray(comic.genres) ? (comic.genres as { name?: string }[]).map((g) => g.name ?? '').filter(Boolean) : []
       const authors: string[] = []
       if (typeof comic.author === 'string' && comic.author) authors.push(comic.author)
       if (typeof comic.artist === 'string' && comic.artist && comic.artist !== comic.author) authors.push(comic.artist)
@@ -196,7 +201,7 @@ const handlers: Record<string, Handler> = {
           status: statusMap[(comic.status as number)] ?? null,
           type: countryMap[(comic.country as string)] ?? null,
           latestChapter: (comic.last_chapter as number) ?? null,
-          tags: genres,
+          tags,
           authors,
           year: (comic.year as number) ?? null,
           demographic: null as string | null
@@ -213,6 +218,9 @@ const handlers: Record<string, Handler> = {
   'gist:testAuth': (p) => gistService.testAuth(p),
   'gist:sync': (p) => gistService.sync(p),
   'gist:disconnect': () => gistService.disconnect(),
+  'stats:getOverview': () => statsService.statsGetOverview(),
+  'stats:refreshTags': () => statsService.statsRefreshTags(),
+  'stats:refreshGenres': () => statsService.statsRefreshTags(),
 
   // Reader-Channels: auf Mobile werden diese über @capacitor/browser abgehandelt.
   // Der reader.store ruft diese nicht auf Mobile auf, daher Stubs:
