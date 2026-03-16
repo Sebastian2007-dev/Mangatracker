@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import type { Component } from 'vue'
+import { useCountUp } from '../composables/useCountUp'
 import {
   BookOpen,
+  Camera,
   Castle,
+  Cloud,
+  X,
   ChartColumn,
   CircleCheck,
   Clock3,
@@ -17,6 +21,7 @@ import {
   Link,
   MoonStar,
   Palette,
+  Pencil,
   RefreshCw,
   ScrollText,
   Search,
@@ -29,13 +34,59 @@ import {
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useStatisticsStore } from '../stores/statistics.store'
+import { useSettingsStore } from '../stores/settings.store'
 
 const { t, locale } = useI18n()
 const statisticsStore = useStatisticsStore()
+const settingsStore = useSettingsStore()
 const mode = ref<'game' | 'plain'>('game')
 let cleanupListener: (() => void) | null = null
 
+const showAllAchievements = ref(false)
+const ACHIEVEMENTS_PREVIEW = 24
+
+const avatarInput = ref<HTMLInputElement | null>(null)
+const editingName = ref(false)
+const tempName = ref('')
+const nameInputEl = ref<HTMLInputElement | null>(null)
+
+function triggerAvatarUpload(): void {
+  avatarInput.value?.click()
+}
+
+function onAvatarChange(e: Event): void {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = async () => {
+    await settingsStore.save({ profileAvatar: reader.result as string })
+  }
+  reader.readAsDataURL(file)
+}
+
+function startEditName(): void {
+  tempName.value = settingsStore.profileName
+  editingName.value = true
+  nextTick(() => nameInputEl.value?.select())
+}
+
+async function saveName(): Promise<void> {
+  await settingsStore.save({ profileName: tempName.value.trim() })
+  editingName.value = false
+}
+
+function cancelEditName(): void {
+  editingName.value = false
+}
+
 const overview = computed(() => statisticsStore.overview)
+
+const overviewLevel = computed(() => overview.value?.level)
+const overviewChapters = computed(() => overview.value?.chapters.allTime)
+const overviewManga = computed(() => overview.value?.counts.current)
+const animatedLevel = useCountUp(overviewLevel)
+const animatedChapters = useCountUp(overviewChapters)
+const animatedManga = useCountUp(overviewManga)
 
 const iconMap: Record<string, Component> = {
   Book: BookOpen,
@@ -58,9 +109,12 @@ const iconMap: Record<string, Component> = {
   Circuit: Cpu,
   Moon: MoonStar,
   Spark: Sparkles,
+  Sparkles,
   Trophy,
   Search,
-  Scroll: ScrollText
+  Scroll: ScrollText,
+  RefreshCw,
+  Cloud
 }
 
 const statCards = computed(() => {
@@ -170,7 +224,6 @@ async function refreshTags(): Promise<void> {
 }
 
 onMounted(async () => {
-  cleanupListener = statisticsStore.setupListeners()
   await statisticsStore.fetchOverview()
 })
 
@@ -201,8 +254,8 @@ onUnmounted(() => {
           </button>
 
           <div class="toggle">
-            <button :class="{ active: mode === 'game' }" @click="mode = 'game'">{{ t('statistics.game') }}</button>
-            <button :class="{ active: mode === 'plain' }" @click="mode = 'plain'">{{ t('statistics.plain') }}</button>
+            <button :class="{ active: mode === 'game' }" @click="mode = 'game'">{{ t('statistics.modeGame') }}</button>
+            <button :class="{ active: mode === 'plain' }" @click="mode = 'plain'">{{ t('statistics.modePlain') }}</button>
           </div>
         </div>
       </header>
@@ -217,20 +270,41 @@ onUnmounted(() => {
 
       <template v-else-if="overview">
         <section class="hero-card">
-          <div class="hero-orb">
-            <component :is="resolveIcon(overview.jobIcon)" :size="26" />
+          <div class="hero-avatar-wrap" :title="t('statistics.changeAvatar')" @click="triggerAvatarUpload">
+            <img v-if="settingsStore.profileAvatar" :src="settingsStore.profileAvatar" class="hero-avatar-img" />
+            <div v-else class="hero-orb">
+              <component :is="resolveIcon(overview.jobIcon)" :size="26" />
+            </div>
+            <div class="hero-avatar-overlay">
+              <Camera :size="16" />
+            </div>
+            <input ref="avatarInput" type="file" accept="image/*" class="hidden-input" @change="onAvatarChange" />
           </div>
 
           <div class="hero-copy">
-            <p class="hero-level">{{ t('statistics.levelLabel', { level: formatNumber(overview.level) }) }}</p>
-            <h2>{{ overview.jobClass }}</h2>
+            <p class="hero-level">{{ animatedLevel >= 20 ? t('statistics.maxLevel') : t('statistics.levelLabel', { level: formatNumber(animatedLevel) }) }}</p>
+            <div v-if="editingName" class="hero-name-edit">
+              <input
+                ref="nameInputEl"
+                v-model="tempName"
+                class="name-input"
+                :placeholder="t('statistics.namePlaceholder')"
+                @keydown.enter="saveName"
+                @keydown.escape="cancelEditName"
+                @blur="saveName"
+              />
+            </div>
+            <h2 v-else class="hero-name" :title="t('statistics.editName')" @click="startEditName">
+              {{ settingsStore.profileName || overview.jobClass }}
+              <span class="edit-hint"><Pencil :size="13" /></span>
+            </h2>
             <p class="hero-secondary">
-              {{ overview.secondaryClass || t('statistics.secondaryFallback') }}
+              {{ overview.jobClass }}{{ overview.secondaryClass ? ' · ' + overview.secondaryClass : '' }}
             </p>
 
             <div class="hero-badges">
-              <span>{{ t('statistics.badges.currentLibrary', { value: formatNumber(overview.counts.current) }) }}</span>
-              <span>{{ t('statistics.badges.allTimeChapters', { value: formatNumber(overview.chapters.allTime) }) }}</span>
+              <span>{{ t('statistics.badges.currentLibrary', { value: formatNumber(animatedManga) }) }}</span>
+              <span>{{ t('statistics.badges.allTimeChapters', { value: formatNumber(animatedChapters) }) }}</span>
               <span>{{ overview.favoriteTag?.name || t('statistics.badges.noTag') }}</span>
             </div>
 
@@ -244,22 +318,59 @@ onUnmounted(() => {
         </section>
 
         <div v-if="mode === 'game'" class="game-layout">
-          <section class="panel">
-            <div class="panel-head">
-              <p class="panel-eyebrow">{{ t('statistics.sections.attributes') }}</p>
-            </div>
+          <!-- Left column: Attributes + Activity stacked -->
+          <div class="game-col">
+            <section class="panel">
+              <div class="panel-head">
+                <p class="panel-eyebrow">{{ t('statistics.sections.attributes') }}</p>
+              </div>
 
-            <div class="attribute-grid">
-              <article v-for="card in statCards" :key="card.key" class="attribute-card" :data-tone="card.tone">
-                <p>{{ card.label }}</p>
-                <strong>{{ formatNumber(card.value) }}</strong>
-                <div class="attribute-track">
-                  <div class="attribute-fill" :style="{ width: `${card.value}%` }" />
+              <div class="attribute-grid">
+                <article v-for="card in statCards" :key="card.key" class="attribute-card" :data-tone="card.tone">
+                  <p>{{ card.label }}</p>
+                  <strong>{{ formatNumber(card.value) }}</strong>
+                  <div class="attribute-track">
+                    <div class="attribute-fill" :style="{ width: `${card.value}%` }" />
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <p class="panel-eyebrow">{{ t('statistics.sections.activity') }}</p>
+              </div>
+
+              <div class="streak-grid">
+                <article>
+                  <span>{{ t('statistics.metrics.activeDays') }}</span>
+                  <strong>{{ formatNumber(overview.activeDays) }}</strong>
+                </article>
+                <article>
+                  <span>{{ t('statistics.metrics.currentStreak') }}</span>
+                  <strong>{{ formatNumber(overview.currentStreak) }}</strong>
+                </article>
+                <article>
+                  <span>{{ t('statistics.metrics.bestStreak') }}</span>
+                  <strong>{{ formatNumber(overview.bestStreak) }}</strong>
+                </article>
+                <article>
+                  <span>{{ t('statistics.metrics.busiestDay') }}</span>
+                  <strong>{{ overview.busiestDay ? formatDayKey(overview.busiestDay.date) : t('statistics.never') }}</strong>
+                </article>
+              </div>
+
+              <div v-if="monthTimeline.length > 0" class="timeline">
+                <div v-for="month in monthTimeline" :key="month.key" class="timeline-column">
+                  <div class="timeline-bar" :style="{ height: month.height }" />
+                  <span>{{ month.label }}</span>
                 </div>
-              </article>
-            </div>
-          </section>
+              </div>
+              <p v-else class="empty-note">{{ t('statistics.noActivity') }}</p>
+            </section>
+          </div>
 
+          <!-- Middle column: Achievements -->
           <section class="panel">
             <div class="panel-head">
               <p class="panel-eyebrow">{{ t('statistics.sections.achievements') }}</p>
@@ -267,20 +378,29 @@ onUnmounted(() => {
 
             <div class="achievement-grid">
               <article
-                v-for="achievement in overview.achievements"
+                v-for="achievement in overview.achievements.slice(0, ACHIEVEMENTS_PREVIEW)"
                 :key="achievement.id"
                 class="achievement-card"
                 :class="{ locked: !achievement.unlocked }"
               >
                 <div class="achievement-icon">
-                  <component :is="resolveIcon(achievement.icon)" :size="18" />
+                  <component :is="resolveIcon(achievement.icon)" :size="13" />
                 </div>
-                <strong>{{ achievement.name }}</strong>
-                <span>{{ achievement.hint }}</span>
+                <strong>{{ t('statistics.achievements.' + achievement.id + '.name') }}</strong>
+                <span>{{ t('statistics.achievements.' + achievement.id + '.hint') }}</span>
               </article>
             </div>
+
+            <button
+              v-if="overview.achievements.length > ACHIEVEMENTS_PREVIEW"
+              class="show-all-btn"
+              @click="showAllAchievements = true"
+            >
+              {{ t('statistics.showAllAchievements', { count: overview.achievements.length }) }}
+            </button>
           </section>
 
+          <!-- Right column: Tags -->
           <section class="panel side-panel">
             <div class="panel-head split">
               <div>
@@ -302,39 +422,6 @@ onUnmounted(() => {
               </div>
             </div>
             <p v-else class="empty-note">{{ t('statistics.noTags') }}</p>
-          </section>
-
-          <section class="panel side-panel">
-            <div class="panel-head">
-              <p class="panel-eyebrow">{{ t('statistics.sections.activity') }}</p>
-            </div>
-
-            <div class="streak-grid">
-              <article>
-                <span>{{ t('statistics.metrics.activeDays') }}</span>
-                <strong>{{ formatNumber(overview.activeDays) }}</strong>
-              </article>
-              <article>
-                <span>{{ t('statistics.metrics.currentStreak') }}</span>
-                <strong>{{ formatNumber(overview.currentStreak) }}</strong>
-              </article>
-              <article>
-                <span>{{ t('statistics.metrics.bestStreak') }}</span>
-                <strong>{{ formatNumber(overview.bestStreak) }}</strong>
-              </article>
-              <article>
-                <span>{{ t('statistics.metrics.busiestDay') }}</span>
-                <strong>{{ overview.busiestDay ? formatDayKey(overview.busiestDay.date) : t('statistics.never') }}</strong>
-              </article>
-            </div>
-
-            <div v-if="monthTimeline.length > 0" class="timeline">
-              <div v-for="month in monthTimeline" :key="month.key" class="timeline-column">
-                <div class="timeline-bar" :style="{ height: month.height }" />
-                <span>{{ month.label }}</span>
-              </div>
-            </div>
-            <p v-else class="empty-note">{{ t('statistics.noActivity') }}</p>
           </section>
         </div>
 
@@ -448,6 +535,32 @@ onUnmounted(() => {
         </div>
       </template>
     </div>
+  <Teleport to="body">
+    <div v-if="showAllAchievements" class="achievement-modal-backdrop" @click.self="showAllAchievements = false">
+      <div class="achievement-modal">
+        <div class="achievement-modal-head">
+          <p class="panel-eyebrow" style="margin:0">{{ t('statistics.sections.achievements') }}</p>
+          <button class="modal-close-btn" @click="showAllAchievements = false">
+            <X :size="16" />
+          </button>
+        </div>
+        <div class="achievement-grid">
+          <article
+            v-for="achievement in overview.achievements"
+            :key="achievement.id"
+            class="achievement-card"
+            :class="{ locked: !achievement.unlocked }"
+          >
+            <div class="achievement-icon">
+              <component :is="resolveIcon(achievement.icon)" :size="17" />
+            </div>
+            <strong>{{ t('statistics.achievements.' + achievement.id + '.name') }}</strong>
+            <span>{{ t('statistics.achievements.' + achievement.id + '.hint') }}</span>
+          </article>
+        </div>
+      </div>
+    </div>
+  </Teleport>
   </div>
 </template>
 
@@ -457,9 +570,9 @@ onUnmounted(() => {
   overflow-y: auto;
   padding: 24px;
   background:
-    radial-gradient(circle at top right, hsl(var(--primary) / 0.18), transparent 36%),
-    radial-gradient(circle at bottom left, hsl(205 88% 58% / 0.12), transparent 28%),
-    linear-gradient(180deg, hsl(var(--background)), hsl(225 28% 8%));
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.14), transparent 36%),
+    radial-gradient(circle at bottom left, hsl(var(--primary) / 0.06), transparent 28%),
+    hsl(var(--background));
 }
 
 .stats-shell {
@@ -475,8 +588,8 @@ onUnmounted(() => {
 .summary-card,
 .state-box {
   border: 1px solid hsl(var(--border));
-  background: linear-gradient(180deg, hsl(230 25% 14% / 0.96), hsl(228 20% 10% / 0.98));
-  box-shadow: 0 16px 40px hsl(240 40% 4% / 0.22);
+  background: hsl(var(--card) / 0.98);
+  box-shadow: 0 16px 40px hsl(0 0% 0% / 0.18);
 }
 
 .stats-header,
@@ -506,8 +619,8 @@ onUnmounted(() => {
   display: grid;
   place-items: center;
   border-radius: 14px;
-  background: linear-gradient(135deg, hsl(42 78% 50%), hsl(30 92% 60%));
-  color: hsl(230 25% 10%);
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
 }
 
 .eyebrow,
@@ -552,7 +665,7 @@ onUnmounted(() => {
 .ghost-btn,
 .toggle button {
   border: 1px solid hsl(var(--border));
-  background: hsl(230 18% 16%);
+  background: hsl(var(--secondary));
   color: hsl(var(--foreground));
   border-radius: 12px;
   cursor: pointer;
@@ -571,7 +684,7 @@ onUnmounted(() => {
 .ghost-btn:hover,
 .toggle button:hover {
   transform: translateY(-1px);
-  background: hsl(230 18% 18%);
+  background: hsl(var(--accent));
 }
 
 .ghost-btn:disabled {
@@ -584,7 +697,7 @@ onUnmounted(() => {
   padding: 4px;
   gap: 4px;
   border-radius: 14px;
-  background: hsl(230 18% 14%);
+  background: hsl(var(--background));
   border: 1px solid hsl(var(--border));
 }
 
@@ -595,8 +708,8 @@ onUnmounted(() => {
 }
 
 .toggle button.active {
-  background: linear-gradient(135deg, hsl(42 78% 50%), hsl(30 92% 60%));
-  color: hsl(230 25% 10%);
+  background: hsl(var(--primary));
+  color: hsl(var(--background));
   border-color: transparent;
 }
 
@@ -611,13 +724,10 @@ onUnmounted(() => {
   width: 88px;
   height: 88px;
   border-radius: 28px;
-  flex-shrink: 0;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at top left, hsl(42 95% 62%), transparent 36%),
-    linear-gradient(145deg, hsl(42 76% 34%), hsl(18 78% 48%));
-  color: hsl(230 25% 10%);
+  background: linear-gradient(145deg, hsl(var(--primary) / 0.9), hsl(var(--primary) / 0.5));
+  color: hsl(var(--background));
   box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.18);
 }
 
@@ -643,7 +753,7 @@ onUnmounted(() => {
   padding: 7px 10px;
   border-radius: 999px;
   border: 1px solid hsl(var(--border));
-  background: hsl(230 18% 16%);
+  background: hsl(var(--secondary));
   color: hsl(var(--foreground));
   font-size: 11px;
   font-weight: 600;
@@ -663,14 +773,14 @@ onUnmounted(() => {
 .xp-bar {
   height: 12px;
   border-radius: 999px;
-  background: hsl(230 18% 16%);
+  background: hsl(var(--secondary));
   overflow: hidden;
 }
 
 .xp-bar-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, hsl(42 78% 46%), hsl(30 92% 60%));
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.65));
 }
 
 .game-layout,
@@ -680,8 +790,14 @@ onUnmounted(() => {
 }
 
 .game-layout {
-  grid-template-columns: 1.4fr 1.4fr 1fr;
+  grid-template-columns: 1fr 1.5fr 1fr;
   align-items: start;
+}
+
+.game-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .plain-layout,
@@ -718,7 +834,7 @@ onUnmounted(() => {
 
 .attribute-card {
   padding: 14px;
-  background: hsl(230 18% 16%);
+  background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
 }
 
@@ -764,7 +880,7 @@ onUnmounted(() => {
   height: 8px;
   margin-top: 10px;
   border-radius: 999px;
-  background: hsl(230 18% 12%);
+  background: hsl(var(--background));
   overflow: hidden;
 }
 
@@ -778,19 +894,114 @@ onUnmounted(() => {
 
 .attribute-fill,
 .genre-fill {
-  background: linear-gradient(90deg, hsl(42 78% 46%), hsl(30 92% 60%));
+  background: hsl(var(--primary));
 }
 
 .achievement-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: center;
 }
 
 .achievement-card {
-  padding: 14px 12px;
-  background: hsl(230 18% 16%);
+  flex: 0 0 160px;
+  width: 160px;
+  padding: 11px 10px;
+  background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
+  position: relative;
+  overflow: hidden;
+}
+
+.show-all-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.show-all-btn:hover {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+
+.achievement-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: hsl(0 0% 0% / 0.55);
+  z-index: 999;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.achievement-modal {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 18px;
+  padding: 24px;
+  max-width: 700px;
+  width: 100%;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  box-shadow: 0 24px 64px hsl(0 0% 0% / 0.4);
+}
+
+.achievement-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-close-btn {
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.modal-close-btn:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--secondary));
+}
+
+.achievement-modal .achievement-grid {
+  justify-content: center;
+}
+
+.achievement-modal .achievement-card {
+  flex: 0 0 190px;
+  width: 190px;
+  padding: 14px 13px;
+}
+
+.achievement-modal .achievement-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  margin-bottom: 10px;
+}
+
+.achievement-modal .achievement-card strong {
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.achievement-modal .achievement-card span {
+  font-size: 11px;
 }
 
 .achievement-card.locked {
@@ -798,21 +1009,26 @@ onUnmounted(() => {
 }
 
 .achievement-icon {
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
-  border-radius: 11px;
+  border-radius: 8px;
   background: hsl(var(--primary) / 0.12);
   color: hsl(var(--primary));
-  margin-bottom: 12px;
+  margin-bottom: 7px;
 }
 
 .achievement-card strong {
   display: block;
   color: hsl(var(--foreground));
-  font-size: 13px;
-  margin-bottom: 6px;
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
+.achievement-card span {
+  font-size: 10px;
+  line-height: 1.3;
 }
 
 .genre-list,
@@ -856,7 +1072,7 @@ onUnmounted(() => {
 .streak-grid article,
 .summary-card {
   padding: 16px;
-  background: hsl(230 18% 16%);
+  background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
 }
 
@@ -888,7 +1104,7 @@ onUnmounted(() => {
 }
 
 .timeline-bar {
-  background: linear-gradient(180deg, hsl(206 90% 61%), hsl(42 78% 46%));
+  background: hsl(var(--primary) / 0.7);
   min-height: 16px;
 }
 
@@ -944,6 +1160,72 @@ onUnmounted(() => {
   padding: 12px 0 4px;
 }
 
+.hero-avatar-wrap {
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  width: 88px;
+  height: 88px;
+  border-radius: 28px;
+  overflow: hidden;
+}
+
+.hero-avatar-wrap:hover .hero-avatar-overlay {
+  opacity: 1;
+}
+
+.hero-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: hsl(0 0% 0% / 0.5);
+  opacity: 0;
+  transition: opacity 0.18s;
+  color: hsl(var(--foreground));
+  border-radius: 28px;
+}
+
+.hero-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hidden-input {
+  display: none;
+}
+
+.hero-name {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-hint {
+  color: hsl(var(--muted-foreground));
+  opacity: 0.5;
+  line-height: 1;
+}
+
+.hero-name-edit {
+  margin-top: 6px;
+  margin-bottom: 4px;
+}
+
+.name-input {
+  font-size: 28px;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid hsl(var(--primary));
+  color: hsl(var(--foreground));
+  outline: none;
+  width: 100%;
+  padding: 0;
+}
+
 .spin {
   animation: spin 0.9s linear infinite;
 }
@@ -953,14 +1235,67 @@ onUnmounted(() => {
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1100px) {
   .game-layout {
     grid-template-columns: 1fr 1fr;
   }
+}
 
-  .side-panel {
-    grid-column: span 1;
+@media (max-width: 760px) {
+  .game-layout {
+    grid-template-columns: 1fr;
   }
+}
+
+/* ── Bar fill animations ── */
+@keyframes bar-fill { from { width: 0; } }
+@keyframes bar-rise { from { height: 0; } }
+
+.xp-bar-fill {
+  animation: bar-fill 1.1s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.attribute-fill {
+  animation: bar-fill 0.9s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.genre-fill {
+  animation: bar-fill 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.status-fill {
+  animation: bar-fill 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.timeline-bar {
+  animation: bar-rise 0.7s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.attribute-card:nth-child(1) .attribute-fill { animation-delay: 0.00s; }
+.attribute-card:nth-child(2) .attribute-fill { animation-delay: 0.06s; }
+.attribute-card:nth-child(3) .attribute-fill { animation-delay: 0.12s; }
+.attribute-card:nth-child(4) .attribute-fill { animation-delay: 0.18s; }
+.attribute-card:nth-child(5) .attribute-fill { animation-delay: 0.24s; }
+.attribute-card:nth-child(6) .attribute-fill { animation-delay: 0.30s; }
+
+.timeline-column:nth-child(1) .timeline-bar { animation-delay: 0.00s; }
+.timeline-column:nth-child(2) .timeline-bar { animation-delay: 0.05s; }
+.timeline-column:nth-child(3) .timeline-bar { animation-delay: 0.10s; }
+.timeline-column:nth-child(4) .timeline-bar { animation-delay: 0.15s; }
+.timeline-column:nth-child(5) .timeline-bar { animation-delay: 0.20s; }
+.timeline-column:nth-child(6) .timeline-bar { animation-delay: 0.25s; }
+.timeline-column:nth-child(7) .timeline-bar { animation-delay: 0.30s; }
+.timeline-column:nth-child(8) .timeline-bar { animation-delay: 0.35s; }
+
+/* ── Achievement card shine on hover ── */
+.achievement-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, hsl(0 0% 100% / 0.08) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0s;
+  pointer-events: none;
+}
+.achievement-card:not(.locked):hover::after {
+  transform: translateX(100%);
+  transition: transform 0.4s ease;
 }
 
 @media (max-width: 920px) {
@@ -992,6 +1327,7 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
+  .hero-avatar-wrap,
   .hero-orb {
     width: 72px;
     height: 72px;

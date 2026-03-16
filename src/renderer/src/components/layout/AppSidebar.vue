@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { BookOpen, ChartColumn, Settings, ScrollText, Puzzle } from 'lucide-vue-next'
+import { BookOpen, ChartColumn, Settings, ScrollText, Puzzle, Terminal } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useLogStore } from '../../stores/log.store'
 import { useSettingsStore } from '../../stores/settings.store'
@@ -89,6 +89,16 @@ onMounted(async () => {
 
     <!-- Spacer -->
     <div class="flex-1" />
+
+    <!-- Debug -->
+    <button
+      class="nav-btn"
+      :class="{ active: route.path === '/debug' }"
+      title="Debug"
+      @click="router.push('/debug')"
+    >
+      <Terminal :size="20" />
+    </button>
 
     <!-- Settings -->
     <button

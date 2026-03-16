@@ -12,7 +12,8 @@ const router = createRouter({
     { path: '/statistics', component: StatisticsView },
     { path: '/settings', component: SettingsView },
     { path: '/log', component: LogView },
-    { path: '/mod/:modId', component: ModView }
+    { path: '/mod/:modId', component: ModView },
+    { path: '/debug', component: () => import('../views/DebugView.vue') }
   ]
 })
 

@@ -25,6 +25,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const githubToken = ref<string>('')
   const gistId = ref<string>('')
   const lastGistSync = ref<number>(0)
+  const profileName = ref<string>('')
+  const profileAvatar = ref<string>('')
   const loadedMods = ref<LoadedMod[]>([])
 
   function applySettings(s: AppSettings): void {
@@ -47,6 +49,8 @@ export const useSettingsStore = defineStore('settings', () => {
     githubToken.value = s.githubToken ?? ''
     gistId.value = s.gistId ?? ''
     lastGistSync.value = s.lastGistSync ?? 0
+    profileName.value = s.profileName ?? ''
+    profileAvatar.value = s.profileAvatar ?? ''
   }
 
   async function load(): Promise<void> {
@@ -79,6 +83,8 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.githubToken !== undefined) githubToken.value = updates.githubToken
     if (updates.gistId !== undefined) gistId.value = updates.gistId
     if (updates.lastGistSync !== undefined) lastGistSync.value = updates.lastGistSync
+    if (updates.profileName !== undefined) profileName.value = updates.profileName
+    if (updates.profileAvatar !== undefined) profileAvatar.value = updates.profileAvatar
   }
 
   async function syncGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
@@ -153,6 +159,7 @@ export const useSettingsStore = defineStore('settings', () => {
     notificationIntervalMs, notificationsEnabled, backgroundNotificationsEnabled, autoLinkEnabled, desktopNotificationsEnabled, readerInSeparateWindow,
     elementPickerEnabled, blockNewWindows, titleExpand,
     gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
+    profileName, profileAvatar,
     loadedMods,
     load, save, setupListeners, syncGist, testGistAuth, disconnectGist,
     fetchMods, scanMods, setModEnabled, openModsFolder

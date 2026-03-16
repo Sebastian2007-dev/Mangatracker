@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { ref, provide, onMounted, onUnmounted, watch } from 'vue'
-import { RouterView } from 'vue-router'
+import { RouterView, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppSidebar from './components/layout/AppSidebar.vue'
 import MobileTabBar from './components/layout/MobileTabBar.vue'
 import AppHeader from './components/layout/AppHeader.vue'
 import ReaderView from './views/ReaderView.vue'
 import DeleteUndoToast from './components/manga/DeleteUndoToast.vue'
+import AchievementToast from './components/AchievementToast.vue'
+import LevelUpOverlay from './components/LevelUpOverlay.vue'
 import TemplateMismatchModal from './components/manga/TemplateMismatchModal.vue'
 import DuplicatesModal from './components/manga/DuplicatesModal.vue'
 import { useMangaStore } from './stores/manga.store'
 import { useSettingsStore } from './stores/settings.store'
 import { useLogStore } from './stores/log.store'
+import { useStatisticsStore } from './stores/statistics.store'
 import { useTheme } from './composables/useTheme'
 import type { LogEntry, Manga } from '../../types/index'
 import { getBridge } from './services/platform'
@@ -19,9 +22,11 @@ import { isMobile } from './composables/usePlatform'
 import { getReadingSession, clearReadingSession, type ReadingSession } from './composables/useReadingSession'
 
 const { t, locale } = useI18n()
+const route = useRoute()
 const mangaStore = useMangaStore()
 const settingsStore = useSettingsStore()
 const logStore = useLogStore()
+const statisticsStore = useStatisticsStore()
 
 const searchQuery = ref('')
 provide('searchQuery', searchQuery)
@@ -73,6 +78,7 @@ async function skipRecovery(): Promise<void> {
 let cleanupMangaListeners: (() => void) | null = null
 let cleanupLogListener: (() => void) | null = null
 let cleanupSettingsListener: (() => void) | null = null
+let cleanupStatisticsListener: (() => void) | null = null
 let mutationSyncTimer: ReturnType<typeof setTimeout> | null = null
 let syncInProgress = false
 
@@ -97,6 +103,7 @@ onMounted(async () => {
   locale.value = settingsStore.language
   await mangaStore.fetchAll()
   cleanupMangaListeners = mangaStore.setupListeners()
+  cleanupStatisticsListener = statisticsStore.setupListeners()
   cleanupLogListener = getBridge().on('logs:entry', (entry) => {
     logStore.addEntry(entry as LogEntry)
   })
@@ -138,6 +145,7 @@ onUnmounted(() => {
   cleanupMangaListeners?.()
   cleanupLogListener?.()
   cleanupSettingsListener?.()
+  cleanupStatisticsListener?.()
   if (mutationSyncTimer !== null) clearTimeout(mutationSyncTimer)
 })
 
@@ -150,12 +158,18 @@ useTheme()
     <div class="main-area">
       <AppHeader v-model:searchQuery="searchQuery" />
       <div class="view-area">
-        <RouterView />
+        <RouterView v-slot="{ Component }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" :key="route.path" />
+          </Transition>
+        </RouterView>
       </div>
       <MobileTabBar v-if="isMobile" />
     </div>
     <ReaderView v-if="!isMobile" />
     <DeleteUndoToast />
+    <AchievementToast />
+    <LevelUpOverlay />
 
     <DuplicatesModal
       v-if="syncDuplicates.length > 0"
@@ -235,6 +249,9 @@ useTheme()
 }
 .slide-up-enter-active, .slide-up-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
+.page-enter-active { transition: opacity 0.14s ease; }
+.page-leave-active { transition: opacity 0.1s ease; }
+.page-enter-from, .page-leave-to { opacity: 0; }
 .recovery-backdrop {
   position: fixed;
   inset: 0;

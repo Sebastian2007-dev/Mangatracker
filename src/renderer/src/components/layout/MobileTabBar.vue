@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
-import { BookOpen, ChartColumn, Settings, ScrollText } from 'lucide-vue-next'
+import { BookOpen, ChartColumn, Settings, ScrollText, Terminal } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useLogStore } from '../../stores/log.store'
 
@@ -51,6 +51,17 @@ const logStore = useLogStore()
     >
       <ChartColumn :size="22" />
       <span class="tab-label">{{ t('nav.statistics') }}</span>
+    </button>
+
+    <!-- Debug -->
+    <button
+      class="tab-btn"
+      :class="{ active: route.path === '/debug' }"
+      aria-label="Debug"
+      @click="router.push('/debug')"
+    >
+      <Terminal :size="22" />
+      <span class="tab-label">Debug</span>
     </button>
 
     <!-- Settings -->

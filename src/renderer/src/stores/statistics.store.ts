@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { StatisticsOverview } from '../types/index'
 import { getBridge } from '../services/platform'
+import { useAchievementToastStore } from './achievement-toast.store'
+import { useLevelUpStore } from './level-up.store'
 
 export const useStatisticsStore = defineStore('statistics', () => {
   const api = getBridge()
@@ -28,6 +30,8 @@ export const useStatisticsStore = defineStore('statistics', () => {
     overview.value = result.data
     refreshingTags.value = result.data.tagCache.refreshing
     error.value = ''
+    useAchievementToastStore().checkNew(result.data.achievements)
+    useLevelUpStore().checkLevel(result.data.level)
   }
 
   async function refreshTags(): Promise<void> {
@@ -43,6 +47,8 @@ export const useStatisticsStore = defineStore('statistics', () => {
     overview.value = result.data
     refreshingTags.value = result.data.tagCache.refreshing
     error.value = ''
+    useAchievementToastStore().checkNew(result.data.achievements)
+    useLevelUpStore().checkLevel(result.data.level)
   }
 
   function setupListeners(): () => void {

@@ -1,6 +1,7 @@
 import { BrowserWindow, session as electronSession } from 'electron'
 import store from './store'
 import type {
+  AppSettings,
   Manga,
   StatisticsEvent,
   StatisticsOverview,
@@ -313,11 +314,15 @@ export async function getStatisticsOverview(): Promise<StatisticsOverview> {
     void refreshStatisticsTags()
   }
 
+  const settings = store.get('settings') as AppSettings | undefined
+  const gistSynced = Boolean(settings?.lastGistSync && settings.lastGistSync > 0)
+
   return buildStatisticsOverview(
     mangaList,
     mangaTrash,
     events,
     tagCache,
-    tagRefreshPromise !== null
+    tagRefreshPromise !== null,
+    gistSynced
   )
 }

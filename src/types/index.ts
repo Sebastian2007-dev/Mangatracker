@@ -176,6 +176,8 @@ export interface AppSettings {
   githubToken?: string
   gistId?: string
   lastGistSync?: number
+  profileName?: string
+  profileAvatar?: string
 }
 
 export interface ReaderOpenPayload {

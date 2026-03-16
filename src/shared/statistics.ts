@@ -36,8 +36,13 @@ type AchievementContext = {
   byStatus: Record<MangaStatus, number>
   focused: number
   linkedMangaDex: number
+  linkedComick: number
   level: number
   firstTrackedAt: number | null
+  currentStreak: number
+  bestStreak: number
+  activeDays: number
+  gistSynced: boolean
 }
 
 function pad(value: number): string {
@@ -123,28 +128,69 @@ function buildAchievements(context: AchievementContext): StatisticsAchievement[]
     byStatus,
     focused,
     linkedMangaDex,
+    linkedComick,
     level,
-    firstTrackedAt
+    firstTrackedAt,
+    currentStreak,
+    bestStreak,
+    activeDays,
+    gistSynced
   } = context
 
   const completed = byStatus.completed ?? 0
+  const planToRead = byStatus.plan_to_read ?? 0
+  const reading = byStatus.reading ?? 0
+  const rereading = byStatus.rereading ?? 0
   const daysSinceFirst = firstTrackedAt ? Math.floor((Date.now() - firstTrackedAt) / DAY_MS) : 0
 
   return [
-    { id: 'first_steps', icon: 'BookOpen', name: 'First Steps', unlocked: totalActive >= 1, hint: '1+ manga in library' },
-    { id: 'bookworm', icon: 'Library', name: 'Bookworm', unlocked: totalActive >= 10, hint: '10+ manga' },
-    { id: 'grand_library', icon: 'Castle', name: 'Grand Library', unlocked: totalActive >= 50, hint: '50+ manga' },
-    { id: 'speed_reader', icon: 'Zap', name: 'Speed Reader', unlocked: totalChaptersRead >= 500, hint: '500+ chapters read' },
-    { id: 'binge_mode', icon: 'Flame', name: 'Binge Mode', unlocked: totalChaptersRead >= 2000, hint: '2000+ chapters read' },
-    { id: 'chapter_master', icon: 'Gem', name: 'Chapter Master', unlocked: totalChaptersRead >= 5000, hint: '5000+ chapters read' },
-    { id: 'tag_explorer', icon: 'Compass', name: 'Tag Explorer', unlocked: uniqueTags >= 5, hint: '5+ tags tracked' },
-    { id: 'tag_connoisseur', icon: 'Palette', name: 'Tag Connoisseur', unlocked: uniqueTags >= 10, hint: '10+ tags tracked' },
-    { id: 'completer', icon: 'CheckCircle2', name: 'Completer', unlocked: completed >= 1, hint: 'Completed 1 manga' },
-    { id: 'completionist', icon: 'Trophy', name: 'Completionist', unlocked: completed >= 10, hint: '10+ completed manga' },
-    { id: 'on_focus', icon: 'Target', name: 'On Focus', unlocked: focused >= 3, hint: '3 manga in Focus' },
-    { id: 'veteran', icon: 'Clock3', name: 'Veteran', unlocked: daysSinceFirst >= 365, hint: '1+ year tracking' },
-    { id: 'elite_reader', icon: 'Crown', name: 'Elite Reader', unlocked: level >= 15, hint: 'Reach Level 15' },
-    { id: 'fully_linked', icon: 'Link', name: 'Fully Linked', unlocked: linkedMangaDex >= 10, hint: '10+ MangaDex links' }
+    // Library milestones
+    { id: 'first_steps',   icon: 'BookOpen',    name: 'First Steps',     unlocked: totalActive >= 1,   hint: '1+ manga in library' },
+    { id: 'bookworm',      icon: 'Library',     name: 'Bookworm',        unlocked: totalActive >= 10,  hint: '10+ manga' },
+    { id: 'manga_addict',  icon: 'Library',     name: 'Manga Addict',    unlocked: totalActive >= 25,  hint: '25+ manga' },
+    { id: 'grand_library', icon: 'Castle',      name: 'Grand Library',   unlocked: totalActive >= 50,  hint: '50+ manga' },
+    { id: 'manga_baron',   icon: 'Castle',      name: 'Manga Baron',     unlocked: totalActive >= 100, hint: '100+ manga' },
+    { id: 'library_king',  icon: 'Crown',       name: 'Library King',    unlocked: totalActive >= 200, hint: '200+ manga' },
+    // Chapter milestones
+    { id: 'chapter_rookie',  icon: 'BookOpen',  name: 'Chapter Rookie',  unlocked: totalChaptersRead >= 100,   hint: '100+ chapters read' },
+    { id: 'speed_reader',    icon: 'Zap',       name: 'Speed Reader',    unlocked: totalChaptersRead >= 500,   hint: '500+ chapters read' },
+    { id: 'thousand_club',   icon: 'Gem',       name: 'Thousand Club',   unlocked: totalChaptersRead >= 1000,  hint: '1000+ chapters read' },
+    { id: 'binge_mode',      icon: 'Flame',     name: 'Binge Mode',      unlocked: totalChaptersRead >= 2000,  hint: '2000+ chapters read' },
+    { id: 'chapter_master',  icon: 'Gem',       name: 'Chapter Master',  unlocked: totalChaptersRead >= 5000,  hint: '5000+ chapters read' },
+    { id: 'chapter_god',     icon: 'Sparkles',  name: 'Chapter God',     unlocked: totalChaptersRead >= 10000, hint: '10000+ chapters read' },
+    // Tag milestones
+    { id: 'tag_explorer',    icon: 'Compass',   name: 'Tag Explorer',    unlocked: uniqueTags >= 5,  hint: '5+ tags tracked' },
+    { id: 'tag_connoisseur', icon: 'Palette',   name: 'Tag Connoisseur', unlocked: uniqueTags >= 10, hint: '10+ tags tracked' },
+    { id: 'tag_master',      icon: 'Compass',   name: 'Tag Master',      unlocked: uniqueTags >= 15, hint: '15+ tags tracked' },
+    // Completion milestones
+    { id: 'completer',      icon: 'CheckCircle2', name: 'Completer',     unlocked: completed >= 1,  hint: 'Completed 1 manga' },
+    { id: 'series_ender',   icon: 'CheckCircle2', name: 'Series Ender',  unlocked: completed >= 5,  hint: '5 completed manga' },
+    { id: 'completionist',  icon: 'Trophy',       name: 'Completionist', unlocked: completed >= 10, hint: '10+ completed manga' },
+    // Behavior-based
+    { id: 'planner',       icon: 'Scroll',    name: 'Planner',      unlocked: planToRead >= 5,  hint: '5+ manga in Plan to Read' },
+    { id: 'hoarder',       icon: 'Library',   name: 'Hoarder',      unlocked: planToRead >= 20, hint: '20+ manga in Plan to Read' },
+    { id: 'in_the_zone',   icon: 'Zap',       name: 'In the Zone',  unlocked: reading >= 3,    hint: '3+ manga reading at once' },
+    { id: 'multitasker',   icon: 'Zap',       name: 'Multitasker',  unlocked: reading >= 5,    hint: '5+ manga reading at once' },
+    { id: 'rereader',      icon: 'RefreshCw', name: 'Rereader',     unlocked: rereading >= 1,  hint: 'Rereading 1+ manga' },
+    { id: 'on_focus',      icon: 'Target',    name: 'On Focus',     unlocked: focused >= 3,    hint: '3 manga in Focus' },
+    // Streak & time
+    { id: 'daily_reader', icon: 'Flame',  name: 'Daily Reader', unlocked: currentStreak >= 3,   hint: '3-day reading streak' },
+    { id: 'on_a_roll',    icon: 'Flame',  name: 'On a Roll',    unlocked: currentStreak >= 7,   hint: '7-day reading streak' },
+    { id: 'marathon',     icon: 'Trophy', name: 'Marathon',     unlocked: bestStreak >= 30,     hint: '30-day best streak' },
+    { id: 'week_warrior', icon: 'Target', name: 'Week Warrior', unlocked: activeDays >= 7,      hint: '7+ active days' },
+    { id: 'regular',      icon: 'Clock3', name: 'Regular',      unlocked: activeDays >= 30,     hint: '30+ active days' },
+    { id: 'veteran',      icon: 'Clock3', name: 'Veteran',      unlocked: daysSinceFirst >= 365, hint: '1+ year tracking' },
+    { id: 'dedicated',    icon: 'Gem',    name: 'Dedicated',    unlocked: daysSinceFirst >= 730, hint: '2+ years tracking' },
+    // Level & links
+    { id: 'apprentice',     icon: 'Sword',    name: 'Apprentice',     unlocked: level >= 5,                              hint: 'Reach Level 5' },
+    { id: 'adept',          icon: 'Shield',   name: 'Adept',          unlocked: level >= 10,                             hint: 'Reach Level 10' },
+    { id: 'elite_reader',   icon: 'Crown',    name: 'Elite Reader',   unlocked: level >= 15,                             hint: 'Reach Level 15' },
+    { id: 'legend',         icon: 'Sparkles', name: 'Legend',         unlocked: level >= 20,                             hint: 'Reach max level' },
+    { id: 'mdx_enthusiast', icon: 'Link',     name: 'MDX Enthusiast', unlocked: linkedMangaDex >= 3,                     hint: '3+ MangaDex links' },
+    { id: 'comic_k_fan',    icon: 'Link',     name: 'ComicK Fan',     unlocked: linkedComick >= 3,                       hint: '3+ ComicK links' },
+    { id: 'fully_linked',   icon: 'Link',     name: 'Fully Linked',   unlocked: linkedMangaDex >= 10,                    hint: '10+ MangaDex links' },
+    { id: 'cross_platform', icon: 'Link',     name: 'Cross Platform', unlocked: linkedMangaDex >= 1 && linkedComick >= 1, hint: 'Linked on MangaDex & ComicK' },
+    { id: 'cloud_sync',     icon: 'Cloud',    name: 'Cloud Reader',   unlocked: gistSynced,                              hint: 'Linked GitHub Gist' }
   ]
 }
 
@@ -404,6 +450,7 @@ export function buildStatisticsOverview(
   events: StatisticsEvent[],
   tagCache: StatisticsTagCache | null | undefined,
   refreshing = false,
+  gistSynced = false,
   now = Date.now()
 ): StatisticsOverview {
   const allManga: Array<Manga | TrashedManga> = [...mangaList, ...mangaTrash]
@@ -518,8 +565,13 @@ export function buildStatisticsOverview(
     byStatus: statusCounts,
     focused: focusCount,
     linkedMangaDex,
+    linkedComick,
     level,
-    firstTrackedAt
+    firstTrackedAt,
+    currentStreak,
+    bestStreak,
+    activeDays,
+    gistSynced
   })
 
   const sourceKey = getStatisticsSourceKey(mangaList)
