@@ -1,5 +1,12 @@
 import { ipcMain } from 'electron'
-import { getStatisticsOverview, refreshLibraryMetadata, refreshStatisticsTags } from '../stats.service'
+import {
+  debugResetAchievements,
+  debugResetStats,
+  debugSetChapters,
+  getStatisticsOverview,
+  refreshLibraryMetadata,
+  refreshStatisticsTags
+} from '../stats.service'
 
 function registerHandler(
   channel: string,
@@ -42,5 +49,21 @@ export function registerStatsIpc(): void {
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
+  })
+
+  registerHandler('stats:debug:reset', () => {
+    debugResetStats()
+    return { success: true }
+  })
+
+  registerHandler('stats:debug:resetAchievements', () => {
+    debugResetAchievements()
+    return { success: true }
+  })
+
+  registerHandler('stats:debug:setChapters', (_e, payload: unknown) => {
+    const { chapters } = payload as { chapters: number }
+    debugSetChapters(chapters)
+    return { success: true }
   })
 }

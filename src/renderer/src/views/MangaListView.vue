@@ -87,12 +87,10 @@ function onDrop(toId: string): void {
     <!-- Content -->
     <div class="flex-1 overflow-y-auto overflow-x-hidden p-4">
       <!-- Focus hint -->
-      <p v-if="activeTab === 'focus'" class="text-xs mb-4" style="color: hsl(var(--muted-foreground))">
-        {{ t('manga.focusHint', { max: skillTreeStore.maxFocusSlots }) }}
-        <span v-if="isFocusFull" class="ml-2 font-medium" style="color: hsl(var(--primary))">
-          {{ t('manga.focusFull', { max: skillTreeStore.maxFocusSlots }) }}
-        </span>
-      </p>
+      <div v-if="activeTab === 'focus'" class="focus-hint-bar">
+        <span class="focus-hint-text">{{ t('manga.focusHint', { max: skillTreeStore.maxFocusSlots }) }}</span>
+        <span v-if="isFocusFull" class="focus-full-tag">{{ t('manga.focusFull', { max: skillTreeStore.maxFocusSlots }) }}</span>
+      </div>
 
       <!-- Manga grid -->
       <div v-if="filteredManga.length > 0" class="manga-grid">
@@ -178,6 +176,22 @@ function onDrop(toId: string): void {
   color: hsl(var(--primary));
   border: 1px solid hsl(var(--primary) / 0.3);
   cursor: pointer;
+}
+.focus-hint-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  margin-bottom: 1rem;
+  color: hsl(var(--muted-foreground));
+}
+.focus-hint-text {
+  overflow-wrap: break-word;
+}
+.focus-full-tag {
+  font-weight: 500;
+  color: hsl(var(--primary));
 }
 .manga-grid {
   display: grid;

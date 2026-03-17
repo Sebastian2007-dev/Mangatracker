@@ -768,6 +768,11 @@ async function openChapter(): Promise<void> {
   font-family: inherit;
   line-height: 1.4;
 }
+@media (pointer: coarse) {
+  .note-textarea {
+    font-size: 16px; /* verhindert Auto-Zoom auf iOS/Android */
+  }
+}
 .status-badge {
   font-size: 11px;
   padding: 2px 8px;

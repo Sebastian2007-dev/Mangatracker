@@ -12,7 +12,7 @@ import type {
 const DAY_MS = 86_400_000
 export const STATISTICS_TAG_CACHE_TTL_MS = DAY_MS
 
-const LEVEL_THRESHOLDS = [
+export const LEVEL_THRESHOLDS = [
   0, 10, 25, 50, 100, 200, 350, 500, 750, 1000,
   1500, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 30000, 50000
 ]
@@ -540,8 +540,9 @@ export function buildStatisticsOverview(
     .filter((event) => event.type === 'chapter_progress')
     .reduce((total, event) => total + Math.max(0, event.amount ?? 0), 0)
 
+  const MAX_CHAPTER_PER_MANGA = 9999
   const snapshotAllTimeChapterTotal = allManga.reduce(
-    (total, manga) => total + Math.max(0, manga.currentChapter ?? 0),
+    (total, manga) => total + Math.min(MAX_CHAPTER_PER_MANGA, Math.max(0, manga.currentChapter ?? 0)),
     0
   )
   const allTimeChapterTotal = Math.max(snapshotAllTimeChapterTotal, chapterProgressFromEvents)

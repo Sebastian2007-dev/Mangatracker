@@ -310,5 +310,47 @@
       "bestStreak": "Beste Serie",
       "currentClass": "Aktuelle Klasse"
     }
+  },
+  "skillTree": {
+    "title": "SKILL TREE",
+    "subtitle": "Schalte dauerhaft neue Fähigkeiten frei",
+    "spAvailable": "SP verfügbar",
+    "spMeta": "Level {level} · {earned} verdient · {spent} ausgegeben",
+    "spProgress": "{spent} / {total} SP freigeschaltet",
+    "holdToUnlock": "Gedrückt halten zum Freischalten",
+    "alreadyUnlocked": "✓ Freigeschaltet",
+    "requiresLevel": "Benötigt Level {level}",
+    "notEnoughSP": "Nicht genug SP ({current}/{required})",
+    "prerequisitesMissing": "Voraussetzungen fehlen",
+    "requires": "Benötigt:",
+    "branches": {
+      "focus":     "Fokus",
+      "archive":   "Archiv",
+      "analytics": "Analytik",
+      "library":   "Bibliothek",
+      "profile":   "Profil"
+    },
+    "skills": {
+      "focus_1":        { "name": "Fokus-Erweiterung I",    "desc": "Erhöhe die maximale Anzahl an Focus-Slots von 3 auf 4." },
+      "focus_2":        { "name": "Fokus-Erweiterung II",   "desc": "Erhöhe die maximale Anzahl an Focus-Slots von 4 auf 5." },
+      "focus_3":        { "name": "Fokus-Erweiterung III",  "desc": "Erhöhe die maximale Anzahl an Focus-Slots von 5 auf 6." },
+      "focus_4":        { "name": "Fokus-Meister",          "desc": "Maximiere deine Focus-Kapazität auf 8 Slots — für wahre Leser." },
+      "bookmark":       { "name": "Lesezeichen",            "desc": "Speichere ein Lieblingskapitel separat vom aktuellen Kapitel für jeden Manga." },
+      "note":           { "name": "Lesenotiz",              "desc": "Hinterlasse persönliche Notizen zu jedem Manga." },
+      "history":        { "name": "Kapitel-Verlauf",        "desc": "Zeige die letzten 5 gelesenen Kapitel pro Manga an." },
+      "journal":        { "name": "Manga-Tagebuch",         "desc": "Erweitertes Notizfeld mit persönlicher Bewertung (1–5 Sterne) pro Manga." },
+      "tag_insights":   { "name": "Tag-Analyse",            "desc": "Schalte erweiterte Genre-Statistiken in der Statistik-Ansicht frei." },
+      "heatmap":        { "name": "Aktivitäts-Karte",       "desc": "Zeige einen Aktivitäts-Kalender mit täglicher Leseintensität." },
+      "deep_stats":     { "name": "Tiefenanalyse",          "desc": "Schalte alle versteckten Rekorde und detaillierte Verlaufsstatistiken frei." },
+      "forecast":       { "name": "Prophezeiung",           "desc": "Berechne deine durchschnittliche Lesegeschwindigkeit und Prognosen." },
+      "adv_search":     { "name": "Erweiterte Suche",       "desc": "Durchsuche deine Bibliothek nach Tags, Status und Kapitelbereich." },
+      "filter_presets": { "name": "Filter-Profile",         "desc": "Speichere häufig genutzte Filterkombinationen als benannte Profile." },
+      "export_list":    { "name": "Listen-Export",          "desc": "Exportiere deine Bibliothek als JSON- oder CSV-Datei." },
+      "chronicle":      { "name": "Bibliotheks-Chronik",    "desc": "Durchsuche die vollständige Aktivitäts-Timeline deiner Bibliothek." },
+      "avatar_frame":   { "name": "Profil-Rahmen",          "desc": "Verleihe deinem Avatar einen leuchtenden Rahmen in der Statistik-Ansicht." },
+      "custom_title":   { "name": "Benutzertitel",          "desc": "Füge deinem Profil einen individuellen Titel hinzu." },
+      "extra_theme":    { "name": "Sonder-Thema",           "desc": "Schalte zusätzliche Farbschemata frei (Sepia, Mitternacht, Wald)." },
+      "legendary":      { "name": "Legendärer Status",      "desc": "Schalte besondere Partikeleffekte und ein Glanz-Overlay für dein Profil frei." }
+    }
   }
 }

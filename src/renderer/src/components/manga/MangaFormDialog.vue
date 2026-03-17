@@ -152,10 +152,14 @@ watch(() => props.open, (open) => {
   }
 })
 
+const MAX_CHAPTER = 9999
+
 function validate(): boolean {
   errors.value = {}
   if (!title.value.trim()) errors.value.title = 'Pflichtfeld'
   if (!mainUrl.value.trim()) errors.value.mainUrl = 'Pflichtfeld'
+  if (currentChapter.value > MAX_CHAPTER) currentChapter.value = MAX_CHAPTER
+  if (currentChapter.value < 0) currentChapter.value = 0
   return Object.keys(errors.value).length === 0
 }
 
@@ -291,7 +295,7 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
           <!-- Current Chapter -->
           <div>
             <label class="field-label">{{ t('manga.currentChapter') }}</label>
-            <input v-model.number="currentChapter" type="number" min="0" step="0.5" class="field-input" />
+            <input v-model.number="currentChapter" type="number" min="0" :max="MAX_CHAPTER" step="0.5" class="field-input" />
           </div>
 
           <!-- MangaDex Verknüpfung -->

@@ -317,7 +317,7 @@ export async function getStatisticsOverview(): Promise<StatisticsOverview> {
   const settings = store.get('settings') as AppSettings | undefined
   const gistSynced = Boolean(settings?.lastGistSync && settings.lastGistSync > 0)
 
-  return buildStatisticsOverview(
+  const overview = buildStatisticsOverview(
     mangaList,
     mangaTrash,
     events,
@@ -325,4 +325,50 @@ export async function getStatisticsOverview(): Promise<StatisticsOverview> {
     tagRefreshPromise !== null,
     gistSynced
   )
+
+  // Achievements are permanent — once earned, never lost
+  const earned = new Set<string>(store.get('earnedAchievements') ?? [])
+  let changed = false
+  overview.achievements = overview.achievements.map((a) => {
+    if (a.unlocked && !earned.has(a.id)) {
+      earned.add(a.id)
+      changed = true
+    }
+    return { ...a, unlocked: a.unlocked || earned.has(a.id) }
+  })
+  if (changed) store.set('earnedAchievements', [...earned])
+
+  return overview
+}
+
+// ── Debug helpers ─────────────────────────────────────────────────────────────
+
+export function debugResetStats(): void {
+  setStatisticsEvents([])
+  store.set('earnedAchievements', [])
+  setStatisticsTagCache(null)
+  broadcastStatsUpdated()
+}
+
+export function debugResetAchievements(): void {
+  store.set('earnedAchievements', [])
+  broadcastStatsUpdated()
+}
+
+export function debugSetChapters(chapters: number): void {
+  const amount = Math.max(0, Math.round(chapters))
+  const event: StatisticsEvent = {
+    id: 'debug:chapter-inject',
+    type: 'chapter_progress',
+    mangaId: '__debug__',
+    at: Date.now(),
+    synthetic: true,
+    amount,
+    fromChapter: 0,
+    toChapter: amount
+  }
+  setStatisticsEvents([event])
+  store.set('earnedAchievements', [])
+  setStatisticsTagCache(null)
+  broadcastStatsUpdated()
 }

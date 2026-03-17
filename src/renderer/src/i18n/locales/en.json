@@ -310,5 +310,47 @@
       "bestStreak": "Best streak",
       "currentClass": "Current class"
     }
+  },
+  "skillTree": {
+    "title": "SKILL TREE",
+    "subtitle": "Unlock permanent new abilities",
+    "spAvailable": "SP available",
+    "spMeta": "Level {level} · {earned} earned · {spent} spent",
+    "spProgress": "{spent} / {total} SP unlocked",
+    "holdToUnlock": "Hold to unlock",
+    "alreadyUnlocked": "✓ Unlocked",
+    "requiresLevel": "Requires Level {level}",
+    "notEnoughSP": "Not enough SP ({current}/{required})",
+    "prerequisitesMissing": "Prerequisites missing",
+    "requires": "Requires:",
+    "branches": {
+      "focus":     "Focus",
+      "archive":   "Archive",
+      "analytics": "Analytics",
+      "library":   "Library",
+      "profile":   "Profile"
+    },
+    "skills": {
+      "focus_1":        { "name": "Focus Expansion I",    "desc": "Increase the maximum number of Focus slots from 3 to 4." },
+      "focus_2":        { "name": "Focus Expansion II",   "desc": "Increase the maximum number of Focus slots from 4 to 5." },
+      "focus_3":        { "name": "Focus Expansion III",  "desc": "Increase the maximum number of Focus slots from 5 to 6." },
+      "focus_4":        { "name": "Focus Master",         "desc": "Maximize your Focus capacity to 8 slots — for true readers." },
+      "bookmark":       { "name": "Bookmark",             "desc": "Save a favourite chapter separately from the current chapter for each manga." },
+      "note":           { "name": "Reading Note",         "desc": "Leave personal notes for each manga." },
+      "history":        { "name": "Chapter History",      "desc": "Display the last 5 read chapters per manga." },
+      "journal":        { "name": "Manga Journal",        "desc": "Extended note field with personal rating (1–5 stars) per manga." },
+      "tag_insights":   { "name": "Tag Analysis",         "desc": "Unlock extended genre statistics in the statistics view." },
+      "heatmap":        { "name": "Activity Map",         "desc": "Show an activity calendar with daily reading intensity." },
+      "deep_stats":     { "name": "Deep Analysis",        "desc": "Unlock all hidden records and detailed history statistics." },
+      "forecast":       { "name": "Prophecy",             "desc": "Calculate your average reading speed and forecasts." },
+      "adv_search":     { "name": "Advanced Search",      "desc": "Search your library by tags, status and chapter range." },
+      "filter_presets": { "name": "Filter Profiles",      "desc": "Save frequently used filter combinations as named profiles." },
+      "export_list":    { "name": "List Export",          "desc": "Export your library as a JSON or CSV file." },
+      "chronicle":      { "name": "Library Chronicle",    "desc": "Browse the complete activity timeline of your library." },
+      "avatar_frame":   { "name": "Profile Frame",        "desc": "Give your avatar a glowing frame in the statistics view." },
+      "custom_title":   { "name": "Custom Title",         "desc": "Add an individual title to your profile." },
+      "extra_theme":    { "name": "Special Theme",        "desc": "Unlock additional colour schemes (Sepia, Midnight, Forest)." },
+      "legendary":      { "name": "Legendary Status",     "desc": "Unlock special particle effects and a shine overlay for your profile." }
+    }
   }
 }

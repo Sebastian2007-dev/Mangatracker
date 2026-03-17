@@ -7,6 +7,7 @@ interface StoreSchema {
   mangaTrash: TrashedManga[]
   statsEvents: StatisticsEvent[]
   statsTagCache: StatisticsTagCache | null
+  earnedAchievements: string[]
   settings: AppSettings
   modDisabled: string[]
   modSettings: Record<string, Record<string, unknown>>
@@ -18,6 +19,7 @@ const store = new Store<StoreSchema>({
     mangaTrash: [],
     statsEvents: [],
     statsTagCache: null,
+    earnedAchievements: [],
     modDisabled: [],
     modSettings: {},
     settings: {

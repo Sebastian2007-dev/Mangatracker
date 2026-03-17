@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import { useCountUp } from '../composables/useCountUp'
 import {
@@ -42,7 +42,6 @@ const statisticsStore = useStatisticsStore()
 const settingsStore = useSettingsStore()
 const skillTreeStore = useSkillTreeStore()
 const mode = ref<'game' | 'plain'>('game')
-let cleanupListener: (() => void) | null = null
 
 const showAllAchievements = ref(false)
 const ACHIEVEMENTS_PREVIEW = 24
@@ -248,9 +247,6 @@ onMounted(async () => {
   await statisticsStore.fetchOverview()
 })
 
-onUnmounted(() => {
-  cleanupListener?.()
-})
 </script>
 
 <template>
@@ -586,7 +582,7 @@ onUnmounted(() => {
         </div>
         <div class="achievement-grid">
           <article
-            v-for="achievement in overview.achievements"
+            v-for="achievement in overview?.achievements"
             :key="achievement.id"
             class="achievement-card"
             :class="{ locked: !achievement.unlocked }"
@@ -1247,6 +1243,15 @@ onUnmounted(() => {
   gap: 4px;
   margin: 2px 0 4px;
   opacity: 0.9;
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+@media (max-width: 500px) {
+  .hero-custom-title {
+    max-width: min(140px, calc(100vw - 120px));
+  }
 }
 
 .hero-custom-title-edit {
