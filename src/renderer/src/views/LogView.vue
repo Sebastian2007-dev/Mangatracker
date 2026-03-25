@@ -117,6 +117,7 @@ function typeClass(entry: LogEntry): string {
 
 .log-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 8px 0;

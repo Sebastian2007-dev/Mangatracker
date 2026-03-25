@@ -44,6 +44,16 @@
     "focus": "Focus",
     "unfocus": "Remove Focus",
     "scanNow": "Scan for new chapters now",
+    "advFilter": "Filter",
+    "filterTags": "Tags",
+    "filterChapter": "Chapter range",
+    "filterMin": "Min",
+    "filterMax": "Max",
+    "filterPresets": "Profiles",
+    "savePreset": "Save current",
+    "noPresets": "No profiles saved",
+    "resetFilter": "Reset",
+    "presetNamePlaceholder": "Profile name...",
     "mdxLink": "Link",
     "mdxChange": "Change",
     "mdxUnlink": "Remove link",
@@ -86,7 +96,9 @@
     "templateOld": "Old template",
     "templateNew": "New template (editable)",
     "templateApply": "Apply",
-    "templateDismiss": "Dismiss",
+    "templateDismiss": "Cancel",
+    "templateIgnore": "Don't show again",
+    "templateKeepDetection": "Remember new URL for automatic chapter detection in the background",
     "domainGuard": {
       "title": "Different Domain",
       "message": "You are navigating to a different domain: {domain}",
@@ -164,7 +176,8 @@
     "library": "Library",
     "statistics": "Statistics",
     "settings": "Settings",
-    "log": "Activity Log"
+    "log": "Activity Log",
+    "tracking": "Tracking"
   },
   "log": {
     "title": "Activity Log",
@@ -352,5 +365,11 @@
       "extra_theme":    { "name": "Special Theme",        "desc": "Unlock additional colour schemes (Sepia, Midnight, Forest)." },
       "legendary":      { "name": "Legendary Status",     "desc": "Unlock special particle effects and a shine overlay for your profile." }
     }
+  },
+  "tracking": {
+    "detectionTemplates": "Saved Detection URLs",
+    "detectionHint": "These URLs are used for automatic chapter detection when the main URL template no longer matches.",
+    "noTemplates": "No detection URLs saved",
+    "clearTemplate": "Remove"
   }
 }

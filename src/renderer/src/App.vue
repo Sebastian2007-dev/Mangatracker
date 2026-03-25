@@ -42,12 +42,35 @@ type TemplateMismatchData = {
   suggestedTemplate: string
   currentUrl: string
   confidence: number
+  updateDetectionTemplate?: boolean
 }
 const templateMismatch = ref<TemplateMismatchData | null>(null)
 
 async function onTemplateMismatchConfirm(newTemplate: string): Promise<void> {
   if (!templateMismatch.value) return
-  await mangaStore.update(templateMismatch.value.mangaId, { chapterUrlTemplate: newTemplate })
+  if (templateMismatch.value.updateDetectionTemplate) {
+    await mangaStore.update(templateMismatch.value.mangaId, { chapterDetectionTemplate: newTemplate })
+  } else {
+    await mangaStore.update(templateMismatch.value.mangaId, { chapterUrlTemplate: newTemplate })
+  }
+  templateMismatch.value = null
+}
+
+async function onTemplateMismatchIgnore(keepDetection: boolean): Promise<void> {
+  if (!templateMismatch.value) return
+  if (templateMismatch.value.updateDetectionTemplate) {
+    // Detection-Template veraltet: "Nicht mehr anzeigen" → neue URL übernehmen wenn gewünscht
+    if (keepDetection) {
+      await mangaStore.update(templateMismatch.value.mangaId, {
+        chapterDetectionTemplate: templateMismatch.value.suggestedTemplate
+      })
+    }
+  } else {
+    await mangaStore.update(templateMismatch.value.mangaId, {
+      ignoreTemplateMismatch: true,
+      ...(keepDetection ? { chapterDetectionTemplate: templateMismatch.value.suggestedTemplate } : {})
+    })
+  }
   templateMismatch.value = null
 }
 
@@ -185,6 +208,7 @@ useTheme()
       :current-url="templateMismatch.currentUrl"
       :confidence="templateMismatch.confidence"
       @confirm="onTemplateMismatchConfirm"
+      @ignore="onTemplateMismatchIgnore"
       @dismiss="templateMismatch = null"
     />
 
@@ -217,7 +241,7 @@ useTheme()
 <style scoped>
 .app-shell {
   display: flex;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
 }
 .main-area {
@@ -229,6 +253,7 @@ useTheme()
 }
 .view-area {
   flex: 1;
+  height: 0; /* Trick: macht height:100% in Kindern auflösbar (flex-item-Höhe) */
   overflow: hidden;
   position: relative;
 }
@@ -246,6 +271,8 @@ useTheme()
   z-index: 200;
   pointer-events: none;
   white-space: nowrap;
+  max-width: calc(100vw - 32px);
+  text-align: center;
 }
 .slide-up-enter-active, .slide-up-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .slide-up-enter-from, .slide-up-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }

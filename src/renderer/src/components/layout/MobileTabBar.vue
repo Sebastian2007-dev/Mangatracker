@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
-import { BookOpen, ChartColumn, Settings, ScrollText, Terminal } from 'lucide-vue-next'
+import { BookOpen, ChartColumn, Settings, ScrollText, Terminal, Globe } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useLogStore } from '../../stores/log.store'
+import { useSkillTreeStore } from '../../stores/skill-tree.store'
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const logStore = useLogStore()
+const skillTreeStore = useSkillTreeStore()
 </script>
 
 <template>
@@ -26,8 +28,9 @@ const logStore = useLogStore()
       <span class="tab-label">{{ t('nav.library') }}</span>
     </button>
 
-    <!-- Log -->
+    <!-- Log (chronicle skill) -->
     <button
+      v-if="skillTreeStore.isUnlocked('chronicle')"
       class="tab-btn"
       :class="{ active: route.path === '/log' }"
       :aria-label="t('nav.log')"
@@ -64,6 +67,17 @@ const logStore = useLogStore()
       <span class="tab-label">Debug</span>
     </button>
 
+    <!-- Tracking -->
+    <button
+      class="tab-btn"
+      :class="{ active: route.path === '/tracking' }"
+      :aria-label="t('nav.tracking')"
+      @click="router.push('/tracking')"
+    >
+      <Globe :size="22" />
+      <span class="tab-label">{{ t('nav.tracking') }}</span>
+    </button>
+
     <!-- Settings -->
     <button
       class="tab-btn"
@@ -86,7 +100,15 @@ const logStore = useLogStore()
   height: 64px;
   border-top: 1px solid;
   padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
   flex-shrink: 0;
+}
+/* Im Querformat: Tab-Bar kleiner, damit mehr Content-Platz bleibt */
+@media (orientation: landscape) {
+  .tab-bar {
+    height: 48px;
+  }
 }
 .tab-btn {
   display: flex;

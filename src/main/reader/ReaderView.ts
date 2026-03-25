@@ -240,7 +240,72 @@ function tryDetectChapter(navUrl: string, mainWindow: BrowserWindow): void {
     return
   }
 
-  const match = regex.exec(navUrl)
+  let match = regex.exec(navUrl)
+
+  // Fallback: chapterDetectionTemplate versuchen (gesetzt wenn Nutzer "Nicht mehr anzeigen" gewählt hat)
+  if (!match && manga.chapterDetectionTemplate) {
+    const detectionRegex = buildChapterRegex(manga.chapterDetectionTemplate)
+    const detectionMatch = detectionRegex?.exec(navUrl)
+    if (detectionMatch) {
+      const chapter = parseFloat(detectionMatch[1])
+      if (!Number.isNaN(chapter) && chapter > manga.currentChapter) {
+        pushReaderLog(mainWindow, 'info', `Reader: Kapitel ${manga.currentChapter} -> ${chapter} erkannt (Detection-Template)`)
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('reader:chapterDetected', { mangaId: currentMangaId, chapter })
+        }
+      }
+      return
+    }
+
+    // Detection-Template passt auch nicht mehr → versuche es zu reparieren
+    const detectionFix = tryFixTemplate(navUrl, manga.chapterDetectionTemplate)
+    if (detectionFix) {
+      const detectionMismatchKey = `detection:${currentMangaId}:${navUrl}`
+      if (detectionFix.confidence >= 0.6) {
+        // Automatisch aktualisieren
+        const mangaList = store.get('mangaList')
+        const idx = mangaList.findIndex((m) => m.id === currentMangaId)
+        if (idx !== -1) {
+          mangaList[idx] = { ...mangaList[idx], chapterDetectionTemplate: detectionFix.newTemplate }
+          store.set('mangaList', mangaList)
+          pushReaderLog(
+            mainWindow,
+            'success',
+            `Reader: Detection-Template automatisch aktualisiert (${Math.round(detectionFix.confidence * 100)}%) → ${detectionFix.newTemplate}`
+          )
+          if (!mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('manga:templateFixed', { mangaId: currentMangaId })
+          }
+          const newRegex = buildChapterRegex(detectionFix.newTemplate)
+          const newMatch = newRegex?.exec(navUrl)
+          if (newMatch) {
+            const chapter = parseFloat(newMatch[1])
+            if (!Number.isNaN(chapter) && chapter > mangaList[idx].currentChapter) {
+              pushReaderLog(mainWindow, 'info', `Reader: Kapitel ${mangaList[idx].currentChapter} -> ${chapter} erkannt (Detection-Template aktualisiert)`)
+              if (!mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('reader:chapterDetected', { mangaId: currentMangaId, chapter })
+              }
+            }
+          }
+          return
+        }
+      } else if (detectionFix.confidence > 0 && !notifiedMismatches.has(detectionMismatchKey)) {
+        notifiedMismatches.add(detectionMismatchKey)
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('reader:templateMismatch', {
+            mangaId: currentMangaId,
+            mangaTitle: manga.title,
+            oldTemplate: manga.chapterDetectionTemplate,
+            suggestedTemplate: detectionFix.newTemplate,
+            currentUrl: navUrl,
+            confidence: detectionFix.confidence,
+            updateDetectionTemplate: true
+          })
+        }
+      }
+    }
+  }
+
   if (!match) {
     const fix = tryFixTemplate(navUrl, manga.chapterUrlTemplate)
     if (fix) {
@@ -274,7 +339,7 @@ function tryDetectChapter(navUrl: string, mainWindow: BrowserWindow): void {
           }
           return
         }
-      } else if (fix.confidence > 0 && !notifiedMismatches.has(mismatchKey)) {
+      } else if (fix.confidence > 0 && !manga.ignoreTemplateMismatch && !notifiedMismatches.has(mismatchKey)) {
         notifiedMismatches.add(mismatchKey)
         if (!mainWindow.isDestroyed()) {
           mainWindow.webContents.send('reader:templateMismatch', {

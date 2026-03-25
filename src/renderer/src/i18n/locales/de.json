@@ -43,6 +43,16 @@
     "import": "Importieren",
     "focus": "Fokussieren",
     "unfocus": "Fokus aufheben",
+    "advFilter": "Filter",
+    "filterTags": "Tags",
+    "filterChapter": "Kapitel-Bereich",
+    "filterMin": "Min",
+    "filterMax": "Max",
+    "filterPresets": "Profile",
+    "savePreset": "Speichern",
+    "noPresets": "Keine Profile gespeichert",
+    "resetFilter": "Zurücksetzen",
+    "presetNamePlaceholder": "Profilname...",
     "scanNow": "Jetzt nach neuen Kapiteln suchen",
     "mdxLink": "Verknuepfen",
     "mdxChange": "Aendern",
@@ -86,7 +96,9 @@
     "templateOld": "Alte Vorlage",
     "templateNew": "Neue Vorlage (bearbeitbar)",
     "templateApply": "Uebernehmen",
-    "templateDismiss": "Ignorieren",
+    "templateDismiss": "Abbrechen",
+    "templateIgnore": "Nicht mehr anzeigen",
+    "templateKeepDetection": "Neue URL für automatische Kapitel-Erkennung im Hintergrund merken",
     "domainGuard": {
       "title": "Andere Domain",
       "message": "Du navigierst zu einer anderen Domain: {domain}",
@@ -164,7 +176,8 @@
     "library": "Bibliothek",
     "statistics": "Statistik",
     "settings": "Einstellungen",
-    "log": "Aktivitaetslog"
+    "log": "Aktivitaetslog",
+    "tracking": "Erkennungen"
   },
   "log": {
     "title": "Aktivitaetslog",
@@ -352,5 +365,11 @@
       "extra_theme":    { "name": "Sonder-Thema",           "desc": "Schalte zusätzliche Farbschemata frei (Sepia, Mitternacht, Wald)." },
       "legendary":      { "name": "Legendärer Status",      "desc": "Schalte besondere Partikeleffekte und ein Glanz-Overlay für dein Profil frei." }
     }
+  },
+  "tracking": {
+    "detectionTemplates": "Gespeicherte Erkennungs-URLs",
+    "detectionHint": "Diese URLs werden für die automatische Kapitel-Erkennung verwendet, wenn die Haupt-URL-Vorlage nicht mehr passt.",
+    "noTemplates": "Keine Erkennungs-URLs gespeichert",
+    "clearTemplate": "Entfernen"
   }
 }

@@ -27,6 +27,8 @@ export interface Manga {
   bookmarkedChapter?: number
   note?: string
   rating?: number
+  ignoreTemplateMismatch?: boolean
+  chapterDetectionTemplate?: string
   createdAt: number
   updatedAt: number
 }

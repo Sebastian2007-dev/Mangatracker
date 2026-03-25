@@ -36,6 +36,11 @@ const tabs: { key: TabId; label: string }[] = [
 </template>
 
 <style scoped>
+/* Safe Area für Querformat */
+div {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
 .tab-btn {
   padding: 10px 14px;
   font-size: 13px;

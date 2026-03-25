@@ -130,10 +130,12 @@ const statuses: { value: MangaStatus; label: string }[] = [
 function toggleStatusPicker(): void {
   if (!showStatusPicker.value && statusBadgeRef.value) {
     const rect = statusBadgeRef.value.getBoundingClientRect()
+    const pickerWidth = 140
+    const clampedLeft = Math.min(rect.left, window.innerWidth - pickerWidth - 8)
     pickerStyle.value = {
       position: 'fixed',
       bottom: `${window.innerHeight - rect.top + 4}px`,
-      left: `${rect.left}px`,
+      left: `${Math.max(8, clampedLeft)}px`,
       zIndex: '9999'
     }
   }
@@ -510,8 +512,8 @@ async function openChapter(): Promise<void> {
 }
 @media (pointer: coarse) {
   .card-btn {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 36px;
+    min-height: 36px;
   }
 }
 .modal-backdrop {

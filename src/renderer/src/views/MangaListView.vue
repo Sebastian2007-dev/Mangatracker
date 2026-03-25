@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import type { Manga, TabId } from '../types/index'
 import { useMangaStore } from '../stores/manga.store'
 import { useSkillTreeStore } from '../stores/skill-tree.store'
+import { useAdvFilter } from '../composables/useAdvFilter'
 import MangaTabBar from '../components/manga/MangaTabBar.vue'
 import MangaCard from '../components/manga/MangaCard.vue'
 import MangaFormDialog from '../components/manga/MangaFormDialog.vue'
@@ -13,6 +14,7 @@ import { isMobile } from '../composables/usePlatform'
 const { t } = useI18n()
 const mangaStore = useMangaStore()
 const skillTreeStore = useSkillTreeStore()
+const { filter, hasFilters } = useAdvFilter()
 
 // Injected from App.vue
 const searchQuery = inject<{ value: string }>('searchQuery', { value: '' })
@@ -23,6 +25,7 @@ const editingManga = ref<Manga | null>(null)
 
 const filteredManga = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
+  const advActive = skillTreeStore.isUnlocked('adv_search') && hasFilters.value
   return mangaStore.items
     .filter((m) => {
       if (activeTab.value === 'all') return true
@@ -38,6 +41,16 @@ const filteredManga = computed(() => {
         m.mainUrl.toLowerCase().includes(q) ||
         m.chapterUrlTemplate.toLowerCase().includes(q)
       )
+    })
+    .filter((m) => {
+      if (!advActive) return true
+      if (filter.tags.length > 0) {
+        const mt = m.tags ?? []
+        if (!filter.tags.every((t) => mt.includes(t))) return false
+      }
+      if (filter.minChapter !== null && m.currentChapter < filter.minChapter) return false
+      if (filter.maxChapter !== null && m.currentChapter > filter.maxChapter) return false
+      return true
     })
 })
 
@@ -85,7 +98,7 @@ function onDrop(toId: string): void {
     <MangaTabBar v-model="activeTab" />
 
     <!-- Content -->
-    <div class="flex-1 overflow-y-auto overflow-x-hidden p-4">
+    <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4" :class="{ 'scroll-content-mobile': isMobile }">
       <!-- Focus hint -->
       <div v-if="activeTab === 'focus'" class="focus-hint-bar">
         <span class="focus-hint-text">{{ t('manga.focusHint', { max: skillTreeStore.maxFocusSlots }) }}</span>
@@ -113,11 +126,7 @@ function onDrop(toId: string): void {
       <!-- Empty state -->
       <div v-else class="flex flex-col items-center justify-center h-48 gap-2">
         <p class="text-sm" style="color: hsl(var(--muted-foreground))">{{ t('manga.noManga') }}</p>
-        <button
-          v-if="!isFocusFull"
-          class="btn-add-first"
-          @click="openAdd"
-        >
+        <button v-if="!isFocusFull" class="btn-add-first" @click="openAdd">
           {{ t('manga.addFirst') }}
         </button>
       </div>
@@ -135,10 +144,7 @@ function onDrop(toId: string): void {
     </button>
 
     <!-- Form Dialog -->
-    <MangaFormDialog
-      v-model:open="showForm"
-      :manga="editingManga"
-    />
+    <MangaFormDialog v-model:open="showForm" :manga="editingManga" />
   </div>
 </template>
 
@@ -146,72 +152,46 @@ function onDrop(toId: string): void {
 .fab {
   position: fixed;
   bottom: 24px;
-  right: 24px;
-  width: 48px;
-  height: 48px;
+  right: calc(24px + env(safe-area-inset-right, 0px));
+  width: 48px; height: 48px;
   border-radius: 50%;
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 16px hsl(var(--primary) / 0.4);
   transition: opacity 0.15s, transform 0.15s;
 }
-.fab:hover {
-  opacity: 0.9;
-  transform: scale(1.05);
-}
-/* Auf Mobile: über der Tab-Bar positionieren (64px) + Safe Area Inset */
-.fab-mobile {
-  bottom: calc(64px + 16px + env(safe-area-inset-bottom, 0px));
+.fab:hover { opacity: 0.9; transform: scale(1.05); }
+.fab-mobile { bottom: calc(64px + 16px + env(safe-area-inset-bottom, 0px)); }
+@media (orientation: landscape) {
+  .fab-mobile { bottom: calc(48px + 12px + env(safe-area-inset-bottom, 0px)); }
 }
 .btn-add-first {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
-  background: hsl(var(--primary) / 0.15);
-  color: hsl(var(--primary));
-  border: 1px solid hsl(var(--primary) / 0.3);
-  cursor: pointer;
+  padding: 8px 16px; border-radius: 6px; font-size: 13px;
+  background: hsl(var(--primary) / 0.15); color: hsl(var(--primary));
+  border: 1px solid hsl(var(--primary) / 0.3); cursor: pointer;
 }
 .focus-hint-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  margin-bottom: 1rem;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px; font-size: 0.75rem; margin-bottom: 1rem;
   color: hsl(var(--muted-foreground));
 }
-.focus-hint-text {
-  overflow-wrap: break-word;
-}
-.focus-full-tag {
-  font-weight: 500;
-  color: hsl(var(--primary));
-}
-.manga-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr;
-}
+.focus-hint-text { overflow-wrap: break-word; }
+.focus-full-tag { font-weight: 500; color: hsl(var(--primary)); }
+.manga-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
 @media (min-width: 600px) {
-  .manga-grid {
-    grid-template-columns: repeat(auto-fill, minmax(max(220px, 16%), 1fr));
-  }
+  .manga-grid { grid-template-columns: repeat(auto-fill, minmax(max(220px, 16%), 1fr)); }
 }
-.drag-item {
-  border-radius: 8px;
-  transition: opacity 0.15s;
+.drag-item { border-radius: 8px; transition: opacity 0.15s; }
+.drag-item.is-dragging { opacity: 0.4; }
+.drag-item.drag-over { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
+.scroll-content-mobile {
+  padding-bottom: 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.drag-item.is-dragging {
-  opacity: 0.4;
-}
-.drag-item.drag-over {
-  outline: 2px solid hsl(var(--primary));
-  outline-offset: 2px;
+@media (orientation: landscape) {
+  .scroll-content-mobile { padding-bottom: 60px; }
 }
 </style>

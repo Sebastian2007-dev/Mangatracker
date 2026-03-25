@@ -4,7 +4,6 @@ import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '../stores/settings.store'
 import { useMangaStore } from '../stores/manga.store'
 import type { Theme, Language, ReadBehavior } from '../types/index'
-import DomainListManager from '../components/settings/DomainListManager.vue'
 import { platformFeatures, isMobile } from '../composables/usePlatform'
 
 const { t, locale } = useI18n()
@@ -117,14 +116,6 @@ async function setTitleExpand(v: boolean): Promise<void> {
   await settings.save({ titleExpand: v })
 }
 
-async function updateWhitelist(list: string[]): Promise<void> {
-  await settings.save({ domainWhitelist: list })
-}
-
-async function updateBlocklist(list: string[]): Promise<void> {
-  await settings.save({ domainBlocklist: list })
-}
-
 // ─── Gist Sync ────────────────────────────────────────────────────────────
 
 const tokenInput = ref(settings.githubToken)
@@ -221,9 +212,9 @@ function formatLastSync(ts: number): string {
 </script>
 
 <template>
-  <div class="h-full overflow-hidden flex p-6 gap-6">
+  <div class="h-full overflow-hidden flex gap-6 settings-outer" :class="isMobile ? 'p-4' : 'p-6'">
     <!-- Left column: settings content -->
-    <div class="flex-1 overflow-y-auto min-w-0 max-w-2xl">
+    <div class="flex-1 min-h-0 overflow-y-auto min-w-0 max-w-2xl">
     <h1 class="text-xl font-bold mb-6" style="color: hsl(var(--foreground))">{{ t('settings.title') }}</h1>
 
     <!-- Theme -->
@@ -506,23 +497,6 @@ function formatLastSync(ts: number): string {
       </template>
     </section>
 
-    <!-- Domain Whitelist (nur Desktop) -->
-    <section v-if="platformFeatures.hasDomainGuard" class="settings-section">
-      <DomainListManager
-        :title="t('settings.domainWhitelist')"
-        :model-value="settings.domainWhitelist"
-        @update:model-value="updateWhitelist"
-      />
-    </section>
-
-    <!-- Domain Blocklist (nur Desktop) -->
-    <section v-if="platformFeatures.hasDomainGuard" class="settings-section">
-      <DomainListManager
-        :title="t('settings.domainBlocklist')"
-        :model-value="settings.domainBlocklist"
-        @update:model-value="updateBlocklist"
-      />
-    </section>
     </div><!-- end left column -->
 
     <!-- Right column: Mods sidebar (desktop only) -->
@@ -569,6 +543,13 @@ function formatLastSync(ts: number): string {
 </template>
 
 <style scoped>
+/* Safe Area für Querformat (p-4 bleibt Minimum) */
+@media (orientation: landscape) {
+  .settings-outer {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  }
+}
 .settings-section {
   margin-bottom: 28px;
   padding-bottom: 28px;
@@ -675,10 +656,14 @@ function formatLastSync(ts: number): string {
 }
 .library-action-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   margin-top: 16px;
+  flex-wrap: wrap;
+}
+.library-action-row .action-btn {
+  flex-shrink: 0;
 }
 .notif-warning {
   padding: 8px 12px;

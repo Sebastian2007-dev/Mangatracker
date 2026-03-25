@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { BookOpen, ChartColumn, Settings, ScrollText, Puzzle, Terminal, GitBranch } from 'lucide-vue-next'
+import { BookOpen, ChartColumn, Settings, ScrollText, Puzzle, Terminal, GitBranch, Globe } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useLogStore } from '../../stores/log.store'
 import { useSettingsStore } from '../../stores/settings.store'
+import { useSkillTreeStore } from '../../stores/skill-tree.store'
 import type { LoadedMod } from '../../../../types/mod'
 
 const router = useRouter()
@@ -12,6 +13,7 @@ const route = useRoute()
 const { t } = useI18n()
 const logStore = useLogStore()
 const settingsStore = useSettingsStore()
+const skillTreeStore = useSkillTreeStore()
 
 const modTabs = computed(() =>
   settingsStore.loadedMods.filter((mod) => mod.enabled && !!mod.manifest.sidebarTab)
@@ -52,8 +54,9 @@ onMounted(async () => {
       <BookOpen :size="20" />
     </button>
 
-    <!-- Log -->
+    <!-- Log (chronicle skill) -->
     <button
+      v-if="skillTreeStore.isUnlocked('chronicle')"
       class="nav-btn log-btn"
       :class="{ active: route.path === '/log' }"
       :title="t('nav.log')"
@@ -95,6 +98,16 @@ onMounted(async () => {
       @click="router.push('/skills')"
     >
       <GitBranch :size="20" />
+    </button>
+
+    <!-- Tracking & Domains -->
+    <button
+      class="nav-btn"
+      :class="{ active: route.path === '/tracking' }"
+      :title="t('nav.tracking')"
+      @click="router.push('/tracking')"
+    >
+      <Globe :size="20" />
     </button>
 
     <!-- Spacer -->

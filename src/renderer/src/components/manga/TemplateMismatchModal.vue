@@ -13,10 +13,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   confirm: [newTemplate: string]
   dismiss: []
+  ignore: [keepDetection: boolean]
 }>()
 
 const { t } = useI18n()
 const editedTemplate = ref(props.suggestedTemplate)
+const keepDetection = ref(false)
 const confidencePct = computed(() => Math.round(props.confidence * 100))
 </script>
 
@@ -55,10 +57,17 @@ const confidencePct = computed(() => Math.round(props.confidence * 100))
             <label class="field-label">{{ t('reader.templateNew') }}</label>
             <input v-model="editedTemplate" class="field-input" type="text" />
           </div>
+
+          <!-- Option: neue URL für Kapitel-Erkennung merken -->
+          <label class="detection-option">
+            <input type="checkbox" v-model="keepDetection" class="detection-checkbox" />
+            <span>{{ t('reader.templateKeepDetection') }}</span>
+          </label>
         </div>
 
         <div class="modal-footer">
           <button class="btn-ghost" @click="emit('dismiss')">{{ t('reader.templateDismiss') }}</button>
+          <button class="btn-ignore" @click="emit('ignore', keepDetection)">{{ t('reader.templateIgnore') }}</button>
           <button class="btn-primary" @click="emit('confirm', editedTemplate)">{{ t('reader.templateApply') }}</button>
         </div>
       </div>
@@ -194,6 +203,16 @@ const confidencePct = computed(() => Math.round(props.confidence * 100))
   cursor: pointer;
 }
 .btn-ghost {
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-ignore {
   flex: 1;
   padding: 9px 12px;
   border-radius: 7px;
@@ -201,6 +220,35 @@ const confidencePct = computed(() => Math.round(props.confidence * 100))
   background: transparent;
   color: hsl(var(--muted-foreground));
   border: 1px solid hsl(var(--border));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-ignore:hover {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+.detection-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--secondary));
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.4;
+}
+.detection-option:has(.detection-checkbox:checked) {
+  border-color: hsl(var(--primary) / 0.4);
+  background: hsl(var(--primary) / 0.07);
+  color: hsl(var(--foreground));
+}
+.detection-checkbox {
+  margin-top: 1px;
+  flex-shrink: 0;
+  accent-color: hsl(var(--primary));
   cursor: pointer;
 }
 </style>
