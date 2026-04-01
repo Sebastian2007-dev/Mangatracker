@@ -8,7 +8,8 @@ import { notifyStatsUpdated } from '../stats.service'
 let pollerTimer: ReturnType<typeof setTimeout> | null = null
 
 function buildChapterUrl(template: string, chapter: number): string {
-  return template.replace('$chapter', String(chapter))
+  const chapterStr = Number.isInteger(chapter) ? String(chapter) : String(chapter).replace('.', '-')
+  return template.replace('$chapter', chapterStr)
 }
 
 function pushLog(mainWindow: BrowserWindow, type: LogEntryType, message: string): void {

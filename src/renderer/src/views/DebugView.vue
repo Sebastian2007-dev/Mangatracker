@@ -63,9 +63,10 @@ function computeSuggestions(raw: string): Suggestion[] {
   // ── skills ───────────────────────────────────────────────────
   if (cmd === 'skills') {
     const SUBS: Suggestion[] = [
-      { insert: 'skills list',   label: 'list',        description: 'List all skills and status',    kind: 'sub' },
-      { insert: 'skills unlock', label: 'unlock <id>', description: 'Force-unlock a skill',          kind: 'sub' },
-      { insert: 'skills reset',  label: 'reset',       description: 'Reset all unlocked skills',     kind: 'sub' },
+      { insert: 'skills list',       label: 'list',        description: 'List all skills and status',    kind: 'sub' },
+      { insert: 'skills unlock',     label: 'unlock <id>', description: 'Force-unlock a skill',          kind: 'sub' },
+      { insert: 'skills unlock all', label: 'unlock all',  description: 'Force-unlock all skills',       kind: 'sub' },
+      { insert: 'skills reset',      label: 'reset',       description: 'Reset all unlocked skills',     kind: 'sub' },
     ]
     // typing subcommand
     if (parts.length === 1 || (parts.length === 2 && !endsWithSpace)) {
@@ -270,7 +271,19 @@ async function execute(raw: string): Promise<void> {
     }
     if (sub === 'unlock') {
       const id = args[1]
-      if (!id) { print('Error: usage: skills unlock <id>', 'err'); return }
+      if (!id) { print('Error: usage: skills unlock <id|all>', 'err'); return }
+      if (id.toLowerCase() === 'all') {
+        let count = 0
+        SKILLS.forEach((s) => {
+          if (!skillTreeStore.isUnlocked(s.id)) {
+            skillTreeStore.unlockedSkills.push(s.id)
+            count++
+          }
+        })
+        skillTreeStore.save()
+        print(`✓ Force-unlocked ${count} skill(s)`, 'ok')
+        return
+      }
       const skill = SKILLS.find((s) => s.id === id)
       if (!skill) { print(`Error: unknown skill id "${id}"`, 'err'); return }
       if (skillTreeStore.isUnlocked(id)) { print(`Already unlocked: ${id}`, 'info'); return }
@@ -284,7 +297,7 @@ async function execute(raw: string): Promise<void> {
       print('✓ Skill tree reset — all skills cleared', 'ok')
       return
     }
-    print('Error: usage: skills list | skills unlock <id> | skills reset', 'err')
+    print('Error: usage: skills list | skills unlock <id|all> | skills reset', 'err')
     return
   }
 

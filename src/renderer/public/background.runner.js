@@ -42,7 +42,8 @@ async function checkComicK(manga) {
 
 async function checkHttp(manga) {
   const nextChapter = Math.floor(manga.currentChapter) + 1
-  const url = manga.chapterUrlTemplate.replace('$chapter', String(nextChapter))
+  const chapterStr = Number.isInteger(nextChapter) ? String(nextChapter) : String(nextChapter).replace('.', '-')
+  const url = manga.chapterUrlTemplate.replace('$chapter', chapterStr)
   if (!url || !url.startsWith('http')) return null
 
   const res = await fetch(url, {

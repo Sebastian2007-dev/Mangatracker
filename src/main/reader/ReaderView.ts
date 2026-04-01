@@ -193,6 +193,11 @@ function tryFixTemplate(navUrl: string, template: string): TemplateFixResult | n
   }
 }
 
+function parseChapter(s: string): number {
+  // Support dash-decimal notation used by some sites (e.g. "62-1" → 62.1)
+  return parseFloat(s.replace(/^(\d+)-(\d+)$/, '$1.$2'))
+}
+
 function buildChapterRegex(template: string): RegExp | null {
   try {
     const parts = template.split('$chapter')
@@ -203,7 +208,8 @@ function buildChapterRegex(template: string): RegExp | null {
       // ändern den Hash-Teil des Slugs, leiten aber trotzdem korrekt weiter.
       return escaped.replace(/-[0-9a-fA-F]{6,12}(?=\/)/g, '-[0-9a-fA-F]{6,12}')
     })
-    return new RegExp(escapedParts.join('(\\d+(?:\\.\\d+)?)'))
+    // Match both dot-decimal (62.1) and dash-decimal (62-1) chapter numbers
+    return new RegExp(escapedParts.join('(\\d+(?:[-.]\\d+)?)'))
   } catch {
     return null
   }
@@ -247,7 +253,7 @@ function tryDetectChapter(navUrl: string, mainWindow: BrowserWindow): void {
     const detectionRegex = buildChapterRegex(manga.chapterDetectionTemplate)
     const detectionMatch = detectionRegex?.exec(navUrl)
     if (detectionMatch) {
-      const chapter = parseFloat(detectionMatch[1])
+      const chapter = parseChapter(detectionMatch[1])
       if (!Number.isNaN(chapter) && chapter > manga.currentChapter) {
         pushReaderLog(mainWindow, 'info', `Reader: Kapitel ${manga.currentChapter} -> ${chapter} erkannt (Detection-Template)`)
         if (!mainWindow.isDestroyed()) {
@@ -279,7 +285,7 @@ function tryDetectChapter(navUrl: string, mainWindow: BrowserWindow): void {
           const newRegex = buildChapterRegex(detectionFix.newTemplate)
           const newMatch = newRegex?.exec(navUrl)
           if (newMatch) {
-            const chapter = parseFloat(newMatch[1])
+            const chapter = parseChapter(newMatch[1])
             if (!Number.isNaN(chapter) && chapter > mangaList[idx].currentChapter) {
               pushReaderLog(mainWindow, 'info', `Reader: Kapitel ${mangaList[idx].currentChapter} -> ${chapter} erkannt (Detection-Template aktualisiert)`)
               if (!mainWindow.isDestroyed()) {
@@ -329,7 +335,7 @@ function tryDetectChapter(navUrl: string, mainWindow: BrowserWindow): void {
           const newRegex = buildChapterRegex(fix.newTemplate)
           const newMatch = newRegex?.exec(navUrl)
           if (newMatch) {
-            const chapter = parseFloat(newMatch[1])
+            const chapter = parseChapter(newMatch[1])
             if (!Number.isNaN(chapter) && chapter !== mangaList[idx].currentChapter) {
               pushReaderLog(mainWindow, 'info', `Reader: Kapitel ${mangaList[idx].currentChapter} -> ${chapter} erkannt`)
               if (!mainWindow.isDestroyed()) {
@@ -357,7 +363,7 @@ function tryDetectChapter(navUrl: string, mainWindow: BrowserWindow): void {
     return
   }
 
-  const chapter = parseFloat(match[1])
+  const chapter = parseChapter(match[1])
   if (Number.isNaN(chapter)) return
   if (chapter <= manga.currentChapter) return
 

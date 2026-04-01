@@ -34,7 +34,8 @@ function pushLog(type: LogEntryType, message: string): void {
 }
 
 function buildChapterUrl(template: string, chapter: number): string {
-  return template.replace('$chapter', String(chapter))
+  const chapterStr = Number.isInteger(chapter) ? String(chapter) : String(chapter).replace('.', '-')
+  return template.replace('$chapter', chapterStr)
 }
 
 function sleep(ms: number): Promise<void> {
