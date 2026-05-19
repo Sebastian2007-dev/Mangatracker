@@ -341,6 +341,28 @@ export async function getStatisticsOverview(): Promise<StatisticsOverview> {
   return overview
 }
 
+export function rebuildStatistics(): void {
+  const mangaList = (store.get('mangaList') ?? []) as Manga[]
+  const mangaTrash = (store.get('mangaTrash') ?? []) as TrashedManga[]
+
+  // Clear everything first
+  setStatisticsEvents([])
+  store.set('earnedAchievements', [])
+  setStatisticsTagCache(null)
+
+  // Re-seed from current manga state so the rebuild is immediate
+  const now = Date.now()
+  const additions: StatisticsEvent[] = []
+  for (const manga of [...mangaList, ...mangaTrash]) {
+    const at = ('deletedAt' in manga && manga.deletedAt) ? manga.deletedAt : (manga.updatedAt || manga.createdAt || now)
+    const seedEvent = createSyntheticChapterSeedEvent(manga, at)
+    if (seedEvent) additions.push(seedEvent)
+  }
+  if (additions.length > 0) setStatisticsEvents(additions)
+
+  broadcastStatsUpdated()
+}
+
 // ── Debug helpers ─────────────────────────────────────────────────────────────
 
 export function debugResetStats(): void {

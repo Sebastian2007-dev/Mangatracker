@@ -326,3 +326,29 @@ export async function statsRefreshTags(): Promise<{ success: boolean; data?: Sta
 export async function statsRefreshGenres(): Promise<{ success: boolean; data?: StatisticsOverview; error?: string }> {
   return statsRefreshTags()
 }
+
+export async function statsRebuild(): Promise<{ success: boolean; data?: StatisticsOverview; error?: string }> {
+  try {
+    const mangaList = await getMangaList()
+    const mangaTrash = await getMangaTrash()
+
+    await setStatsEvents([])
+    await setStatsTagCache(null)
+
+    const now = Date.now()
+    const additions: StatisticsEvent[] = []
+    for (const manga of [...mangaList, ...mangaTrash]) {
+      const at = ('deletedAt' in manga && (manga as { deletedAt?: number }).deletedAt)
+        ? (manga as { deletedAt: number }).deletedAt
+        : manga.updatedAt || manga.createdAt || now
+      const seedEvent = createSyntheticChapterSeedEvent(manga, at)
+      if (seedEvent) additions.push(seedEvent)
+    }
+    if (additions.length > 0) await setStatsEvents(additions)
+
+    notifyStatsUpdated()
+    return statsGetOverview()
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}

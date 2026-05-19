@@ -4,6 +4,7 @@ import {
   debugResetStats,
   debugSetChapters,
   getStatisticsOverview,
+  rebuildStatistics,
   refreshLibraryMetadata,
   refreshStatisticsTags
 } from '../stats.service'
@@ -46,6 +47,15 @@ export function registerStatsIpc(): void {
   registerHandler('manga:refreshMetadata', async () => {
     try {
       return { success: true, data: await refreshLibraryMetadata() }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  registerHandler('stats:rebuild', async () => {
+    try {
+      rebuildStatistics()
+      return { success: true, data: await getStatisticsOverview() }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }

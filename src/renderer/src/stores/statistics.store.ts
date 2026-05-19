@@ -36,6 +36,27 @@ export const useStatisticsStore = defineStore('statistics', () => {
     useSkillTreeStore().updateBonusSP(result.data.achievements)
   }
 
+  const rebuilding = ref(false)
+
+  async function rebuild(): Promise<void> {
+    rebuilding.value = true
+    const result = await api.invoke<{ success: boolean; data?: StatisticsOverview; error?: string }>('stats:rebuild')
+
+    if (!result.success || !result.data) {
+      rebuilding.value = false
+      error.value = result.error ?? 'Failed to rebuild statistics'
+      return
+    }
+
+    overview.value = result.data
+    refreshingTags.value = result.data.tagCache.refreshing
+    rebuilding.value = false
+    error.value = ''
+    useAchievementToastStore().checkNew(result.data.achievements)
+    useLevelUpStore().checkLevel(result.data.level)
+    useSkillTreeStore().updateBonusSP(result.data.achievements)
+  }
+
   async function refreshTags(): Promise<void> {
     refreshingTags.value = true
     const result = await api.invoke<{ success: boolean; data?: StatisticsOverview; error?: string }>('stats:refreshTags')
@@ -64,9 +85,11 @@ export const useStatisticsStore = defineStore('statistics', () => {
     overview,
     loading,
     refreshingTags,
+    rebuilding,
     error,
     fetchOverview,
     refreshTags,
+    rebuild,
     setupListeners
   }
 })
