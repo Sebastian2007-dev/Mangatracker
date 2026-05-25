@@ -29,6 +29,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const profileAvatar = ref<string>('')
   const profileUpdatedAt = ref<number>(0)
   const customTitle = ref<string>('')
+  const proxyUrl = ref<string>('')
+  const lockRotation = ref<boolean>(true)
   const loadedMods = ref<LoadedMod[]>([])
 
   function applySettings(s: AppSettings): void {
@@ -55,6 +57,8 @@ export const useSettingsStore = defineStore('settings', () => {
     profileAvatar.value = s.profileAvatar ?? ''
     profileUpdatedAt.value = s.profileUpdatedAt ?? 0
     customTitle.value = s.customTitle ?? ''
+    proxyUrl.value = s.proxyUrl ?? ''
+    lockRotation.value = s.lockRotation ?? true
   }
 
   async function load(): Promise<void> {
@@ -94,6 +98,32 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.profileAvatar !== undefined) profileAvatar.value = updates.profileAvatar
     if (updates.profileUpdatedAt !== undefined) profileUpdatedAt.value = updates.profileUpdatedAt
     if (updates.customTitle !== undefined) customTitle.value = updates.customTitle ?? ''
+    if (updates.proxyUrl !== undefined) proxyUrl.value = updates.proxyUrl ?? ''
+    if (updates.lockRotation !== undefined) lockRotation.value = updates.lockRotation
+  }
+
+  async function uploadGist(): Promise<{ success: boolean; error?: string }> {
+    const result = await api.invoke<{ success: boolean; gistId?: string; error?: string }>(
+      'gist:upload',
+      { token: githubToken.value, gistId: gistId.value }
+    )
+    if (result.success && result.gistId) {
+      gistId.value = result.gistId
+      lastGistSync.value = Date.now()
+    }
+    return result
+  }
+
+  async function downloadGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
+    const result = await api.invoke<{ success: boolean; data?: Manga[]; gistId?: string; error?: string }>(
+      'gist:download',
+      { token: githubToken.value, gistId: gistId.value }
+    )
+    if (result.success && result.gistId) {
+      gistId.value = result.gistId
+      lastGistSync.value = Date.now()
+    }
+    return result
   }
 
   async function syncGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
@@ -168,9 +198,10 @@ export const useSettingsStore = defineStore('settings', () => {
     notificationIntervalMs, notificationsEnabled, backgroundNotificationsEnabled, autoLinkEnabled, desktopNotificationsEnabled, readerInSeparateWindow,
     elementPickerEnabled, blockNewWindows, titleExpand,
     gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
-    profileName, profileAvatar, profileUpdatedAt, customTitle,
+    profileName, profileAvatar, profileUpdatedAt, customTitle, proxyUrl,
+    lockRotation,
     loadedMods,
-    load, save, setupListeners, syncGist, testGistAuth, disconnectGist,
+    load, save, setupListeners, syncGist, uploadGist, downloadGist, testGistAuth, disconnectGist,
     fetchMods, scanMods, setModEnabled, openModsFolder
   }
 })

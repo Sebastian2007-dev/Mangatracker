@@ -85,6 +85,10 @@ async function setAutoLinkEnabled(v: boolean): Promise<void> {
   await settings.save({ autoLinkEnabled: v })
 }
 
+async function setLockRotation(v: boolean): Promise<void> {
+  await settings.save({ lockRotation: v })
+}
+
 async function setBackgroundNotificationsEnabled(v: boolean): Promise<void> {
   await settings.save({ backgroundNotificationsEnabled: v })
 }
@@ -112,6 +116,15 @@ async function setBlockNewWindows(v: boolean): Promise<void> {
   await settings.save({ blockNewWindows: v })
 }
 
+const proxyInput = ref(settings.proxyUrl)
+const proxyStatus = ref<'idle' | 'saved'>('idle')
+
+async function saveProxy(): Promise<void> {
+  await settings.save({ proxyUrl: proxyInput.value.trim() })
+  proxyStatus.value = 'saved'
+  setTimeout(() => { proxyStatus.value = 'idle' }, 2000)
+}
+
 async function setTitleExpand(v: boolean): Promise<void> {
   await settings.save({ titleExpand: v })
 }
@@ -122,7 +135,7 @@ const tokenInput = ref(settings.githubToken)
 const showToken = ref(false)
 const authStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 const authUsername = ref('')
-const syncStatus = ref<'idle' | 'running' | 'ok' | 'fail'>('idle')
+const syncStatus = ref<'idle' | 'uploading' | 'downloading' | 'ok' | 'fail'>('idle')
 const syncError = ref('')
 
 async function testAuth(): Promise<void> {
@@ -138,10 +151,22 @@ async function testAuth(): Promise<void> {
   }
 }
 
-async function syncNow(): Promise<void> {
-  syncStatus.value = 'running'
+async function uploadNow(): Promise<void> {
+  syncStatus.value = 'uploading'
   syncError.value = ''
-  const result = await settings.syncGist()
+  const result = await settings.uploadGist()
+  if (result.success) {
+    syncStatus.value = 'ok'
+  } else {
+    syncStatus.value = 'fail'
+    syncError.value = result.error ?? ''
+  }
+}
+
+async function downloadNow(): Promise<void> {
+  syncStatus.value = 'downloading'
+  syncError.value = ''
+  const result = await settings.downloadGist()
   if (result.success) {
     syncStatus.value = 'ok'
     await mangaStore.fetchAll()
@@ -249,6 +274,22 @@ function formatLastSync(ts: number): string {
       </div>
     </section>
 
+    <!-- Display (nur Mobile) -->
+    <section v-if="isMobile" class="settings-section">
+      <h2 class="section-title">{{ t('settings.display') }}</h2>
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.lockRotation') }}</span>
+          <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.lockRotationHint') }}</p>
+        </div>
+        <button
+          class="toggle"
+          :class="{ on: settings.lockRotation }"
+          @click="setLockRotation(!settings.lockRotation)"
+        />
+      </div>
+    </section>
+
     <!-- Library -->
     <section class="settings-section">
       <h2 class="section-title">{{ t('settings.library') }}</h2>
@@ -331,7 +372,7 @@ function formatLastSync(ts: number): string {
           @click="setElementPickerEnabled(!settings.elementPickerEnabled)"
         />
       </div>
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between mb-3">
         <div>
           <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.blockNewWindows') }}</span>
           <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.blockNewWindowsHint') }}</p>
@@ -341,6 +382,24 @@ function formatLastSync(ts: number): string {
           :class="{ on: settings.blockNewWindows }"
           @click="setBlockNewWindows(!settings.blockNewWindows)"
         />
+      </div>
+
+      <!-- Proxy -->
+      <div>
+        <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.proxyUrl') }}</span>
+        <p class="text-xs mt-0.5 mb-2" style="color: hsl(var(--muted-foreground))">{{ t('settings.proxyUrlHint') }}</p>
+        <div class="flex gap-2">
+          <input
+            v-model="proxyInput"
+            type="text"
+            :placeholder="t('settings.proxyUrlPlaceholder')"
+            class="field-input flex-1"
+            @keyup.enter="saveProxy"
+          />
+          <button class="action-btn" @click="saveProxy">
+            {{ proxyStatus === 'saved' ? '✓' : t('settings.proxySaveBtn') }}
+          </button>
+        </div>
       </div>
     </section>
 
@@ -479,10 +538,17 @@ function formatLastSync(ts: number): string {
         <div class="flex gap-2">
           <button
             class="action-btn flex-1"
-            :disabled="!settings.githubToken || syncStatus === 'running'"
-            @click="syncNow"
+            :disabled="!settings.githubToken || syncStatus === 'uploading' || syncStatus === 'downloading'"
+            @click="uploadNow"
           >
-            {{ syncStatus === 'running' ? t('settings.syncRunning') : t('settings.syncNowBtn') }}
+            {{ syncStatus === 'uploading' ? t('settings.syncUploading') : t('settings.syncUploadBtn') }}
+          </button>
+          <button
+            class="action-btn flex-1"
+            :disabled="!settings.githubToken || syncStatus === 'uploading' || syncStatus === 'downloading'"
+            @click="downloadNow"
+          >
+            {{ syncStatus === 'downloading' ? t('settings.syncDownloading') : t('settings.syncDownloadBtn') }}
           </button>
           <button class="action-btn-ghost" @click="disconnectGist">
             {{ t('settings.syncDisconnectBtn') }}

@@ -9,6 +9,7 @@ import {
   buildSyncPayload,
   GIST_FILE_NAME,
   mergeLists,
+  mergeProfile,
   mergeStatisticsPayload,
   parseSyncPayload
 } from '../../../../shared/gist.sync'
@@ -122,6 +123,9 @@ export async function sync(payload: unknown): Promise<{ success: boolean; data?:
       events: await getStatsEvents(),
       tagCache: await getStatsTagCache()
     }
+    const localProfile = (settings.profileName || settings.profileAvatar)
+      ? { name: settings.profileName ?? '', avatar: settings.profileAvatar ?? '', updatedAt: settings.profileUpdatedAt ?? 0 }
+      : undefined
 
     const { manga: mergedManga, deleted: mergedDeleted } = mergeLists(
       localManga,
@@ -130,6 +134,7 @@ export async function sync(payload: unknown): Promise<{ success: boolean; data?:
       remotePayload.deleted
     )
     const mergedStats = mergeStatisticsPayload(localStats, remotePayload.stats)
+    const mergedProfile = mergeProfile(localProfile, remotePayload.profile)
 
     const patchRes = await fetch(`${GITHUB_API}/gists/${gistId}`, {
       method: 'PATCH',
@@ -137,7 +142,7 @@ export async function sync(payload: unknown): Promise<{ success: boolean; data?:
       body: JSON.stringify({
         files: {
           [GIST_FILE_NAME]: {
-            content: buildSyncPayload(mergedManga, mergedDeleted, mergedStats)
+            content: buildSyncPayload(mergedManga, mergedDeleted, mergedStats, mergedProfile)
           }
         }
       })
@@ -147,10 +152,95 @@ export async function sync(payload: unknown): Promise<{ success: boolean; data?:
     await setMangaList(mergedManga)
     await setStatsEvents(mergedStats.events)
     await setStatsTagCache(mergedStats.tagCache)
-    await setSettings({ gistId, lastGistSync: Date.now() })
+
+    const profileUpdated = mergedProfile && mergedProfile.updatedAt > (settings.profileUpdatedAt ?? 0)
+    await setSettings({
+      gistId,
+      lastGistSync: Date.now(),
+      ...(profileUpdated ? {
+        profileName: mergedProfile!.name,
+        profileAvatar: mergedProfile!.avatar,
+        profileUpdatedAt: mergedProfile!.updatedAt
+      } : {})
+    })
     notifyStatsUpdated()
 
     return { success: true, data: mergedManga, gistId }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+export async function upload(payload: unknown): Promise<{ success: boolean; gistId?: string; error?: string }> {
+  const { token, gistId: providedGistId } = payload as { token: string; gistId?: string }
+
+  try {
+    const settings = await getSettings()
+    const storedGistId = providedGistId ?? settings.gistId ?? ''
+    const gistId = await findOrCreateGist(token, storedGistId)
+
+    const localManga = await getMangaList()
+    const localTrash = await getMangaTrash()
+    const localDeleted: GistTombstone[] = (localTrash as TrashedManga[]).map((manga) => ({
+      id: manga.id,
+      deletedAt: manga.deletedAt ?? manga.updatedAt
+    }))
+    const localStats = {
+      events: await getStatsEvents(),
+      tagCache: await getStatsTagCache()
+    }
+    const localProfile = (settings.profileName || settings.profileAvatar)
+      ? { name: settings.profileName ?? '', avatar: settings.profileAvatar ?? '', updatedAt: settings.profileUpdatedAt ?? 0 }
+      : undefined
+
+    const patchRes = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+      method: 'PATCH',
+      headers: githubHeaders(token),
+      body: JSON.stringify({
+        files: { [GIST_FILE_NAME]: { content: buildSyncPayload(localManga, localDeleted, localStats, localProfile) } }
+      })
+    })
+    if (!patchRes.ok) throw new Error(`Gist konnte nicht hochgeladen werden: HTTP ${patchRes.status}`)
+
+    await setSettings({ gistId, lastGistSync: Date.now() })
+    return { success: true, gistId }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+export async function download(payload: unknown): Promise<{ success: boolean; data?: Manga[]; gistId?: string; error?: string }> {
+  const { token, gistId: providedGistId } = payload as { token: string; gistId?: string }
+
+  try {
+    const settings = await getSettings()
+    const storedGistId = providedGistId ?? settings.gistId ?? ''
+    const gistId = await findOrCreateGist(token, storedGistId)
+
+    const gistRes = await fetch(`${GITHUB_API}/gists/${gistId}`, { headers: githubHeaders(token) })
+    if (!gistRes.ok) throw new Error(`Gist konnte nicht geladen werden: HTTP ${gistRes.status}`)
+
+    const gistData = (await gistRes.json()) as { files: Record<string, { content: string }> }
+    const remoteContent = gistData.files[GIST_FILE_NAME]?.content ?? '{}'
+    const remotePayload = parseSyncPayload(remoteContent)
+
+    await setMangaList(remotePayload.manga)
+    await setStatsEvents(remotePayload.stats.events)
+    await setStatsTagCache(remotePayload.stats.tagCache)
+
+    const profileUpdated = remotePayload.profile && remotePayload.profile.updatedAt > (settings.profileUpdatedAt ?? 0)
+    await setSettings({
+      gistId,
+      lastGistSync: Date.now(),
+      ...(profileUpdated ? {
+        profileName: remotePayload.profile!.name,
+        profileAvatar: remotePayload.profile!.avatar,
+        profileUpdatedAt: remotePayload.profile!.updatedAt
+      } : {})
+    })
+    notifyStatsUpdated()
+
+    return { success: true, data: remotePayload.manga, gistId }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }

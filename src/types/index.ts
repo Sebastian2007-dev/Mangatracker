@@ -190,6 +190,8 @@ export interface AppSettings {
   profileAvatar?: string
   profileUpdatedAt?: number
   customTitle?: string
+  proxyUrl?: string
+  lockRotation?: boolean
 }
 
 export interface ReaderOpenPayload {

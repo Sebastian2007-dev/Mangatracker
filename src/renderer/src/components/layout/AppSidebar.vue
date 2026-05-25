@@ -54,9 +54,8 @@ onMounted(async () => {
       <BookOpen :size="20" />
     </button>
 
-    <!-- Log (chronicle skill) -->
+    <!-- Log -->
     <button
-      v-if="skillTreeStore.isUnlocked('chronicle')"
       class="nav-btn log-btn"
       :class="{ active: route.path === '/log' }"
       :title="t('nav.log')"

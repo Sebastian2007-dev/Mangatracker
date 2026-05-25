@@ -9,7 +9,7 @@ export const useLogStore = defineStore('log', () => {
   function addEntry(entry: LogEntry): void {
     entries.value.unshift(entry)
     if (entries.value.length > 500) entries.value = entries.value.slice(0, 500)
-    if (entry.type === 'warning' || entry.type === 'error' || entry.type === 'success') {
+    if (entry.type === 'warning' || entry.type === 'error') {
       unreadCount.value++
     }
   }

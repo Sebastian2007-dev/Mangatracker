@@ -3,7 +3,7 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 import store from './store'
 import { registerMangaIpc } from './ipc/manga.ipc'
-import { registerSettingsIpc } from './ipc/settings.ipc'
+import { registerSettingsIpc, applyProxy } from './ipc/settings.ipc'
 import { registerGistIpc, syncGistDirect } from './ipc/gist.ipc'
 import { registerStatsIpc } from './ipc/stats.ipc'
 import { registerReaderIpc } from './reader/ReaderView'
@@ -89,6 +89,9 @@ app.whenReady().then(async () => {
   }
 
   const mainWindow = createWindow()
+
+  const savedSettings = store.get('settings')
+  await applyProxy(savedSettings.proxyUrl)
 
   await initAdBlocker(mainWindow.webContents.session)
 
