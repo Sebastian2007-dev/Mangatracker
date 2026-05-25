@@ -9,6 +9,7 @@ import {
   Cloud,
   X,
   ChartColumn,
+  RotateCcw,
   CircleCheck,
   Clock3,
   Compass,
@@ -151,10 +152,62 @@ const statCards = computed(() => {
 
 const topTags = computed(() => {
   if (!overview.value) return []
+  const limit = skillTreeStore.isUnlocked('tag_insights') ? 15 : 6
   return Object.entries(overview.value.tags)
     .sort((left, right) => right[1] - left[1])
-    .slice(0, 6)
+    .slice(0, limit)
     .map(([name, count]) => ({ name, count }))
+})
+
+const heatmapWeeks = computed(() => {
+  if (!overview.value) return []
+  const WEEKS = 16
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const startDate = new Date(today)
+  startDate.setDate(startDate.getDate() - WEEKS * 7 + 1)
+
+  const allValues = Object.values(overview.value.activityByDay)
+  const maxCount = allValues.length > 0 ? Math.max(...allValues, 1) : 1
+
+  const toKey = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  const weeks: { date: string; count: number; level: number }[][] = []
+  for (let w = 0; w < WEEKS; w++) {
+    const week: { date: string; count: number; level: number }[] = []
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(startDate)
+      date.setDate(date.getDate() + w * 7 + d)
+      const key = toKey(date)
+      const count = overview.value.activityByDay[key] ?? 0
+      const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / maxCount) * 4))
+      week.push({ date: key, count, level })
+    }
+    weeks.push(week)
+  }
+  return weeks
+})
+
+const forecastData = computed(() => {
+  if (!overview.value) return null
+  const { activeDays, chapters } = overview.value
+  if (activeDays === 0 || chapters.allTime === 0) return null
+
+  const dailyAvg = chapters.allTime / activeDays
+  const daysToFinishBacklog = chapters.unread > 0 && dailyAvg > 0
+    ? Math.ceil(chapters.unread / dailyAvg)
+    : null
+
+  return {
+    dailyAvg: Math.round(dailyAvg * 10) / 10,
+    weeklyAvg: Math.round(dailyAvg * 7),
+    monthlyAvg: Math.round(dailyAvg * 30),
+    daysToFinishBacklog,
+    finishDate: daysToFinishBacklog
+      ? formatDate(Date.now() + daysToFinishBacklog * 86400000)
+      : null
+  }
 })
 
 const monthTimeline = computed(() => {
@@ -243,6 +296,11 @@ async function refreshTags(): Promise<void> {
   await statisticsStore.refreshTags()
 }
 
+async function rebuildStats(): Promise<void> {
+  if (!confirm(t('statistics.rebuildConfirm'))) return
+  await statisticsStore.rebuild()
+}
+
 onMounted(async () => {
   await statisticsStore.fetchOverview()
 })
@@ -265,6 +323,11 @@ onMounted(async () => {
         </div>
 
         <div class="stats-header-actions">
+          <button class="ghost-btn" :disabled="statisticsStore.rebuilding" @click="rebuildStats">
+            <RotateCcw :size="14" :class="{ spin: statisticsStore.rebuilding }" />
+            <span>{{ t('statistics.rebuildStats') }}</span>
+          </button>
+
           <button class="ghost-btn" :disabled="statisticsStore.refreshingTags" @click="refreshTags">
             <RefreshCw :size="14" :class="{ spin: statisticsStore.refreshingTags }" />
             <span>{{ t('statistics.refreshTags') }}</span>
@@ -461,7 +524,99 @@ onMounted(async () => {
           </section>
         </div>
 
-        <div v-else class="plain-layout">
+        <!-- ── Heatmap (skill: heatmap) ───────────────────────────── -->
+        <section v-if="mode === 'game' && skillTreeStore.isUnlocked('heatmap')" class="panel heatmap-panel">
+          <div class="panel-head">
+            <p class="panel-eyebrow">{{ t('statistics.sections.heatmap') }}</p>
+          </div>
+          <div class="heatmap-grid">
+            <div v-for="(week, wi) in heatmapWeeks" :key="wi" class="heatmap-week">
+              <div
+                v-for="day in week"
+                :key="day.date"
+                class="heatmap-cell"
+                :data-level="day.level"
+                :title="day.count > 0 ? t('statistics.heatmap.day', { date: formatDayKey(day.date), count: day.count }) : day.date"
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Deep stats (skill: deep_stats) ────────────────────── -->
+        <section v-if="mode === 'game' && skillTreeStore.isUnlocked('deep_stats')" class="panel">
+          <div class="panel-head">
+            <p class="panel-eyebrow">{{ t('statistics.sections.deepStats') }}</p>
+          </div>
+          <div class="deep-grid">
+            <div class="deep-card">
+              <span>{{ t('statistics.deepStats.longestManga') }}</span>
+              <strong>{{ overview.longestManga.title }}</strong>
+              <span class="deep-sub">{{ formatNumber(overview.longestManga.chapters) }} {{ t('statistics.deepStats.chapters') }}</span>
+            </div>
+            <div class="deep-card">
+              <span>{{ t('statistics.deepStats.bestStreak') }}</span>
+              <strong>{{ formatNumber(overview.bestStreak) }}</strong>
+              <span class="deep-sub">{{ t('statistics.deepStats.days') }}</span>
+            </div>
+            <div class="deep-card">
+              <span>{{ t('statistics.deepStats.busiestDay') }}</span>
+              <strong>{{ overview.busiestDay ? formatDayKey(overview.busiestDay.date) : t('statistics.never') }}</strong>
+              <span v-if="overview.busiestDay" class="deep-sub">{{ formatNumber(overview.busiestDay.count) }} {{ t('statistics.deepStats.chapters') }}</span>
+            </div>
+            <div class="deep-card">
+              <span>{{ t('statistics.deepStats.firstTracked') }}</span>
+              <strong>{{ formatDate(overview.firstTrackedAt) }}</strong>
+            </div>
+            <div class="deep-card">
+              <span>{{ t('statistics.deepStats.unreadBacklog') }}</span>
+              <strong>{{ formatNumber(overview.chapters.unread) }}</strong>
+              <span class="deep-sub">{{ t('statistics.deepStats.chapters') }}</span>
+            </div>
+            <div class="deep-card">
+              <span>{{ t('statistics.deepStats.uniqueTags') }}</span>
+              <strong>{{ formatNumber(overview.uniqueTags) }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Forecast (skill: forecast) ─────────────────────────── -->
+        <section v-if="mode === 'game' && skillTreeStore.isUnlocked('forecast')" class="panel">
+          <div class="panel-head">
+            <p class="panel-eyebrow">{{ t('statistics.sections.forecast') }}</p>
+          </div>
+          <div v-if="forecastData" class="forecast-grid">
+            <div class="forecast-card">
+              <span>{{ t('statistics.forecast.dailyAvg') }}</span>
+              <strong>{{ forecastData.dailyAvg }}</strong>
+              <span class="forecast-unit">{{ t('statistics.forecast.chapPerDay') }}</span>
+            </div>
+            <div class="forecast-card">
+              <span>{{ t('statistics.forecast.weeklyAvg') }}</span>
+              <strong>{{ forecastData.weeklyAvg }}</strong>
+              <span class="forecast-unit">{{ t('statistics.forecast.chapPerWeek') }}</span>
+            </div>
+            <div class="forecast-card">
+              <span>{{ t('statistics.forecast.monthlyAvg') }}</span>
+              <strong>{{ forecastData.monthlyAvg }}</strong>
+              <span class="forecast-unit">{{ t('statistics.forecast.chapPerMonth') }}</span>
+            </div>
+            <div class="forecast-card forecast-backlog">
+              <span>{{ t('statistics.forecast.backlogTitle') }}</span>
+              <template v-if="forecastData.daysToFinishBacklog !== null">
+                <strong>~{{ forecastData.daysToFinishBacklog }}</strong>
+                <span class="forecast-unit">{{ t('statistics.forecast.days') }}</span>
+                <span class="forecast-date">{{ forecastData.finishDate }}</span>
+              </template>
+              <template v-else>
+                <strong class="forecast-done">✓</strong>
+                <span class="forecast-unit">{{ t('statistics.forecast.noBacklog') }}</span>
+              </template>
+            </div>
+          </div>
+          <p v-else class="empty-note">{{ t('statistics.noActivity') }}</p>
+        </section>
+
+        <div v-if="mode === 'plain'" class="plain-layout">
           <section class="summary-grid">
             <article v-for="card in summaryCards" :key="card.key" class="summary-card" :data-tone="card.tone">
               <span>{{ card.label }}</span>
@@ -1421,5 +1576,116 @@ onMounted(async () => {
   .hero-card h2 {
     font-size: 24px;
   }
+}
+
+/* ─── Heatmap ────────────────────────────────────────────── */
+.heatmap-panel { overflow-x: auto; }
+
+.heatmap-grid {
+  display: flex;
+  gap: 3px;
+  padding: 4px 0 8px;
+}
+
+.heatmap-week {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.heatmap-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: hsl(var(--muted) / 0.5);
+  cursor: default;
+  flex-shrink: 0;
+}
+.heatmap-cell[data-level="1"] { background: hsl(var(--primary) / 0.25); }
+.heatmap-cell[data-level="2"] { background: hsl(var(--primary) / 0.50); }
+.heatmap-cell[data-level="3"] { background: hsl(var(--primary) / 0.75); }
+.heatmap-cell[data-level="4"] { background: hsl(var(--primary)); }
+
+/* ─── Deep stats ─────────────────────────────────────────── */
+.deep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.deep-card {
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.deep-card > span:first-child {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--muted-foreground));
+}
+
+.deep-card > strong {
+  font-size: 15px;
+  color: hsl(var(--foreground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deep-sub {
+  font-size: 11px;
+  color: hsl(var(--primary));
+}
+
+/* ─── Forecast ───────────────────────────────────────────── */
+.forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.forecast-card {
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.forecast-card > span:first-child {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--muted-foreground));
+}
+
+.forecast-card > strong {
+  font-size: 22px;
+  font-weight: 700;
+  color: hsl(var(--primary));
+  line-height: 1;
+}
+
+.forecast-unit {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.forecast-date {
+  font-size: 11px;
+  color: hsl(var(--foreground));
+  margin-top: 2px;
+}
+
+.forecast-done {
+  color: hsl(142 71% 45%) !important;
 }
 </style>

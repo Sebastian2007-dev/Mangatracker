@@ -223,6 +223,7 @@ const handlers: Record<string, Handler> = {
   'stats:getOverview': () => statsService.statsGetOverview(),
   'stats:refreshTags': () => statsService.statsRefreshTags(),
   'stats:refreshGenres': () => statsService.statsRefreshTags(),
+  'stats:rebuild': () => statsService.statsRebuild(),
 
   // Reader-Channels: auf Mobile werden diese über @capacitor/browser abgehandelt.
   // Der reader.store ruft diese nicht auf Mobile auf, daher Stubs:

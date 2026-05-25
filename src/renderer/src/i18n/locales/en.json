@@ -213,6 +213,8 @@
     "subtitle": "Read your library like a character sheet.",
     "loading": "Loading statistics...",
     "refreshTags": "Refresh tags",
+    "rebuildStats": "Rebuild statistics",
+    "rebuildConfirm": "Reset statistics and rebuild from current chapter counts? History events will be deleted.",
     "modeGame": "Game",
     "modePlain": "Plain",
     "achievementUnlocked": "Achievement unlocked!",
@@ -246,7 +248,34 @@
       "chapters": "Chapters",
       "statusBreakdown": "Status breakdown",
       "records": "Records and milestones",
-      "activityTimeline": "Monthly activity"
+      "activityTimeline": "Monthly activity",
+      "heatmap": "Activity heatmap",
+      "deepStats": "Hidden records",
+      "forecast": "Prophecy"
+    },
+    "heatmap": {
+      "day": "{date}: {count} chapters"
+    },
+    "deepStats": {
+      "longestManga": "Longest manga",
+      "bestStreak": "Best reading streak",
+      "days": "days",
+      "chapters": "chapters",
+      "busiestDay": "Busiest day",
+      "firstTracked": "First entry",
+      "unreadBacklog": "Unread backlog",
+      "uniqueTags": "Unique tags"
+    },
+    "forecast": {
+      "dailyAvg": "Daily avg",
+      "weeklyAvg": "Weekly avg",
+      "monthlyAvg": "Monthly avg",
+      "chapPerDay": "ch./day",
+      "chapPerWeek": "ch./week",
+      "chapPerMonth": "ch./month",
+      "backlogTitle": "Clear backlog",
+      "days": "days",
+      "noBacklog": "No backlog ✓"
     },
     "attributes": {
       "pwr": "Power",
