@@ -9,3 +9,6 @@ out
 android/app/*.jks
 android/app/*.keystore
 .vscode
+
+switch-github-account.bat
+BatSwitcher/accessToken.env
