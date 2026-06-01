@@ -29,6 +29,7 @@ export interface Manga {
   rating?: number
   ignoreTemplateMismatch?: boolean
   chapterDetectionTemplate?: string
+  scrollPosition?: { url: string; scrollY: number; scrollPercent: number }
   createdAt: number
   updatedAt: number
 }

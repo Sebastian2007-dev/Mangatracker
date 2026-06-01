@@ -98,6 +98,9 @@
     "templateApply": "Apply",
     "templateDismiss": "Cancel",
     "templateIgnore": "Don't show again",
+    "scrollRestoreHint": "You last scrolled to {percent}% – continue reading?",
+    "scrollRestoreYes": "Continue",
+    "scrollRestoreNo": "Start over",
     "templateKeepDetection": "Remember new URL for automatic chapter detection in the background",
     "domainGuard": {
       "title": "Different Domain",

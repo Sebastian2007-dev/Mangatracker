@@ -396,6 +396,20 @@ function attachReaderEvents(webContents: WebContents, mainWindow: BrowserWindow)
     }
   })
 
+  webContents.on('did-finish-load', () => {
+    // Scroll restore is only supported in embedded mode (overlay must be visible)
+    if (!currentMangaId || mainWindow.isDestroyed() || readerView?.webContents !== webContents) return
+    const manga = store.get('mangaList').find((m) => m.id === currentMangaId)
+    if (!manga?.scrollPosition) return
+    const currentUrl = webContents.getURL()
+    if (currentUrl === manga.scrollPosition.url && manga.scrollPosition.scrollY > 100) {
+      mainWindow.webContents.send('reader:scrollPositionAvailable', {
+        scrollY: manga.scrollPosition.scrollY,
+        scrollPercent: manga.scrollPosition.scrollPercent
+      })
+    }
+  })
+
   // F2: Element-Picker aktivieren
   webContents.on('before-input-event', (_event, input) => {
     if (input.type === 'keyDown' && input.key === 'F2') {
@@ -480,7 +494,33 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
     return { success: true, separateWindow: false }
   })
 
-  ipcMain.handle('reader:close', () => {
+  ipcMain.handle('reader:close', async () => {
+    const savedMangaId = currentMangaId
+    const contents = getActiveReaderContents()
+
+    if (savedMangaId && contents && !contents.isDestroyed()) {
+      try {
+        const raw = await contents.executeJavaScript(
+          'JSON.stringify({ scrollY: Math.round(window.scrollY), scrollPercent: Math.min(1, window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight)) })',
+          true
+        )
+        const { scrollY, scrollPercent } = JSON.parse(raw) as { scrollY: number; scrollPercent: number }
+        const currentUrl = contents.getURL()
+        const mangaList = store.get('mangaList')
+        const idx = mangaList.findIndex((m) => m.id === savedMangaId)
+        if (idx !== -1 && currentUrl) {
+          if (scrollY > 100) {
+            mangaList[idx] = { ...mangaList[idx], scrollPosition: { url: currentUrl, scrollY, scrollPercent } }
+          } else {
+            mangaList[idx] = { ...mangaList[idx], scrollPosition: undefined }
+          }
+          store.set('mangaList', mangaList)
+        }
+      } catch {
+        // page may have crashed or navigated away — skip saving
+      }
+    }
+
     if (readerView) {
       mainWindow.removeBrowserView(readerView)
       ;(readerView.webContents as any).destroy()
@@ -493,6 +533,22 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
     }
 
     currentMangaId = null
+    return { success: true }
+  })
+
+  ipcMain.handle('reader:restoreScrollPosition', async (_event, { scrollY }: { scrollY: number }) => {
+    const contents = getActiveReaderContents()
+    if (contents && !contents.isDestroyed()) {
+      await contents.executeJavaScript(`window.scrollTo({ top: ${scrollY}, behavior: 'instant' })`, true)
+      if (currentMangaId) {
+        const mangaList = store.get('mangaList')
+        const idx = mangaList.findIndex((m) => m.id === currentMangaId)
+        if (idx !== -1) {
+          mangaList[idx] = { ...mangaList[idx], scrollPosition: undefined }
+          store.set('mangaList', mangaList)
+        }
+      }
+    }
     return { success: true }
   })
 

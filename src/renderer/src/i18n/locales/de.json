@@ -98,6 +98,9 @@
     "templateApply": "Uebernehmen",
     "templateDismiss": "Abbrechen",
     "templateIgnore": "Nicht mehr anzeigen",
+    "scrollRestoreHint": "Zuletzt bis {percent}% gescrollt – weiterlesen?",
+    "scrollRestoreYes": "Weiterlesen",
+    "scrollRestoreNo": "Von vorne",
     "templateKeepDetection": "Neue URL für automatische Kapitel-Erkennung im Hintergrund merken",
     "domainGuard": {
       "title": "Andere Domain",
