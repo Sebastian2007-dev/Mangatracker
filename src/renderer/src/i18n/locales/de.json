@@ -209,6 +209,8 @@
     "subtitle": "Lies deine Bibliothek wie ein Charakterblatt.",
     "loading": "Statistik wird geladen...",
     "refreshTags": "Tags aktualisieren",
+    "rebuildStats": "Statistiken neu aufbauen",
+    "rebuildConfirm": "Statistiken wirklich zurücksetzen und aus aktuellen Kapitelständen neu aufbauen? Verlaufsevents werden gelöscht.",
     "modeGame": "Game",
     "modePlain": "Übersicht",
     "achievementUnlocked": "Erfolg freigeschaltet!",
@@ -242,7 +244,34 @@
       "chapters": "Kapitel",
       "statusBreakdown": "Status-Verteilung",
       "records": "Rekorde und Meilensteine",
-      "activityTimeline": "Monatliche Aktivität"
+      "activityTimeline": "Monatliche Aktivität",
+      "heatmap": "Aktivitäts-Karte",
+      "deepStats": "Verborgene Rekorde",
+      "forecast": "Prophezeiung"
+    },
+    "heatmap": {
+      "day": "{date}: {count} Kapitel"
+    },
+    "deepStats": {
+      "longestManga": "Längster Manga",
+      "bestStreak": "Beste Leseserie",
+      "days": "Tage",
+      "chapters": "Kapitel",
+      "busiestDay": "Aktivster Tag",
+      "firstTracked": "Erster Eintrag",
+      "unreadBacklog": "Ungelesener Rückstand",
+      "uniqueTags": "Einzigartige Tags"
+    },
+    "forecast": {
+      "dailyAvg": "Ø pro Tag",
+      "weeklyAvg": "Ø pro Woche",
+      "monthlyAvg": "Ø pro Monat",
+      "chapPerDay": "Kap./Tag",
+      "chapPerWeek": "Kap./Woche",
+      "chapPerMonth": "Kap./Monat",
+      "backlogTitle": "Rückstand aufholen",
+      "days": "Tage",
+      "noBacklog": "Kein Rückstand ✓"
     },
     "attributes": {
       "pwr": "Kraft",
