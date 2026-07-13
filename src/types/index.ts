@@ -191,6 +191,8 @@ export interface AppSettings {
   profileAvatar?: string
   profileUpdatedAt?: number
   customTitle?: string
+  /** Element Picker (F2): pro Domain persistierte CSS-Selektoren, die ausgeblendet werden */
+  hiddenElements?: Record<string, string[]>
 }
 
 export interface ReaderOpenPayload {

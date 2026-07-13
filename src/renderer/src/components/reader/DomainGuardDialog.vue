@@ -25,7 +25,7 @@ async function choose(choice: string): Promise<void> {
           {{ t('reader.domainGuard.message', { domain: reader.pendingDomainGuard?.targetDomain }) }}
         </p>
         <p class="text-xs mb-4" style="color: hsl(var(--muted-foreground))">
-          Von: {{ reader.pendingDomainGuard?.originDomain }}
+          {{ t('reader.domainGuard.from', { domain: reader.pendingDomainGuard?.originDomain }) }}
         </p>
         <div class="grid grid-cols-2 gap-2">
           <button class="btn-action primary" @click="choose('yes')">{{ t('reader.domainGuard.yes') }}</button>

@@ -4,6 +4,7 @@ import { Search, Upload, Download, RefreshCw, SlidersHorizontal, X } from 'lucid
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useMangaStore } from '../../stores/manga.store'
+import { useLogStore } from '../../stores/log.store'
 import { useSkillTreeStore } from '../../stores/skill-tree.store'
 import { useAdvFilter, type FilterPreset } from '../../composables/useAdvFilter'
 import { getBridge } from '../../services/platform'
@@ -14,6 +15,11 @@ import type { Manga } from '../../types/index'
 const { t } = useI18n()
 const route = useRoute()
 const mangaStore = useMangaStore()
+const logStore = useLogStore()
+
+function pushError(message: string): void {
+  logStore.addEntry({ id: crypto.randomUUID(), type: 'error', message, timestamp: Date.now() })
+}
 const skillTreeStore = useSkillTreeStore()
 const { filter, presets, hasFilters, toggleTag, reset, savePreset, applyPreset, deletePreset } = useAdvFilter()
 
@@ -41,6 +47,8 @@ async function handleScanNow(): Promise<void> {
     const newManga = await mangaStore.scanNow()
     scanResultManga.value = newManga
     showScanResult.value = true
+  } catch (e) {
+    pushError(t('header.scanFailed', { error: e instanceof Error ? e.message : String(e) }))
   } finally {
     isScanning.value = false
   }
@@ -66,9 +74,17 @@ async function handleImport(): Promise<void> {
   input.onchange = async () => {
     const file = input.files?.[0]
     if (!file) return
-    const text = await file.text()
-    const result = await getBridge().invoke<{ success: boolean; data: any[] }>('manga:import', { json: text })
-    if (result.success) await mangaStore.fetchAll()
+    try {
+      const text = await file.text()
+      const result = await getBridge().invoke<{ success: boolean; data: any[]; error?: string }>('manga:import', { json: text })
+      if (!result.success) {
+        pushError(t('header.importFailed', { error: result.error ?? 'unknown' }))
+        return
+      }
+      await mangaStore.fetchAll()
+    } catch (e) {
+      pushError(t('header.importFailed', { error: e instanceof Error ? e.message : String(e) }))
+    }
   }
   input.click()
 }

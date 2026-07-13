@@ -1,5 +1,6 @@
 import { BrowserWindow, WebContents, dialog, ipcMain, webContents } from 'electron'
 import { randomUUID } from 'crypto'
+import { getDomain } from 'tldts'
 import store from '../store'
 import { broadcastSettingsChanged } from '../ipc/settings.ipc'
 
@@ -7,6 +8,24 @@ interface PendingNav {
   url: string
   originDomain: string
   webContentsId: number
+  createdAt: number
+}
+
+// Unbeantwortete Guard-Anfragen (Dialog verloren gegangen o. ä.) blockieren die URL
+// sonst dauerhaft — nach Ablauf gilt die Anfrage als stale und wird neu gestellt.
+const PENDING_NAV_TTL_MS = 2 * 60 * 1000
+
+function hasFreshPending(url: string, webContentsId: number): boolean {
+  const now = Date.now()
+  for (const [requestId, pending] of pendingNavigations.entries()) {
+    if (pending.url !== url || pending.webContentsId !== webContentsId) continue
+    if (now - pending.createdAt > PENDING_NAV_TTL_MS) {
+      pendingNavigations.delete(requestId)
+      continue
+    }
+    return true
+  }
+  return false
 }
 
 interface GuardState {
@@ -28,9 +47,13 @@ function extractDomain(url: string): string {
 }
 
 function getBaseDomain(hostname: string): string {
-  const parts = hostname.split('.')
-  if (parts.length <= 2) return hostname
-  return parts.slice(-2).join('.')
+  // Public-Suffix-List statt "letzte zwei Segmente" — sonst wird foo.co.uk
+  // zu co.uk und "immer erlauben" whitelistet eine ganze ccSLD.
+  return getDomain(hostname) ?? hostname
+}
+
+function matchesDomain(targetDomain: string, listedDomain: string): boolean {
+  return targetDomain === listedDomain || targetDomain.endsWith('.' + listedDomain)
 }
 
 function isAuthorizedDomain(targetDomain: string, originDomain: string): boolean {
@@ -39,7 +62,7 @@ function isAuthorizedDomain(targetDomain: string, originDomain: string): boolean
   if (targetBase === originBase) return true
 
   const settings = store.get('settings')
-  return settings.domainWhitelist.some((d) => targetDomain.endsWith(d))
+  return settings.domainWhitelist.some((d) => matchesDomain(targetDomain, d))
 }
 
 function getGuardState(contents: WebContents, initialDomain: string): GuardState {
@@ -149,7 +172,8 @@ export function setupDomainGuard(
     pendingNavigations.set(requestId, {
       url,
       originDomain,
-      webContentsId: contents.id
+      webContentsId: contents.id,
+      createdAt: Date.now()
     })
 
     const ownerWindow = BrowserWindow.fromWebContents(contents)
@@ -181,17 +205,14 @@ export function setupDomainGuard(
     // User explicitly allowed this URL once via dialog.
     if (state.allowOnce.has(url)) return
 
-    const alreadyPending = Array.from(pendingNavigations.values()).some(
-      (p) => p.url === url && p.webContentsId === contents.id
-    )
-    if (alreadyPending) {
+    if (hasFreshPending(url, contents.id)) {
       event.preventDefault()
       return
     }
 
     const settings = store.get('settings')
 
-    if (settings.domainBlocklist.some((d) => targetDomain.endsWith(d))) {
+    if (settings.domainBlocklist.some((d) => matchesDomain(targetDomain, d))) {
       event.preventDefault()
       return
     }
@@ -226,18 +247,14 @@ export function setupDomainGuard(
 
     const settings = store.get('settings')
 
-    if (settings.domainBlocklist.some((d) => targetDomain.endsWith(d))) {
+    if (settings.domainBlocklist.some((d) => matchesDomain(targetDomain, d))) {
       if (contents.canGoBack()) contents.goBack()
       return
     }
 
     if (contents.canGoBack()) contents.goBack()
 
-    const alreadyPending = Array.from(pendingNavigations.values()).some(
-      (p) => p.url === url && p.webContentsId === contents.id
-    )
-
-    if (!alreadyPending) {
+    if (!hasFreshPending(url, contents.id)) {
       sendGuardRequest(url, targetDomain)
     }
   })
@@ -263,6 +280,7 @@ export function setDomainGuardContext(contents: WebContents, url: string): void 
 }
 
 export function registerDomainGuardReplyHandler(_mainWindow: BrowserWindow): void {
+  ipcMain.removeHandler('reader:domainGuardReply')
   ipcMain.handle(
     'reader:domainGuardReply',
     (_event, { requestId, choice }: { requestId: string; choice: DomainGuardChoice }) => {

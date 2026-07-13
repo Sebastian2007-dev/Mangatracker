@@ -207,7 +207,7 @@ function formatLastSync(ts: number): string {
   if (diff < 1) return '< 1 min'
   if (diff < 60) return `${diff} min`
   const h = Math.floor(diff / 60)
-  return h === 1 ? '1 Std.' : `${h} Std.`
+  return `${h} ${t('settings.hoursShort')}`
 }
 </script>
 
@@ -532,7 +532,6 @@ function formatLastSync(ts: number): string {
         </div>
         <p v-if="mod.manifest.description" class="mod-desc">{{ mod.manifest.description }}</p>
         <p v-if="mod.error" class="mod-error">⚠ {{ mod.error }}</p>
-        <p v-if="mod.enabled !== mod.enabled" class="mod-restart-hint">{{ t('mods.restartHint') }}</p>
       </div>
 
       <p v-if="settings.loadedMods.some(m => !m.enabled)" class="mods-restart-hint">

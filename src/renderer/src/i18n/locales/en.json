@@ -9,6 +9,16 @@
     "focus": "Focus",
     "new": "New"
   },
+  "header": {
+    "scanFailed": "Scan failed: {error}",
+    "importFailed": "Import failed: {error}"
+  },
+  "levelUp": {
+    "title": "LEVEL UP!",
+    "multi": "MULTI LEVEL UP!",
+    "mega": "MEGA LEVEL UP!",
+    "max": "MAX LEVEL!"
+  },
   "manga": {
     "new": "New Manga",
     "edit": "Edit Manga",
@@ -80,7 +90,25 @@
     "scanResultTitle": "New Chapters Found",
     "scanResultEmpty": "No new chapters found",
     "scanResultChapter": "Chapter",
-    "scanResultClose": "Close"
+    "scanResultClose": "Close",
+    "newBadge": "New",
+    "requiredField": "Required",
+    "chapterAbbrev": "Ch.",
+    "close": "Close",
+    "note": "Note",
+    "addNote": "Add note",
+    "notePlaceholder": "Your note…",
+    "markReadTitle": "Read up to which chapter?",
+    "infoTooltip": "Info",
+    "bookmarkTooltip": "Bookmark",
+    "infoLoading": "Loading…",
+    "infoNoData": "No data available.",
+    "pubStatus": {
+      "ongoing": "Ongoing",
+      "completed": "Completed",
+      "hiatus": "Hiatus",
+      "cancelled": "Cancelled"
+    }
   },
   "reader": {
     "open": "Open Reader",
@@ -105,6 +133,7 @@
     "domainGuard": {
       "title": "Different Domain",
       "message": "You are navigating to a different domain: {domain}",
+      "from": "From: {domain}",
       "yes": "Yes",
       "yesAlways": "Yes, always",
       "no": "No",
@@ -113,6 +142,7 @@
   },
   "settings": {
     "title": "Settings",
+    "hoursShort": "h",
     "theme": "Theme",
     "themeLight": "Light",
     "themeDark": "Dark",

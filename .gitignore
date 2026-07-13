@@ -6,6 +6,11 @@ out
 .DS_Store
 *.log
 .cache/
+*.tsbuildinfo
+# Build-Artefakte — nur die .iss-Templates gehören ins Repo
+installer/*.exe
+installer/*.apk
+android/.idea/
 # Android signing key + Credentials — niemals committen!
 android/app/*.jks
 android/app/*.keystore

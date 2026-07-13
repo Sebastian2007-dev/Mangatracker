@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { BookOpen, Pencil, Trash2, Star, Info, Bookmark, FileText } from 'lucide-vue-next'
 import type { Manga } from '../../types/index'
@@ -171,8 +171,9 @@ type InfoData = {
 const infoData = ref<InfoData | null>(null)
 const displayTags = computed(() => mergeTagLists(infoData.value?.tags, props.manga.tags))
 
-const pubStatusLabels: Record<string, string> = {
-  ongoing: 'Laufend', completed: 'Abgeschlossen', hiatus: 'Pause', cancelled: 'Abgebrochen'
+function pubStatusLabel(status: string): string {
+  const known = ['ongoing', 'completed', 'hiatus', 'cancelled']
+  return known.includes(status) ? t(`manga.pubStatus.${status}`) : status
 }
 
 async function openInfo(): Promise<void> {
@@ -214,6 +215,11 @@ watch(showStatusPicker, (v) => {
   else document.removeEventListener('click', handleOutsideClick)
 })
 
+// Karte kann mit offenem Status-Picker unmounten (Filter/Sync) → Listener aufräumen
+onUnmounted(() => {
+  document.removeEventListener('click', handleOutsideClick)
+})
+
 async function openMain(): Promise<void> {
   showReadChoiceDialog.value = false
   await openUrl(props.manga.mainUrl)
@@ -253,7 +259,7 @@ async function openChapter(): Promise<void> {
           <NewChapterBadge v-if="manga.hasNewChapter" />
         </div>
         <div class="flex items-center gap-1.5 mb-2">
-          <span class="text-xs" style="color: hsl(var(--muted-foreground))">Kap. </span>
+          <span class="text-xs" style="color: hsl(var(--muted-foreground))">{{ t('manga.chapterAbbrev') }} </span>
           <ChapterInput :model-value="manga.currentChapter" @update:model-value="onChapterChange" />
         </div>
 
@@ -265,7 +271,7 @@ async function openChapter(): Promise<void> {
           <button
             v-if="manga.mangaDexId || manga.comickHid"
             class="info-icon-btn"
-            title="Infos"
+            :title="t('manga.infoTooltip')"
             @click.stop="openInfo"
           >
             <Info :size="12" />
@@ -298,7 +304,7 @@ async function openChapter(): Promise<void> {
           <button
             class="skill-icon-btn"
             :class="{ 'bookmark-active': manga.bookmarkedChapter != null }"
-            title="Lesezeichen"
+            :title="t('manga.bookmarkTooltip')"
             @click.stop="toggleBookmark"
           >
             <Bookmark :size="12" :fill="manga.bookmarkedChapter != null ? 'currentColor' : 'none'" />
@@ -313,13 +319,13 @@ async function openChapter(): Promise<void> {
         <div v-if="skillTreeStore.isUnlocked('note')" class="skill-row note-row" @click.stop>
           <button class="skill-icon-btn note-toggle" @click.stop="showNote = !showNote">
             <FileText :size="12" />
-            <span>{{ manga.note ? 'Notiz' : 'Notiz hinzufügen' }}</span>
+            <span>{{ manga.note ? t('manga.note') : t('manga.addNote') }}</span>
           </button>
           <textarea
             v-if="showNote"
             class="note-textarea"
             :value="manga.note ?? ''"
-            placeholder="Deine Notiz…"
+            :placeholder="t('manga.notePlaceholder')"
             rows="2"
             @blur="saveNote"
             @click.stop
@@ -348,7 +354,7 @@ async function openChapter(): Promise<void> {
       <div v-if="showMarkReadDialog" class="modal-backdrop" @mousedown="onBackdropMouseDown" @click.self="backdropDown && cancelMarkRead()">
         <div class="modal-box">
           <p class="text-sm font-medium mb-1" style="color: hsl(var(--foreground))">
-            Bis zu welchem Kapitel gelesen?
+            {{ t('manga.markReadTitle') }}
           </p>
           <p class="text-xs mb-4 truncate" style="color: hsl(var(--muted-foreground))">{{ manga.title }}</p>
           <div class="flex items-center justify-center gap-3 mb-4">
@@ -356,8 +362,8 @@ async function openChapter(): Promise<void> {
             <span class="text-lg font-semibold" style="color: hsl(var(--foreground)); min-width: 48px; text-align: center">{{ markReadChapter }}</span>
             <button class="chapter-adj-btn" @click="markReadChapter++">+</button>
           </div>
-          <button class="btn-primary w-full" @click="confirmMarkRead">Speichern</button>
-          <button class="btn-ghost w-full mt-2" @click="cancelMarkRead">Abbrechen</button>
+          <button class="btn-primary w-full" @click="confirmMarkRead">{{ t('manga.save') }}</button>
+          <button class="btn-ghost w-full mt-2" @click="cancelMarkRead">{{ t('manga.cancel') }}</button>
         </div>
       </div>
     </Teleport>
@@ -378,24 +384,24 @@ async function openChapter(): Promise<void> {
               <div v-if="infoData" class="info-badges">
                 <span v-if="infoData.type" class="info-badge">{{ infoData.type }}</span>
                 <span v-if="infoData.status" class="info-badge" :class="'pub-' + infoData.status">
-                  {{ pubStatusLabels[infoData.status] ?? infoData.status }}
+                  {{ pubStatusLabel(infoData.status) }}
                 </span>
-                <span v-if="infoData.latestChapter != null" class="info-badge">Kap. {{ infoData.latestChapter }}</span>
+                <span v-if="infoData.latestChapter != null" class="info-badge">{{ t('manga.chapterAbbrev') }} {{ infoData.latestChapter }}</span>
                 <span v-if="infoData.year" class="info-badge">{{ infoData.year }}</span>
                 <span v-if="infoData.demographic" class="info-badge">{{ infoData.demographic }}</span>
               </div>
               <p v-if="infoData?.authors?.length" class="info-authors">{{ infoData.authors.join(' · ') }}</p>
             </div>
           </div>
-          <p v-if="infoLoading" class="info-loading-text">Lade…</p>
-          <p v-else-if="!infoData" class="info-loading-text">Keine Daten verfügbar.</p>
+          <p v-if="infoLoading" class="info-loading-text">{{ t('manga.infoLoading') }}</p>
+          <p v-else-if="!infoData" class="info-loading-text">{{ t('manga.infoNoData') }}</p>
           <div v-if="infoData?.description" class="info-desc">{{ infoData.description }}</div>
           <p v-if="displayTags.length" class="info-genres-label">{{ t('manga.tags') }}</p>
           <div v-if="displayTags.length" class="info-tags">
             <span v-for="tag in displayTags" :key="tag" class="info-tag">{{ tag }}</span>
           </div>
           <p v-if="infoData?.sources?.length" class="info-sources">{{ infoData.sources.join(' · ') }}</p>
-          <button class="btn-ghost w-full mt-3" @click="showInfoModal = false">Schließen</button>
+          <button class="btn-ghost w-full mt-3" @click="showInfoModal = false">{{ t('manga.close') }}</button>
         </div>
       </div>
     </Teleport>

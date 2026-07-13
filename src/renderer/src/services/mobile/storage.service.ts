@@ -10,6 +10,7 @@ import { normalizeMangaList, normalizeTagCache, normalizeTrashedMangaList } from
 const MANGA_FILE = 'manga-list.json'
 const MANGA_TRASH_FILE = 'manga-trash.json'
 const STATS_EVENTS_FILE = 'stats-events.json'
+const EARNED_ACHIEVEMENTS_FILE = 'earned-achievements.json'
 const STATS_TAG_CACHE_FILE = 'stats-tag-cache.json'
 const LEGACY_STATS_TAG_CACHE_FILE = 'stats-genre-cache.json'
 const SETTINGS_KEY = 'app-settings'
@@ -49,6 +50,17 @@ export function ensurePreferencesReady(): Promise<void> {
     })()
   }
   return prefsReady
+}
+
+// Serialisiert Read-Modify-Write-Zyklen auf der Manga-Liste. Ohne Lock können
+// sich update/delete/moveItem/Poller gegenseitig überschreiben (Liste wird über
+// mehrere awaits komplett gelesen und zurückgeschrieben).
+let mangaListLock: Promise<unknown> = Promise.resolve()
+
+export function withMangaListLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = mangaListLock.then(fn, fn)
+  mangaListLock = run.catch(() => {})
+  return run
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -151,6 +163,15 @@ export async function getStatsEvents(): Promise<StatisticsEvent[]> {
 
 export async function setStatsEvents(events: StatisticsEvent[]): Promise<void> {
   await writeJsonFile(STATS_EVENTS_FILE, events)
+}
+
+export async function getEarnedAchievements(): Promise<string[]> {
+  const raw = await readJsonFile<unknown>(EARNED_ACHIEVEMENTS_FILE, [])
+  return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : []
+}
+
+export async function setEarnedAchievements(ids: string[]): Promise<void> {
+  await writeJsonFile(EARNED_ACHIEVEMENTS_FILE, ids)
 }
 
 export async function getStatsTagCache(): Promise<StatisticsTagCache | null> {

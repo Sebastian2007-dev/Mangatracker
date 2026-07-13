@@ -53,11 +53,12 @@ export const useMangaStore = defineStore('manga', () => {
     items.value = items.value.filter((m) => m.id !== id)
     lastMutationAt.value = Date.now()
 
-    // Undo window
+    // Undo window — nach Ablauf nur den Toast schließen. Der Trash-Eintrag bleibt
+    // als Tombstone-Quelle für den Gist-Sync erhalten (Retention-Purge beim App-Start),
+    // sonst resurrectet der nächste Sync ein offline gelöschtes Manga.
     recentlyDeleted.value = manga
     if (undoTimerId !== null) clearTimeout(undoTimerId)
-    undoTimerId = setTimeout(async () => {
-      await api.invoke('manga:emptyTrash', { id: manga.id })
+    undoTimerId = setTimeout(() => {
       recentlyDeleted.value = null
       undoTimerId = null
     }, 10_000)

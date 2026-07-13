@@ -9,6 +9,16 @@
     "focus": "Fokus",
     "new": "Neu"
   },
+  "header": {
+    "scanFailed": "Scan fehlgeschlagen: {error}",
+    "importFailed": "Import fehlgeschlagen: {error}"
+  },
+  "levelUp": {
+    "title": "LEVEL UP!",
+    "multi": "MULTI LEVEL UP!",
+    "mega": "MEGA LEVEL UP!",
+    "max": "MAX LEVEL!"
+  },
   "manga": {
     "new": "Neuer Manga",
     "edit": "Manga bearbeiten",
@@ -80,7 +90,25 @@
     "scanResultTitle": "Neue Kapitel gefunden",
     "scanResultEmpty": "Keine neuen Kapitel gefunden",
     "scanResultChapter": "Kapitel",
-    "scanResultClose": "Schliessen"
+    "scanResultClose": "Schliessen",
+    "newBadge": "Neu",
+    "requiredField": "Pflichtfeld",
+    "chapterAbbrev": "Kap.",
+    "close": "Schliessen",
+    "note": "Notiz",
+    "addNote": "Notiz hinzufuegen",
+    "notePlaceholder": "Deine Notiz…",
+    "markReadTitle": "Bis zu welchem Kapitel gelesen?",
+    "infoTooltip": "Infos",
+    "bookmarkTooltip": "Lesezeichen",
+    "infoLoading": "Lade…",
+    "infoNoData": "Keine Daten verfuegbar.",
+    "pubStatus": {
+      "ongoing": "Laufend",
+      "completed": "Abgeschlossen",
+      "hiatus": "Pause",
+      "cancelled": "Abgebrochen"
+    }
   },
   "reader": {
     "open": "Reader oeffnen",
@@ -105,6 +133,7 @@
     "domainGuard": {
       "title": "Andere Domain",
       "message": "Du navigierst zu einer anderen Domain: {domain}",
+      "from": "Von: {domain}",
       "yes": "Ja",
       "yesAlways": "Ja, immer",
       "no": "Nein",
@@ -113,6 +142,7 @@
   },
   "settings": {
     "title": "Einstellungen",
+    "hoursShort": "Std.",
     "theme": "Design",
     "themeLight": "Hell",
     "themeDark": "Dunkel",

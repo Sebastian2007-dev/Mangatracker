@@ -25,11 +25,11 @@ let tickTimer: ReturnType<typeof setTimeout> | null = null
 const skipped = computed(() => Math.max(0, store.newLevel - store.oldLevel))
 
 const titleText = computed(() => {
-  if (store.newLevel >= 20) return 'MAX LEVEL!'
+  if (store.newLevel >= 20) return t('levelUp.max')
   const s = skipped.value
-  if (s >= 5) return 'MEGA LEVEL UP!'
-  if (s >= 3) return 'MULTI LEVEL UP!'
-  return 'LEVEL UP!'
+  if (s >= 5) return t('levelUp.mega')
+  if (s >= 3) return t('levelUp.multi')
+  return t('levelUp.title')
 })
 
 // 0 = normal, 1 = enhanced (2 levels), 2 = intense (3-4), 3 = mega (5+)

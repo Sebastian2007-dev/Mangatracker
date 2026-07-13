@@ -21,10 +21,13 @@ import {
   shouldRefreshTagCache
 } from '../../../../shared/statistics'
 import {
+  getEarnedAchievements,
   getMangaList,
   getMangaTrash,
+  getSettings,
   getStatsEvents,
   getStatsTagCache,
+  setEarnedAchievements,
   setMangaList,
   setStatsEvents,
   setStatsTagCache
@@ -299,16 +302,31 @@ export async function statsGetOverview(): Promise<{ success: boolean; data?: Sta
       void refreshStatisticsTags()
     }
 
-    return {
-      success: true,
-      data: buildStatisticsOverview(
-        mangaList,
-        mangaTrash,
-        events,
-        tagCache,
-        tagRefreshPromise !== null
-      )
-    }
+    const settings = await getSettings()
+    const gistSynced = Boolean(settings.lastGistSync && settings.lastGistSync > 0)
+
+    const overview = buildStatisticsOverview(
+      mangaList,
+      mangaTrash,
+      events,
+      tagCache,
+      tagRefreshPromise !== null,
+      gistSynced
+    )
+
+    // Achievements sind permanent — einmal freigeschaltet, nie wieder verloren (wie Desktop)
+    const earned = new Set<string>(await getEarnedAchievements())
+    let changed = false
+    overview.achievements = overview.achievements.map((a) => {
+      if (a.unlocked && !earned.has(a.id)) {
+        earned.add(a.id)
+        changed = true
+      }
+      return { ...a, unlocked: a.unlocked || earned.has(a.id) }
+    })
+    if (changed) await setEarnedAchievements([...earned])
+
+    return { success: true, data: overview }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
@@ -334,6 +352,7 @@ export async function statsRebuild(): Promise<{ success: boolean; data?: Statist
 
     await setStatsEvents([])
     await setStatsTagCache(null)
+    await setEarnedAchievements([])
 
     const now = Date.now()
     const additions: StatisticsEvent[] = []

@@ -1,6 +1,7 @@
 import type { Manga, MangaStatus, TrashedManga } from '../../../../types/index'
-import { getMangaList, getMangaTrash, setMangaList, setMangaTrash } from './storage.service'
+import { getMangaList, getMangaTrash, setMangaList, setMangaTrash, withMangaListLock } from './storage.service'
 import { normalizeTagList } from '../../../../shared/statistics'
+import { filterExpiredTrash } from '../../../../shared/trash'
 import {
   notifyStatsUpdated,
   refreshLibraryMetadata,
@@ -144,91 +145,112 @@ export async function getAll(): Promise<{ success: boolean; data: Manga[] }> {
   return { success: true, data: await getMangaList() }
 }
 
-export async function create(
+export function create(
   payload: Omit<Manga, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<{ success: boolean; data: Manga }> {
-  const now = Date.now()
-  const manga: Manga = {
-    ...payload,
-    isFocused: payload.isFocused ?? false,
-    tags: normalizeTagList(payload.tags),
-    id: crypto.randomUUID(),
-    createdAt: now,
-    updatedAt: now
-  }
-  const list = await getMangaList()
-  await setMangaList([...list, manga])
-  await recordStatisticsForCreate(manga, now)
-  notifyStatsUpdated()
-  return { success: true, data: manga }
+  return withMangaListLock(async () => {
+    const now = Date.now()
+    const manga: Manga = {
+      ...payload,
+      isFocused: payload.isFocused ?? false,
+      tags: normalizeTagList(payload.tags),
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now
+    }
+    const list = await getMangaList()
+    await setMangaList([...list, manga])
+    await recordStatisticsForCreate(manga, now)
+    notifyStatsUpdated()
+    return { success: true, data: manga }
+  })
 }
 
-export async function createWithId(payload: Manga): Promise<{ success: boolean; data: Manga }> {
-  const list = await getMangaList()
-  const normalizedPayload: Manga = { ...payload, tags: normalizeTagList(payload.tags) }
-  const trash = (await getMangaTrash()).filter((manga) => manga.id !== normalizedPayload.id)
-  await setMangaTrash(trash)
-  await setMangaList([...list, normalizedPayload])
-  await recordStatisticsForRestore(normalizedPayload, Date.now())
-  notifyStatsUpdated()
-  return { success: true, data: normalizedPayload }
+export function createWithId(payload: Manga): Promise<{ success: boolean; data: Manga }> {
+  return withMangaListLock(async () => {
+    const list = await getMangaList()
+    const normalizedPayload: Manga = { ...payload, tags: normalizeTagList(payload.tags) }
+    const trash = (await getMangaTrash()).filter((manga) => manga.id !== normalizedPayload.id)
+    await setMangaTrash(trash)
+    await setMangaList([...list, normalizedPayload])
+    await recordStatisticsForRestore(normalizedPayload, Date.now())
+    notifyStatsUpdated()
+    return { success: true, data: normalizedPayload }
+  })
 }
 
-export async function update(
+export function update(
   payload: { id: string } & Partial<Manga>
 ): Promise<{ success: boolean; data?: Manga; error?: string }> {
-  const { id, ...updates } = payload
-  const list = await getMangaList()
-  const index = list.findIndex((manga) => manga.id === id)
-  if (index === -1) return { success: false, error: 'Not found' }
+  return withMangaListLock(async () => {
+    const { id, ...updates } = payload
+    const list = await getMangaList()
+    const index = list.findIndex((manga) => manga.id === id)
+    if (index === -1) return { success: false, error: 'Not found' }
 
-  const before = list[index]
-  const updated: Manga = {
-    ...before,
-    ...updates,
-    tags: updates.tags === undefined ? before.tags : normalizeTagList(updates.tags),
-    id,
-    updatedAt: Date.now()
-  }
-  list[index] = updated
-  await setMangaList(list)
-  await recordStatisticsForUpdate(before, updated, updated.updatedAt)
-  notifyStatsUpdated()
-  return { success: true, data: updated }
+    const before = list[index]
+    const updated: Manga = {
+      ...before,
+      ...updates,
+      tags: updates.tags === undefined ? before.tags : normalizeTagList(updates.tags),
+      id,
+      updatedAt: Date.now()
+    }
+    list[index] = updated
+    await setMangaList(list)
+    await recordStatisticsForUpdate(before, updated, updated.updatedAt)
+    notifyStatsUpdated()
+    return { success: true, data: updated }
+  })
 }
 
-export async function deleteManga({ id }: { id: string }): Promise<{ success: boolean; error?: string }> {
-  const list = await getMangaList()
-  const manga = list.find((entry) => entry.id === id)
-  if (!manga) return { success: false, error: 'Not found' }
+export function deleteManga({ id }: { id: string }): Promise<{ success: boolean; error?: string }> {
+  return withMangaListLock(async () => {
+    const list = await getMangaList()
+    const manga = list.find((entry) => entry.id === id)
+    if (!manga) return { success: false, error: 'Not found' }
 
-  const trash = await getMangaTrash()
-  const trashedManga: TrashedManga = { ...manga, deletedAt: Date.now() }
-  await setMangaTrash([...trash, trashedManga])
-  await setMangaList(list.filter((entry) => entry.id !== id))
-  await recordStatisticsForDelete(manga, trashedManga.deletedAt)
-  notifyStatsUpdated()
-  return { success: true }
+    const trash = await getMangaTrash()
+    const trashedManga: TrashedManga = { ...manga, deletedAt: Date.now() }
+    await setMangaTrash([...trash, trashedManga])
+    await setMangaList(list.filter((entry) => entry.id !== id))
+    await recordStatisticsForDelete(manga, trashedManga.deletedAt)
+    notifyStatsUpdated()
+    return { success: true }
+  })
 }
 
-export async function emptyTrash({ id }: { id: string }): Promise<{ success: boolean }> {
-  const trash = (await getMangaTrash()).filter((manga) => manga.id !== id)
-  await setMangaTrash(trash)
-  notifyStatsUpdated()
-  return { success: true }
+export function emptyTrash({ id }: { id: string }): Promise<{ success: boolean }> {
+  return withMangaListLock(async () => {
+    const trash = (await getMangaTrash()).filter((manga) => manga.id !== id)
+    await setMangaTrash(trash)
+    notifyStatsUpdated()
+    return { success: true }
+  })
 }
 
-export async function moveItem(
+/** Beim App-Start aufrufen: entfernt Trash-Einträge nach Ablauf der Retention. */
+export function purgeExpiredTrash(): Promise<void> {
+  return withMangaListLock(async () => {
+    const trash = await getMangaTrash()
+    const kept = filterExpiredTrash(trash)
+    if (kept.length !== trash.length) await setMangaTrash(kept)
+  })
+}
+
+export function moveItem(
   { fromId, toId }: { fromId: string; toId: string }
 ): Promise<{ success: boolean }> {
-  const list = [...(await getMangaList())]
-  const fromIndex = list.findIndex((manga) => manga.id === fromId)
-  if (fromIndex === -1) return { success: false }
-  const [item] = list.splice(fromIndex, 1)
-  const toIndex = list.findIndex((manga) => manga.id === toId)
-  list.splice(toIndex === -1 ? list.length : toIndex, 0, item)
-  await setMangaList(list)
-  return { success: true }
+  return withMangaListLock(async () => {
+    const list = [...(await getMangaList())]
+    const fromIndex = list.findIndex((manga) => manga.id === fromId)
+    if (fromIndex === -1) return { success: false }
+    const [item] = list.splice(fromIndex, 1)
+    const toIndex = list.findIndex((manga) => manga.id === toId)
+    list.splice(toIndex === -1 ? list.length : toIndex, 0, item)
+    await setMangaList(list)
+    return { success: true }
+  })
 }
 
 export async function refreshMetadata(): Promise<{
@@ -258,25 +280,28 @@ export async function importList(
       return { success: false, error: 'No valid manga entries found in import file' }
     }
 
-    const existing = await getMangaList()
-    const existingMap = new Map(existing.map((manga) => [manga.id, manga]))
-    const newlyAdded: Manga[] = []
+    const merged = await withMangaListLock(async () => {
+      const existing = await getMangaList()
+      const existingMap = new Map(existing.map((manga) => [manga.id, manga]))
+      const newlyAdded: Manga[] = []
 
-    for (const manga of imported) {
-      if (!existingMap.has(manga.id)) newlyAdded.push(manga)
-      existingMap.set(manga.id, manga)
-    }
+      for (const manga of imported) {
+        if (!existingMap.has(manga.id)) newlyAdded.push(manga)
+        existingMap.set(manga.id, manga)
+      }
 
-    const merged = Array.from(existingMap.values())
-    await setMangaList(merged)
+      const result = Array.from(existingMap.values())
+      await setMangaList(result)
+      return { list: result, newlyAdded }
+    })
 
     const importedAt = Date.now()
-    for (const manga of newlyAdded) {
+    for (const manga of merged.newlyAdded) {
       await recordStatisticsForImportedManga(manga, importedAt)
     }
     notifyStatsUpdated()
 
-    return { success: true, data: merged }
+    return { success: true, data: merged.list }
   } catch (error) {
     return { success: false, error: String(error) }
   }

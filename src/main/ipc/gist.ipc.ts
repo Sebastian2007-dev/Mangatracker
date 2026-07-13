@@ -19,6 +19,15 @@ import { notifyStatsUpdated } from '../stats.service'
 import { broadcastSettingsChanged } from './settings.ipc'
 
 const GITHUB_API = 'https://api.github.com'
+const FETCH_TIMEOUT_MS = 20_000
+
+// Timeout auf allen GitHub-Requests — ein hängender Host darf den Sync nicht stallen
+function ghFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  return electronSession.defaultSession.fetch(url, {
+    ...init,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+  })
+}
 
 function githubHeaders(token: string): Record<string, string> {
   return {
@@ -31,13 +40,13 @@ function githubHeaders(token: string): Record<string, string> {
 
 async function findOrCreateGist(token: string, existingGistId: string): Promise<string> {
   if (existingGistId) {
-    const check = await electronSession.defaultSession.fetch(`${GITHUB_API}/gists/${existingGistId}`, {
+    const check = await ghFetch(`${GITHUB_API}/gists/${existingGistId}`, {
       headers: githubHeaders(token)
     })
     if (check.ok) return existingGistId
   }
 
-  const listRes = await electronSession.defaultSession.fetch(`${GITHUB_API}/gists?per_page=100`, {
+  const listRes = await ghFetch(`${GITHUB_API}/gists?per_page=100`, {
     headers: githubHeaders(token)
   })
   if (listRes.ok) {
@@ -46,7 +55,7 @@ async function findOrCreateGist(token: string, existingGistId: string): Promise<
     if (found) return found.id
   }
 
-  const createRes = await electronSession.defaultSession.fetch(`${GITHUB_API}/gists`, {
+  const createRes = await ghFetch(`${GITHUB_API}/gists`, {
     method: 'POST',
     headers: githubHeaders(token),
     body: JSON.stringify({
@@ -73,7 +82,7 @@ export async function syncGistDirect(
     const settings = store.get('settings')
     const gistId = await findOrCreateGist(token, storedGistId)
 
-    const gistRes = await electronSession.defaultSession.fetch(`${GITHUB_API}/gists/${gistId}`, {
+    const gistRes = await ghFetch(`${GITHUB_API}/gists/${gistId}`, {
       headers: githubHeaders(token)
     })
     if (!gistRes.ok) throw new Error(`Gist konnte nicht geladen werden: HTTP ${gistRes.status}`)
@@ -122,7 +131,7 @@ export async function syncGistDirect(
     const mergedStats = mergeStatisticsPayload(localStats, remotePayload.stats)
     const mergedProfile = mergeProfile(localProfile, remotePayload.profile)
 
-    const patchRes = await electronSession.defaultSession.fetch(`${GITHUB_API}/gists/${gistId}`, {
+    const patchRes = await ghFetch(`${GITHUB_API}/gists/${gistId}`, {
       method: 'PATCH',
       headers: githubHeaders(token),
       body: JSON.stringify({
@@ -179,7 +188,7 @@ export async function syncGistDirect(
 export function registerGistIpc(): void {
   ipcMain.handle('gist:testAuth', async (_event, { token }: { token: string }) => {
     try {
-      const response = await electronSession.defaultSession.fetch(`${GITHUB_API}/user`, {
+      const response = await ghFetch(`${GITHUB_API}/user`, {
         headers: githubHeaders(token)
       })
       if (!response.ok) return { success: false, error: `HTTP ${response.status}` }

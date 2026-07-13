@@ -25,6 +25,12 @@ function emit(channel: string, ...args: unknown[]): void {
   }
 }
 
+/** Erlaubt es dem Mobile-Einstiegspunkt, Push-Events (z. B. notifications:newChapter)
+ *  an Bridge-Listener (Stores) weiterzureichen — Pendant zu webContents.send auf Desktop. */
+export function emitBridgeEvent(channel: string, ...args: unknown[]): void {
+  emit(channel, ...args)
+}
+
 function busOn(channel: string, handler: EventHandler): () => void {
   if (!eventBus.has(channel)) eventBus.set(channel, new Set())
   eventBus.get(channel)!.add(handler)
@@ -227,6 +233,7 @@ const handlers: Record<string, Handler> = {
   // Der reader.store ruft diese nicht auf Mobile auf, daher Stubs:
   'reader:open': async () => ({ success: true, separateWindow: true }),
   'reader:close': async () => ({ success: true }),
+  'reader:clearScrollPosition': async () => ({ success: true }),
   'reader:navigate': async () => ({ success: true }),
   'reader:goBack': async () => ({ success: true }),
   'reader:goForward': async () => ({ success: true }),
@@ -250,7 +257,7 @@ export const capacitorAdapter: PlatformBridge = {
     return busOn(channel, handler)
   },
 
-  off(channel: string): void {
-    eventBus.delete(channel)
+  off(channel: string, handler: EventHandler): void {
+    eventBus.get(channel)?.delete(handler)
   }
 }

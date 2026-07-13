@@ -4,6 +4,7 @@ import store from '../store'
 import type { Manga, MangaStatus, TrashedManga } from '../../types/index'
 import { emitModEvent } from '../mods/mod-loader'
 import { normalizeTagList } from '../../shared/statistics'
+import { filterExpiredTrash } from '../../shared/trash'
 import {
   notifyStatsUpdated,
   refreshLibraryMetadata,
@@ -20,6 +21,13 @@ function registerHandler(
 ): void {
   ipcMain.removeHandler(channel)
   ipcMain.handle(channel, listener)
+}
+
+/** Beim App-Start aufrufen: entfernt Trash-Einträge nach Ablauf der Retention. */
+export function purgeExpiredTrash(): void {
+  const trash = store.get('mangaTrash') as TrashedManga[]
+  const kept = filterExpiredTrash(trash)
+  if (kept.length !== trash.length) store.set('mangaTrash', kept)
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

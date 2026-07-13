@@ -31,10 +31,21 @@ for /D %%D in ("installer\*") do (
 )
 
 echo [2/7] Ensuring dependencies are present...
-if not exist "node_modules" (
-  call npm install
+rem npm install nur wenn node_modules fehlt ODER package-lock.json neuer ist als
+rem der letzte Install (sonst baut man mit veralteten Dependencies).
+set "NEED_INSTALL="
+if not exist "node_modules\.package-lock.json" set "NEED_INSTALL=1"
+if not defined NEED_INSTALL (
+  for /f "usebackq delims=" %%R in (`powershell -NoProfile -Command "if ((Get-Item 'package-lock.json').LastWriteTimeUtc -gt (Get-Item 'node_modules\.package-lock.json').LastWriteTimeUtc) { 'stale' }"`) do set "NEED_INSTALL=1"
+)
+if defined NEED_INSTALL (
+  call npm install --legacy-peer-deps
   if errorlevel 1 goto :error
 )
+
+echo       Running typecheck gate...
+call npm run typecheck
+if errorlevel 1 goto :error
 
 rem electron-builder 24.x ships macOS symlinks in its Windows helper archive.
 rem Extract only the Windows-relevant files so the build works without admin

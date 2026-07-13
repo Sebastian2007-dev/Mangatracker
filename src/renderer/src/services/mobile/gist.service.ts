@@ -137,7 +137,15 @@ export async function sync(payload: unknown): Promise<{ success: boolean; data?:
       body: JSON.stringify({
         files: {
           [GIST_FILE_NAME]: {
-            content: buildSyncPayload(mergedManga, mergedDeleted, mergedStats)
+            // profile/skillTree werden auf Mobile nicht verwaltet — Remote-Stand
+            // durchreichen statt ihn aus dem Gist zu löschen
+            content: buildSyncPayload(
+              mergedManga,
+              mergedDeleted,
+              mergedStats,
+              remotePayload.profile,
+              remotePayload.skillTree
+            )
           }
         }
       })

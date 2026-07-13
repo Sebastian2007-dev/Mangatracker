@@ -9,8 +9,9 @@ import router from './router/index'
 import App from './App.vue'
 import './assets/main.css'
 import { setBridge } from './services/platform'
-import { capacitorAdapter } from './services/capacitor.adapter'
+import { capacitorAdapter, emitBridgeEvent } from './services/capacitor.adapter'
 import { onLogEntry, onNewChapter, initPollerLifecycle } from './services/mobile/poller.service'
+import { purgeExpiredTrash } from './services/mobile/manga.service'
 import { notifyStatsUpdated } from './services/mobile/stats.service'
 import { useLogStore } from './stores/log.store'
 import { LocalNotifications } from '@capacitor/local-notifications'
@@ -37,11 +38,14 @@ onLogEntry((entry: LogEntry) => {
   logStore.addEntry(entry)
 })
 
-onNewChapter(() => {
-  // Manga-Liste neu laden nach neuem Kapitel
-  capacitorAdapter.invoke('manga:getAll')
+onNewChapter((data) => {
+  // Wie auf Desktop: Event an die Stores weiterreichen (manga.store setzt hasNewChapter)
+  emitBridgeEvent('notifications:newChapter', data)
   notifyStatsUpdated()
 })
+
+// Abgelaufene Trash-Einträge (Tombstone-Retention) beim Start aufräumen
+void purgeExpiredTrash()
 
 // App-Lifecycle für Poller initialisieren
 initPollerLifecycle()

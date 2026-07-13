@@ -75,12 +75,42 @@ function triggerAvatarUpload(): void {
   avatarInput.value?.click()
 }
 
+const AVATAR_MAX_SIZE = 256
+
+// Auf max. 256 px downscalen — das rohe Foto würde sonst als Base64 in der
+// Settings-JSON, jedem settings:changed-Broadcast und im Gist landen.
+function downscaleAvatar(dataUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(1, AVATAR_MAX_SIZE / Math.max(img.width, img.height))
+      if (scale >= 1) {
+        resolve(dataUrl)
+        return
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve(dataUrl)
+        return
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve(canvas.toDataURL('image/jpeg', 0.85))
+    }
+    img.onerror = () => resolve(dataUrl)
+    img.src = dataUrl
+  })
+}
+
 function onAvatarChange(e: Event): void {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   const reader = new FileReader()
   reader.onload = async () => {
-    await settingsStore.save({ profileAvatar: reader.result as string })
+    const avatar = await downscaleAvatar(reader.result as string)
+    await settingsStore.save({ profileAvatar: avatar })
   }
   reader.readAsDataURL(file)
 }

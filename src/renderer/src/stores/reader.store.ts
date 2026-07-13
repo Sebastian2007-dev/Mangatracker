@@ -17,6 +17,11 @@ export const useReaderStore = defineStore('reader', () => {
 
   function setupListeners(): () => void {
     const cleanupUrl = api.on('reader:urlChanged', (data: any) => {
+      // In-Reader-Navigation: Restore-Bar gehört zur alten Seite → ausblenden.
+      // (scrollPositionAvailable kommt bei passender Seite nach did-finish-load erneut)
+      if (data.url !== currentUrl.value) {
+        scrollPositionAvailable.value = null
+      }
       currentUrl.value = data.url
       canGoBack.value = data.canGoBack
       canGoForward.value = data.canGoForward
@@ -75,6 +80,8 @@ export const useReaderStore = defineStore('reader', () => {
 
   function dismissScrollPosition(): void {
     scrollPositionAvailable.value = null
+    // Auch die persistierte Position löschen, sonst erscheint die Bar bei jedem Reload erneut
+    void api.invoke('reader:clearScrollPosition')
   }
 
   async function goBack(): Promise<void> {

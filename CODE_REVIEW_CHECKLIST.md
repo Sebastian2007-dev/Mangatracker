@@ -25,7 +25,7 @@ Sortiert nach Schwere. Abhaken, was erledigt ist.
   `undoDelete` stellt mit altem `updatedAt` wieder her (`manga.store.ts:75`); der bereits gepushte Tombstone (`deletedAt >= updatedAt`) gewinnt in `mergeLists` → Manga verschwindet beim nächsten Sync wieder. `undoDelete` bumpt auch `lastMutationAt` nicht.
   **Fix:** Beim Restore `updatedAt: Date.now()` setzen + `lastMutationAt` bumpen.
 
-- [ ] **Offline-Delete wird vom Sync wiederbelebt (Trash-Purge nach 10 s)**
+- [x] **Offline-Delete wird vom Sync wiederbelebt (Trash-Purge nach 10 s)** *(gefixt 2026-07-13: Undo-Timer schließt nur noch den Toast; Trash bleibt als Tombstone-Quelle erhalten. Neu: `shared/trash.ts` mit 30-Tage-Retention, `purgeExpiredTrash()` läuft beim App-Start auf Desktop (`index.ts`) und Mobile (`main.mobile.ts`). „Kürzlich gelöscht"-View weiterhin offen — siehe Ideen.)*
   `manga:emptyTrash` 10 s nach Delete zerstört die einzige Tombstone-Quelle. Wenn der Sync in dem Fenster nicht lief, resurrectet der nächste Sync das gelöschte Manga.
   **Fix:** Trash mit Retention (z. B. 30 Tage, Purge beim Start) statt Sofort-Purge; „Kürzlich gelöscht"-View als Bonus.
 
@@ -35,59 +35,59 @@ Sortiert nach Schwere. Abhaken, was erledigt ist.
 
 ## 🟠 Mittel — Desktop / Main-Prozess
 
-- [ ] **Domain Guard: `endsWith` ohne Punkt-Grenze** (`domainGuard.ts:42,194,229`) — `evil-asura.gg` passiert Whitelist für `asura.gg`. Fix: `d === domain || domain.endsWith('.' + d)`.
-- [ ] **Domain Guard: naive Base-Domain** (`domainGuard.ts:30-34`) — `foo.co.uk` → Base `co.uk`; „immer erlauben" whitelistet ganze ccSLD. Fix: Public-Suffix-Lib (z. B. `tldts`).
-- [ ] **Popups ohne Guard bei `blockNewWindows=false`** (`ReaderView.ts:424-430`) — erlaubte Child-Windows bekommen weder Domain Guard noch window-open-Handler.
-- [ ] **Poll-Intervall-Änderung wirkt erst nach Neustart** — `restartPoller` (`chapterPoller.ts:267`) wird nirgends aufgerufen; `settings:set` triggert ihn nicht.
-- [ ] **Gleiche Kapitel-Notification feuert jede Stunde neu** (`chapterPoller.ts:226`) — Vergleich nur gegen `currentChapter`; `lastCheckedChapter` wird geschrieben, aber nie gelesen.
-- [ ] **Element Picker (F2) persistiert nicht** (`ReaderView.ts:413-421`) — nur Live-`<style>`-Injektion; nach Reload alles wieder da, obwohl Persistenz versprochen wird.
-- [ ] **macOS: `activate` → doppelte IPC-Registrierung wirft** (`index.ts:111-113`) — Handler-Registrierungen ohne `removeHandler`; zweiter `createWindow()` crasht.
-- [ ] **`window.api.off` entfernt alle Listener statt einem** (`preload/index.ts:10-12`); gleicher Bug in `capacitor.adapter.ts:253-255`.
-- [ ] **Hängende Navigation blockiert URL dauerhaft** (`domainGuard.ts:149-152`) — unbeantwortete `pendingNavigations` werden nie re-prompted.
-- [ ] **`resize`-Listener leakt pro Reader-Open** (`ReaderView.ts:485`) — wird nie entfernt.
-- [ ] **Kein Timeout auf `ses.fetch`** (Poller + Gist) — ein hängender Host stallt den ganzen Scan.
+- [x] **Domain Guard: `endsWith` ohne Punkt-Grenze** (`domainGuard.ts:42,194,229`) — `evil-asura.gg` passiert Whitelist für `asura.gg`. *(gefixt 2026-07-13: `matchesDomain()` mit Punkt-Grenze für White- und Blocklist)*
+- [x] **Domain Guard: naive Base-Domain** — *(gefixt 2026-07-13: `tldts` (`getDomain`) statt „letzte zwei Segmente"; neue Dependency)*
+- [x] **Popups ohne Guard bei `blockNewWindows=false`** — *(gefixt 2026-07-13: `did-create-window` hängt Domain Guard + Reader-Events rekursiv an erlaubte Child-Windows)*
+- [x] **Poll-Intervall-Änderung wirkt erst nach Neustart** — *(gefixt 2026-07-13: `settings:set` ruft `restartPoller()` bei Änderung von `notificationIntervalMs`/`notificationsEnabled`; Poller merkt sich sein Fenster)*
+- [x] **Gleiche Kapitel-Notification feuert jede Stunde neu** — *(gefixt 2026-07-13: `lastCheckedChapter >= newChapter` ⇒ „bereits gemeldet", keine Notification/Event; gleicher Fix im Mobile-Poller und Background-Runner)*
+- [x] **Element Picker (F2) persistiert nicht** — *(gefixt 2026-07-13: Picker meldet Selektor per console-message an den Main-Prozess; Speicherung pro Domain in `settings.hiddenElements`, Re-Injektion via `insertCSS` bei jedem `did-finish-load`)*
+- [x] **macOS: `activate` → doppelte IPC-Registrierung wirft** — *(gefixt 2026-07-13: statische IPC-Registrierung nur einmal; `registerReaderIpc`/`registerDomainGuardReplyHandler` machen `removeHandler` vor `handle`)*
+- [x] **`window.api.off` entfernt alle Listener statt einem** — *(gefixt 2026-07-13: preload trackt Handler→Listener-Map; capacitor.adapter löscht nur den übergebenen Handler)*
+- [x] **Hängende Navigation blockiert URL dauerhaft** — *(gefixt 2026-07-13: `pendingNavigations` haben jetzt einen `createdAt`-Timestamp; nach 2 min TTL gilt die Anfrage als stale und wird neu gestellt)*
+- [x] **`resize`-Listener leakt pro Reader-Open** — *(gefixt 2026-07-13: ein Listener pro Fenster, registriert in `registerReaderIpc`)*
+- [x] **Kein Timeout auf `ses.fetch`** (Poller + Gist) — *(gefixt 2026-07-13: `AbortSignal.timeout(20 s)` auf allen Poller- und Gist-Requests)*
 - [ ] **GitHub-Token unverschlüsselt im JSON** (`store.ts:42`) — `safeStorage` nutzen.
-- [ ] **`settings:set` ohne Validierung** (`settings.ipc.ts:19-24`) — z. B. `notificationIntervalMs: 0` erzeugt Tight-Loop.
-- [ ] **`scrollY` uncoerced in `executeJavaScript`** (`ReaderView.ts:542`) — `Number(...)` erzwingen.
-- [ ] **`sandbox: false` unnötig** (`index.ts:42`); `shell.openExternal` ohne `http(s)`-Check (`index.ts:53`).
+- [x] **`settings:set` ohne Validierung** — *(gefixt 2026-07-13: Payload-Typ-Check + `notificationIntervalMs`-Clamp auf min. 60 s; vollständige Schema-Validierung weiterhin offen, siehe Ideen)*
+- [x] **`scrollY` uncoerced in `executeJavaScript`** — *(gefixt 2026-07-13: `Math.max(0, Number(scrollY) || 0)`)*
+- [x] **`sandbox: false` unnötig / `shell.openExternal` ohne `http(s)`-Check** — *(gefixt 2026-07-13: `sandbox: true` (Preload nutzt nur contextBridge+ipcRenderer) + `http(s)`-Check auf openExternal)*
 
 ## 🟠 Mittel — Sync-/Poller-Drift Desktop ↔ Mobile
 
-- [ ] **Mobile-Sync löscht `profile` aus dem Gist** — `buildSyncPayload` ohne `profile`-Argument (`mobile/gist.service.ts:134-144`).
+- [x] **Mobile-Sync löscht `profile` aus dem Gist** — *(gefixt 2026-07-13: `remotePayload.profile` + `skillTree` werden beim PATCH durchgereicht statt gedroppt)*
 - [ ] **Skill-Tree wird nie gesynct** — lebt nur im `localStorage`; `mergeLists` rechnet immer mit 3 Fokus-Slots → Fokusse gehen bei jedem Sync verloren. Payload-Feld + `mergeSkillTree` existieren bereits, nichts schreibt sie.
-- [ ] **Mobile-Stats ohne `gistSynced` und ohne Achievement-Permanenz** (`mobile/stats.service.ts:304-310`) — `cloud_sync` nie erreichbar; Achievements widerrufbar; `availableSP` kann negativ werden.
-- [ ] **Background-Runner: kein Short-Circuit bei „kein neues Kapitel"** — API-Antwort „same" fällt trotzdem in HTTP-Scrape durch → False Positives (`background.runner.js:104-114`).
-- [ ] **Background-Runner: `URL_MISMATCH`/`TITLE_404`-Guards fehlen** (`background.runner.js:43-62`) — Desktop hat 3 False-Positive-Guards, Runner nur 2.
-- [ ] **Background-Runner: kein 300-ms-Delay zwischen Requests** — 429-Risiko bei großen Bibliotheken.
-- [ ] **Neues Kapitel erreicht Mobile-UI nicht** — Adapter emittet nie `notifications:newChapter`; `onNewChapter` verwirft das `manga:getAll`-Ergebnis (`main.mobile.ts:40-44`).
-- [ ] **Read-Modify-Write-Races auf Mobile** — `update`/`delete`/`moveItem`/Poller schreiben die ganze Liste über mehrere awaits ohne Lock.
-- [ ] **Notification-IDs = Zeichencode-Summe der UUID** — Kollisionen möglich; FNV-1a o. ä. verwenden (`poller.service.ts:202`, `background.runner.js:128-131`).
+- [x] **Mobile-Stats ohne `gistSynced` und ohne Achievement-Permanenz** — *(gefixt 2026-07-13: `gistSynced` aus `settings.lastGistSync`; `earned-achievements.json` persistiert freigeschaltete Achievements wie auf Desktop; `availableSP` auf ≥ 0 geclampt)*
+- [x] **Background-Runner: kein Short-Circuit bei „kein neues Kapitel"** — *(gefixt 2026-07-13: Checks liefern `found/same/skip`; `same` von MDX/CK beendet die Kette ohne HTTP-Scrape)*
+- [x] **Background-Runner: `URL_MISMATCH`/`TITLE_404`-Guards fehlen** — *(gefixt 2026-07-13: beide Guards aus dem Desktop-Poller portiert)*
+- [x] **Background-Runner: kein 300-ms-Delay zwischen Requests** — *(gefixt 2026-07-13: `sleep(300)` zwischen den Kandidaten)*
+- [x] **Neues Kapitel erreicht Mobile-UI nicht** — *(gefixt 2026-07-13: `emitBridgeEvent('notifications:newChapter', data)` in main.mobile.ts → manga.store setzt `hasNewChapter`)*
+- [x] **Read-Modify-Write-Races auf Mobile** — *(gefixt 2026-07-13: `withMangaListLock()` (Promise-Queue) in storage.service.ts serialisiert alle Listen-Mutationen in manga.service + Poller)*
+- [x] **Notification-IDs = Zeichencode-Summe der UUID** — *(gefixt 2026-07-13: FNV-1a-Hash `notificationIdFor()` in poller.service.ts und background.runner.js)*
 - [x] **`scheduleNext`-Race** (`poller.service.ts:236-248`) — Timer kann nach `stopPoller` noch armiert werden; doppelte Poll-Ketten möglich. *(gefixt 2026-07-13: Generation-Counter)*
 
 ## 🟠 Mittel — UI / Renderer
 
-- [ ] **TemplateMismatch-Modal ohne `:key`** (`TemplateMismatchModal.vue:20` + `App.vue:137,203`) — zweites Event zeigt Manga B mit Template-Vorschlag von Manga A. Fix: `:key="templateMismatch.mangaId"`.
-- [ ] **Jedes Editieren killt `hasNewChapter` + rewindet `lastCheckedChapter`** (`MangaFormDialog.vue:213-214`) — Badge weg + Duplikat-Notifications nach Titel-Tippfehler-Fix.
-- [ ] **Scroll-Restore-Bar überlebt In-Reader-Navigation** (`reader.store.ts:19-23,38-40`) — scrollt falsche Seite und löscht die echte Position; `urlChanged` muss sie clearen.
-- [ ] **„Von vorn anfangen" löscht die persistierte Scrollposition nicht** (`reader.store.ts:76-78`) — Bar kommt bei jedem Reload wieder.
-- [ ] **`v-if="mod.enabled !== mod.enabled"` immer false** (`SettingsView.vue:535`) — Neustart-Hinweis pro Mod ist toter Code.
-- [ ] **SkillTreeView ohne `fetchOverview`** (`SkillTreeView.vue:20`) — zeigt Level 1, wenn Statistik-Seite noch nie besucht wurde.
-- [ ] **MangaCard: document-click-Listener leakt** (`MangaCard.vue:212-215`) — kein `onUnmounted`, leakt wenn Karte mit offenem Status-Picker verschwindet.
-- [ ] **MangaDexSearchModal: Reopen-Race** (`MangaDexSearchModal.vue:37,43`) — laufende Suche blockiert Auto-Suche beim Wiederöffnen, stale Results.
-- [ ] **`reader:templateMismatch`-Listener ohne Cleanup** (`App.vue:137`) + Watcher nach `await` in async `onMounted` (`App.vue:135`) nicht scope-gebunden.
-- [ ] **Mod-iframe-Relay: `modId` nur geprüft, wenn mitgesendet** (`ModView.vue:55`) — Mod ohne `modId` kann fremde Mod-Settings lesen/schreiben.
-- [ ] **Scan-/Import-Fehler sind stumm** (`AppHeader.vue:41`) — try/finally ohne catch, kein User-Feedback.
-- [ ] **i18n-Bypass: hartcodierte deutsche Strings** (MangaCard-Dialoge, „Neu"-Badge, „Pflichtfeld", „Von:", „Std.", pubStatusLabels …) und englisches „LEVEL UP!" für deutsche User (`LevelUpOverlay.vue:28-33`).
-- [ ] **Doppelte Registrierung `manga:refreshMetadata`** (`manga.ipc.ts:225` + `stats.ipc.ts:47`) — heute harmlos, Divergenz-Falle.
+- [x] **TemplateMismatch-Modal ohne `:key`** — *(gefixt 2026-07-13: `:key="mangaId + suggestedTemplate"` in App.vue)*
+- [x] **Jedes Editieren killt `hasNewChapter` + rewindet `lastCheckedChapter`** — *(gefixt 2026-07-13: Badge bleibt, solange `lastCheckedChapter > currentChapter`; `lastCheckedChapter` wird nie zurückgedreht)*
+- [x] **Scroll-Restore-Bar überlebt In-Reader-Navigation** — *(gefixt 2026-07-13: `reader:urlChanged` mit neuer URL cleart `scrollPositionAvailable`)*
+- [x] **„Von vorn anfangen" löscht die persistierte Scrollposition nicht** — *(gefixt 2026-07-13: neuer Channel `reader:clearScrollPosition`, von `dismissScrollPosition()` aufgerufen)*
+- [x] **`v-if="mod.enabled !== mod.enabled"` immer false** — *(gefixt 2026-07-13: tote Zeile entfernt; globaler Restart-Hinweis darunter bleibt)*
+- [x] **SkillTreeView ohne `fetchOverview`** — *(gefixt 2026-07-13: `onMounted` lädt Overview nach, falls noch nicht vorhanden)*
+- [x] **MangaCard: document-click-Listener leakt** — *(gefixt 2026-07-13: `onUnmounted` entfernt den Listener)*
+- [x] **MangaDexSearchModal: Reopen-Race** — *(gefixt 2026-07-13: Generation-Counter invalidiert laufende Suchen; `searching` blockiert Reopen nicht mehr)*
+- [x] **`reader:templateMismatch`-Listener ohne Cleanup + Watcher nach `await` nicht scope-gebunden** — *(gefixt 2026-07-13: beide Cleanups in `onUnmounted`)*
+- [x] **Mod-iframe-Relay: `modId` nur geprüft, wenn mitgesendet** — *(gefixt 2026-07-13: `payload.modId` wird immer auf den eigenen Mod überschrieben; top-level `modId` weiterhin geprüft)*
+- [x] **Scan-/Import-Fehler sind stumm** — *(gefixt 2026-07-13: catch + Log-Store-Eintrag mit i18n-Keys `header.scanFailed`/`header.importFailed`)*
+- [x] **i18n-Bypass: hartcodierte deutsche Strings** — *(gefixt 2026-07-13: MangaCard (Notiz, Mark-Read-Dialog, Info-Modal, pubStatus, „Kap.", Tooltips), „Neu"-Badge, „Pflichtfeld", „Von:" (DomainGuard), „Std." (SettingsView), LevelUp-Overlay — alles über neue Keys in de.json/en.json)*
+- [x] **Doppelte Registrierung `manga:refreshMetadata`** — *(gefixt 2026-07-13: Registrierung nur noch in manga.ipc.ts)*
 
 ## 🟡 Build / Repo / Release
 
-- [ ] **80 MB Installer-EXE + 11 MB APK committed** (`installer/`) → Repo-Pack ~279 MB. `git rm --cached` + `.gitignore` (`installer/*.exe`, `installer/*.apk`); Historie ggf. mit `git filter-repo` schrumpfen.
-- [ ] **`android/.idea/`, `tsconfig.node.tsbuildinfo`, `dist-mobile/`-Reste getrackt** — untracken + ignorieren.
-- [ ] **`versionCode 1` / `versionName "1.0"` hartcodiert** (`build.gradle:20-21`) — Android verweigert Updates; aus `package.json` ableiten.
+- [x] **80 MB Installer-EXE + 11 MB APK committed** — *(teilgefixt 2026-07-13: `git rm --cached` + `.gitignore` (`installer/*.exe`, `installer/*.apk`) — die Dateien verschwinden mit dem nächsten Commit aus dem Index. Historie-Schrumpfung mit `git filter-repo` weiterhin offen — destruktiv, braucht Force-Push.)*
+- [x] **`android/.idea/`, `tsconfig.node.tsbuildinfo`, `dist-mobile/`-Reste getrackt** — *(gefixt 2026-07-13: untrackt + `.gitignore`-Einträge)*
+- [x] **`versionCode 1` / `versionName "1.0"` hartcodiert** — *(gefixt 2026-07-13: build.gradle liest `version` aus package.json; versionCode = major·10000 + minor·100 + patch)*
 - [ ] **Zwei Installer-Systeme** (NSIS via `npm run dist`, Inno via `build_release.bat`) mit gleichem Namensschema — eins entfernen.
-- [ ] **`build_release.bat`: `npm install` nur wenn `node_modules` fehlt** — veraltete Deps nach `package.json`-Änderung; besser `npm ci` oder Vergleich lockfile-Timestamp. Optional `npm run typecheck` als Gate.
-- [ ] **`usesCleartextTraffic="true"` app-weit** (`AndroidManifest.xml`) — besser `networkSecurityConfig` nur für Scrape-Domains; `allowBackup="true"` sichert den Klartext-GitHub-Token in Google-Backups.
+- [x] **`build_release.bat`: `npm install` nur wenn `node_modules` fehlt** — *(gefixt 2026-07-13: Lockfile-Timestamp-Vergleich gegen `node_modules\.package-lock.json` + `npm run typecheck` als Gate. Hinweis: Install braucht `--legacy-peer-deps` wegen `@capacitor/background-runner@3` ↔ Capacitor 6-Peer-Konflikt.)*
+- [ ] **`usesCleartextTraffic="true"` app-weit** (`AndroidManifest.xml`) — offen (Scrape-Domains sind userdefiniert, `networkSecurityConfig` bräuchte dynamische Domains); ~~`allowBackup="true"` sichert den Klartext-GitHub-Token in Google-Backups~~ *(gefixt 2026-07-13: `allowBackup="false"`)*.
 
 ## 💡 Ideen (größter Hebel)
 
@@ -95,5 +95,5 @@ Sortiert nach Schwere. Abhaken, was erledigt ist.
 - [ ] **Trash als Tombstone-Quelle mit Retention + „Kürzlich gelöscht"-View** (fixt Sync-Löschbugs an der Wurzel).
 - [ ] **Validierte IPC-Schicht**: `registerHandler(channel, schema, fn)` mit Payload-Validierung und sauberem `removeHandler`.
 - [ ] **`<KeepAlive>` um die RouterView** — Bibliothek verliert aktuell Tab + Scrollposition bei jedem Settings-Besuch.
-- [ ] **Avatar-Uploads downscalen** (`StatisticsView.vue:78-86`) — rohes Foto landet als Base64 in Settings-JSON, jedem Broadcast und im Gist. Canvas auf ~256 px.
+- [x] **Avatar-Uploads downscalen** — *(gefixt 2026-07-13: Canvas-Downscale auf max. 256 px, JPEG q=0.85, vor dem Speichern)*
 - [ ] **Icon-Map + Modal-Scaffolding deduplizieren** (`AchievementToast.vue`/`StatisticsView.vue`; 5× Backdrop-Pattern) → `resolveAchievementIcon` + `<ModalShell>`.

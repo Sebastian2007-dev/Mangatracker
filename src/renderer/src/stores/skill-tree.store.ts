@@ -42,7 +42,8 @@ export const useSkillTreeStore = defineStore('skillTree', () => {
   }
 
   function availableSP(level: number): number {
-    return totalSP(level) - spentPoints.value
+    // Nie negativ — z. B. wenn Bonus-SP-Quellen (Achievements) nachträglich wegfallen
+    return Math.max(0, totalSP(level) - spentPoints.value)
   }
 
   const maxFocusSlots = computed(() => getMaxFocusSlots(unlockedSkills.value))

@@ -156,8 +156,8 @@ const MAX_CHAPTER = 9999
 
 function validate(): boolean {
   errors.value = {}
-  if (!title.value.trim()) errors.value.title = 'Pflichtfeld'
-  if (!mainUrl.value.trim()) errors.value.mainUrl = 'Pflichtfeld'
+  if (!title.value.trim()) errors.value.title = t('manga.requiredField')
+  if (!mainUrl.value.trim()) errors.value.mainUrl = t('manga.requiredField')
   if (currentChapter.value > MAX_CHAPTER) currentChapter.value = MAX_CHAPTER
   if (currentChapter.value < 0) currentChapter.value = 0
   return Object.keys(errors.value).length === 0
@@ -210,8 +210,14 @@ async function handleSave(force = false): Promise<void> {
       status: status.value,
       isFocused: props.manga?.isFocused ?? false,
       currentChapter: currentChapter.value,
-      hasNewChapter: false,
-      lastCheckedChapter: currentChapter.value,
+      // Editieren darf Badge/Erkennungsstand nicht zerstören: hasNewChapter bleibt,
+      // solange das erkannte Kapitel noch vor dem Lesestand liegt; lastCheckedChapter
+      // wird nie zurückgedreht (sonst Duplikat-Notifications).
+      hasNewChapter:
+        (props.manga?.lastCheckedChapter ?? 0) > currentChapter.value
+          ? (props.manga?.hasNewChapter ?? false)
+          : false,
+      lastCheckedChapter: Math.max(props.manga?.lastCheckedChapter ?? 0, currentChapter.value),
       mangaDexId: selectedMangaDexId,
       mangaDexTitle: mangaDexTitle.value || undefined,
       mangaDexCoverUrl: mangaDexCoverUrl.value || undefined,

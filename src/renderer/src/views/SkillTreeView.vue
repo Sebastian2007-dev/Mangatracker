@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   Target, Bookmark, FileText, History, BookMarked,
@@ -16,6 +16,11 @@ import type { SkillDefinition } from '../../../shared/skill-tree'
 const { t } = useI18n()
 const skillTreeStore = useSkillTreeStore()
 const statsStore = useStatisticsStore()
+
+// Ohne Fetch zeigt die View Level 1, wenn die Statistik-Seite noch nie besucht wurde
+onMounted(() => {
+  if (!statsStore.overview) void statsStore.fetchOverview()
+})
 
 const level = computed(() => statsStore.overview?.level ?? 1)
 const totalSP = computed(() => skillTreeStore.totalSP(level.value))
