@@ -85,6 +85,18 @@ function normalizeImportedEntry(entry: unknown): Manga | null {
   )
 
   const importedId = toStringValue(pickFirst(entry, ['id', 'Id']), '')
+
+  const bookmarkedChapter = toNumberValue(pickFirst(entry, ['bookmarkedChapter', 'BookmarkedChapter']), Number.NaN)
+  const rating = toNumberValue(pickFirst(entry, ['rating', 'Rating']), Number.NaN)
+  const scrollRaw = pickFirst(entry, ['scrollPosition', 'ScrollPosition'])
+  const scrollPosition =
+    isObject(scrollRaw) &&
+    typeof scrollRaw.url === 'string' &&
+    typeof scrollRaw.scrollY === 'number' &&
+    typeof scrollRaw.scrollPercent === 'number'
+      ? { url: scrollRaw.url, scrollY: scrollRaw.scrollY, scrollPercent: scrollRaw.scrollPercent }
+      : undefined
+
   return {
     id: importedId || crypto.randomUUID(),
     title,
@@ -103,7 +115,13 @@ function normalizeImportedEntry(entry: unknown): Manga | null {
     comickHid: toStringValue(pickFirst(entry, ['comickHid']), '') || undefined,
     comickTitle: toStringValue(pickFirst(entry, ['comickTitle']), '') || undefined,
     comickCoverUrl: toStringValue(pickFirst(entry, ['comickCoverUrl']), '') || undefined,
-    tags: toStringArrayValue(pickFirst(entry, ['tags', 'Tags', 'genres', 'Genres']))
+    tags: toStringArrayValue(pickFirst(entry, ['tags', 'Tags', 'genres', 'Genres'])),
+    bookmarkedChapter: Number.isFinite(bookmarkedChapter) ? bookmarkedChapter : undefined,
+    note: toStringValue(pickFirst(entry, ['note', 'Note']), '') || undefined,
+    rating: Number.isFinite(rating) ? rating : undefined,
+    ignoreTemplateMismatch: toBooleanValue(pickFirst(entry, ['ignoreTemplateMismatch', 'IgnoreTemplateMismatch']), false) || undefined,
+    chapterDetectionTemplate: toStringValue(pickFirst(entry, ['chapterDetectionTemplate', 'ChapterDetectionTemplate']), '') || undefined,
+    scrollPosition
   }
 }
 

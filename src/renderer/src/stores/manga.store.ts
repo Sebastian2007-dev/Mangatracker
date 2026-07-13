@@ -72,9 +72,13 @@ export const useMangaStore = defineStore('manga', () => {
       undoTimerId = null
     }
 
-    const result = await api.invoke<{ success: boolean; data: Manga }>('manga:createWithId', manga)
+    // updatedAt bumpen, sonst gewinnt ein bereits gesynctes Lösch-Tombstone
+    // (deletedAt >= updatedAt) beim nächsten Gist-Sync und löscht das Manga erneut.
+    const restored: Manga = { ...manga, updatedAt: Date.now() }
+    const result = await api.invoke<{ success: boolean; data: Manga }>('manga:createWithId', restored)
     if (result.success) {
-      items.value.push(manga)
+      items.value.push(result.data ?? restored)
+      lastMutationAt.value = Date.now()
     }
     recentlyDeleted.value = null
   }

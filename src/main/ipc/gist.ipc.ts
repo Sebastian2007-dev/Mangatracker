@@ -135,12 +135,30 @@ export async function syncGistDirect(
     })
     if (!patchRes.ok) throw new Error(`Gist konnte nicht aktualisiert werden: HTTP ${patchRes.status}`)
 
-    const profileUpdated = mergedProfile && mergedProfile.updatedAt > (settings.profileUpdatedAt ?? 0)
-    store.set('mangaList', mergedManga)
-    store.set('statsEvents', mergedStats.events)
-    store.set('statsTagCache', mergedStats.tagCache)
+    // Während der Netzwerk-Roundtrips kann der Store lokal weiterbearbeitet worden
+    // sein (User-Edit, Poller) — deshalb vor dem Zurückschreiben frisch lesen und
+    // gegen den gepushten Merge-Stand erneut mergen, statt die Snapshots von oben
+    // blind zurückzuschreiben.
+    const freshManga = (store.get('mangaList') ?? []) as Manga[]
+    const freshTrash = (store.get('mangaTrash') ?? []) as TrashedManga[]
+    const freshDeleted: GistTombstone[] = freshTrash.map((manga) => ({
+      id: manga.id,
+      deletedAt: manga.deletedAt ?? manga.updatedAt
+    }))
+    const freshStats = {
+      events: (store.get('statsEvents') ?? []) as StatisticsEvent[],
+      tagCache: (store.get('statsTagCache') ?? null) as StatisticsTagCache | null
+    }
+    const { manga: finalManga } = mergeLists(freshManga, mergedManga, freshDeleted, mergedDeleted)
+    const finalStats = mergeStatisticsPayload(freshStats, mergedStats)
+    const freshSettings = store.get('settings')
+
+    const profileUpdated = mergedProfile && mergedProfile.updatedAt > (freshSettings.profileUpdatedAt ?? 0)
+    store.set('mangaList', finalManga)
+    store.set('statsEvents', finalStats.events)
+    store.set('statsTagCache', finalStats.tagCache)
     store.set('settings', {
-      ...settings,
+      ...freshSettings,
       gistId,
       lastGistSync: Date.now(),
       ...(profileUpdated ? {

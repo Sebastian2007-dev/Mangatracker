@@ -1,7 +1,10 @@
 /**
  * Background Runner Task — läuft via WorkManager (Android) im Hintergrund.
  * Kein DOM, kein Vue — nur CapacitorKV, CapacitorNotifications und fetch.
- * Manga-Liste wird via CapacitorKV gelesen (= @capacitor/preferences, gleicher Store).
+ * Manga-Liste wird via CapacitorKV gelesen. CapacitorKV nutzt das SharedPreferences-File
+ * mit dem Namen des Runner-Labels (capacitor.config.ts) — die App MUSS deshalb
+ * Preferences.configure({ group: '<label>' }) setzen (siehe storage.service.ts,
+ * ensurePreferencesReady), sonst schreiben App und Runner in verschiedene Stores.
  */
 
 async function checkMangaDex(manga) {

@@ -14,6 +14,9 @@ type NewChapterCallback = (data: { mangaId: string; title: string; newChapter: n
 
 let pollerTimer: ReturnType<typeof setTimeout> | null = null
 let appIsActive = true
+// Invalidiert nach stopPoller() noch laufende scheduleNext-Aufrufe, die gerade
+// in einem await hängen — sonst armieren sie einen nicht mehr abbrechbaren Timer.
+let pollerGeneration = 0
 
 const logListeners: Set<LogCallback> = new Set()
 const chapterListeners: Set<NewChapterCallback> = new Set()
@@ -227,6 +230,7 @@ export async function runPoll(force = false): Promise<void> {
 }
 
 function stopPoller(): void {
+  pollerGeneration++
   if (pollerTimer !== null) {
     clearTimeout(pollerTimer)
     pollerTimer = null
@@ -235,7 +239,9 @@ function stopPoller(): void {
 
 async function scheduleNext(): Promise<void> {
   if (!appIsActive) return
+  const generation = pollerGeneration
   const settings = await getSettings()
+  if (generation !== pollerGeneration || !appIsActive) return
   pollerTimer = setTimeout(async () => {
     await runPoll()
     scheduleNext()
@@ -257,4 +263,7 @@ export function initPollerLifecycle(): void {
       stopPoller()
     }
   })
+  // appStateChange feuert nicht beim Kaltstart — die App startet im Vordergrund,
+  // also muss der erste Poll-Zyklus hier explizit angestoßen werden.
+  startPoller()
 }

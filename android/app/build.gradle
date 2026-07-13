@@ -1,15 +1,28 @@
 apply plugin: 'com.android.application'
 
+// Signing-Credentials aus gitignorter Datei laden — niemals Passwörter hier einchecken.
+// Vorlage: android/keystore.properties.example
+def keystorePropsFile = rootProject.file('keystore.properties')
+def keystoreProps = new Properties()
+def hasReleaseSigning = keystorePropsFile.exists()
+if (hasReleaseSigning) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+} else {
+    logger.warn("android/keystore.properties fehlt — Release-Build wird mit dem Debug-Key signiert.")
+}
+
 android {
     namespace "com.mangaTracker.app"
     compileSdk rootProject.ext.compileSdkVersion
 
     signingConfigs {
-        release {
-            storeFile file('manga-tracker.jks')
-            storePassword 'MangaTracker2024'
-            keyAlias 'manga-tracker'
-            keyPassword 'MangaTracker2024'
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
         }
     }
 
@@ -30,7 +43,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
         }
     }
 }

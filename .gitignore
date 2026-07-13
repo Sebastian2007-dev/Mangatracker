@@ -5,7 +5,9 @@ out
 .test-dist
 .DS_Store
 *.log
-# Android signing key — niemals committen!
+.cache/
+# Android signing key + Credentials — niemals committen!
 android/app/*.jks
 android/app/*.keystore
+android/keystore.properties
 .vscode
