@@ -2,7 +2,20 @@
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "ROOT=%~dp0"
+set "NO_PAUSE="
+if /I "%~1"=="--no-pause" set "NO_PAUSE=1"
+
 pushd "%ROOT%" >nul
+
+rem Keep electron-builder's downloaded tools inside the project. This also
+rem avoids permission errors when LOCALAPPDATA is read-only or restricted.
+set "ELECTRON_BUILDER_CACHE=%ROOT%.cache\electron-builder"
+if not exist "%ELECTRON_BUILDER_CACHE%" mkdir "%ELECTRON_BUILDER_CACHE%"
+if errorlevel 1 (
+  echo ERROR: Unable to create electron-builder cache:
+  echo        %ELECTRON_BUILDER_CACHE%
+  goto :error
+)
 
 echo [1/7] Preparing installer directory...
 if not exist "installer" mkdir "installer"
@@ -21,6 +34,22 @@ echo [2/7] Ensuring dependencies are present...
 if not exist "node_modules" (
   call npm install
   if errorlevel 1 goto :error
+)
+
+rem electron-builder 24.x ships macOS symlinks in its Windows helper archive.
+rem Extract only the Windows-relevant files so the build works without admin
+rem rights or Windows Developer Mode.
+call :ensure_win_codesign_cache
+if errorlevel 1 goto :error
+
+rem Refresh JAVA_HOME from the machine environment. This also makes a newly
+rem installed JDK available without requiring a logout or reboot.
+if not defined JAVA_HOME for /f "usebackq delims=" %%J in (`powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('JAVA_HOME','Machine')"`) do set "JAVA_HOME=%%J"
+if defined JAVA_HOME set "PATH=%JAVA_HOME%\bin;%PATH%"
+where java.exe >nul 2>&1
+if errorlevel 1 (
+  echo ERROR: Java was not found. Install JDK 17 and set JAVA_HOME.
+  goto :error
 )
 
 echo [3/7] Compiling renderer + main (electron-vite)...
@@ -47,6 +76,8 @@ set "ISCC_EXE="
 for %%I in (ISCC.exe) do if not defined ISCC_EXE set "ISCC_EXE=%%~$PATH:I"
 if not defined ISCC_EXE if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 if not defined ISCC_EXE if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%ProgramFiles%\Inno Setup 6\ISCC.exe"
+if not defined ISCC_EXE if exist "%LocalAppData%\Programs\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%LocalAppData%\Programs\Inno Setup 6\ISCC.exe"
+if not defined ISCC_EXE if exist "%UserProfile%\scoop\apps\innosetup\current\ISCC.exe" set "ISCC_EXE=%UserProfile%\scoop\apps\innosetup\current\ISCC.exe"
 
 if not defined ISCC_EXE (
   echo ERROR: ISCC.exe not found. Install Inno Setup 6 or add it to PATH.
@@ -100,7 +131,53 @@ popd >nul
 exit /B 0
 
 :error
+set "BUILD_EXIT_CODE=%ERRORLEVEL%"
+if "%BUILD_EXIT_CODE%"=="0" set "BUILD_EXIT_CODE=1"
 echo.
-echo Build failed. Check the output above.
+echo Build failed with exit code %BUILD_EXIT_CODE%. Check the output above.
+if not defined NO_PAUSE (
+  echo.
+  echo Press any key to close this window...
+  pause >nul
+)
 popd >nul
-exit /B 1
+exit /B %BUILD_EXIT_CODE%
+
+:ensure_win_codesign_cache
+set "WIN_CODESIGN_VERSION=2.6.0"
+set "WIN_CODESIGN_DIR=%ELECTRON_BUILDER_CACHE%\winCodeSign\winCodeSign-%WIN_CODESIGN_VERSION%"
+set "WIN_CODESIGN_ARCHIVE=%ELECTRON_BUILDER_CACHE%\winCodeSign\winCodeSign-%WIN_CODESIGN_VERSION%.7z"
+set "SEVEN_ZIP=%ROOT%node_modules\7zip-bin\win\x64\7za.exe"
+
+if exist "%WIN_CODESIGN_DIR%\rcedit-x64.exe" exit /B 0
+
+if not exist "%SEVEN_ZIP%" (
+  echo ERROR: 7za.exe required by electron-builder was not found.
+  exit /B 1
+)
+
+if not exist "%ELECTRON_BUILDER_CACHE%\winCodeSign" mkdir "%ELECTRON_BUILDER_CACHE%\winCodeSign"
+if errorlevel 1 exit /B 1
+
+if not exist "%WIN_CODESIGN_ARCHIVE%" (
+  echo       Downloading winCodeSign %WIN_CODESIGN_VERSION% ...
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing 'https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-%WIN_CODESIGN_VERSION%/winCodeSign-%WIN_CODESIGN_VERSION%.7z' -OutFile '%WIN_CODESIGN_ARCHIVE%'"
+  if errorlevel 1 (
+    echo ERROR: Unable to download winCodeSign %WIN_CODESIGN_VERSION%.
+    exit /B 1
+  )
+)
+
+echo       Preparing winCodeSign cache ...
+"%SEVEN_ZIP%" x -y -bd "%WIN_CODESIGN_ARCHIVE%" "-o%WIN_CODESIGN_DIR%" "-x!darwin\*"
+if errorlevel 1 (
+  echo ERROR: Unable to extract winCodeSign %WIN_CODESIGN_VERSION%.
+  exit /B 1
+)
+
+if not exist "%WIN_CODESIGN_DIR%\rcedit-x64.exe" (
+  echo ERROR: winCodeSign cache is incomplete.
+  exit /B 1
+)
+
+exit /B 0
