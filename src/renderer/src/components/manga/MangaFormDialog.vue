@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { X } from 'lucide-vue-next'
+import { X, BellOff } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { Manga, MangaStatus } from '../../types/index'
 import { useMangaStore } from '../../stores/manga.store'
@@ -21,6 +21,7 @@ const mainUrl = ref('')
 const chapterUrlTemplate = ref('')
 const status = ref<MangaStatus>('reading')
 const currentChapter = ref(0)
+const muteNotifications = ref(false)
 const errors = ref<Record<string, string>>({})
 const chapterTemplateWarning = computed(() =>
   chapterUrlTemplate.value.trim().length > 0 && !chapterUrlTemplate.value.includes('$chapter')
@@ -124,6 +125,7 @@ watch(() => props.open, (open) => {
       chapterUrlTemplate.value = props.manga.chapterUrlTemplate
       status.value = props.manga.status
       currentChapter.value = props.manga.currentChapter
+      muteNotifications.value = props.manga.muteNotifications ?? false
       mangaDexId.value = props.manga.mangaDexId ?? ''
       mangaDexTitle.value = props.manga.mangaDexTitle ?? ''
       mangaDexCoverUrl.value = props.manga.mangaDexCoverUrl
@@ -136,6 +138,7 @@ watch(() => props.open, (open) => {
       chapterUrlTemplate.value = ''
       status.value = 'reading'
       currentChapter.value = 0
+      muteNotifications.value = false
       mangaDexId.value = ''
       mangaDexTitle.value = ''
       mangaDexCoverUrl.value = undefined
@@ -224,7 +227,8 @@ async function handleSave(force = false): Promise<void> {
       comickHid: selectedComickHid,
       comickTitle: comickTitle.value || undefined,
       comickCoverUrl: comickCoverUrl.value || undefined,
-      tags: tags.length > 0 ? tags : undefined
+      tags: tags.length > 0 ? tags : undefined,
+      muteNotifications: muteNotifications.value || undefined
     }
 
     if (props.manga) {
@@ -302,6 +306,16 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
           <div>
             <label class="field-label">{{ t('manga.currentChapter') }}</label>
             <input v-model.number="currentChapter" type="number" min="0" :max="MAX_CHAPTER" step="0.5" class="field-input" />
+          </div>
+
+          <!-- Benachrichtigungen stummschalten -->
+          <div>
+            <label class="mute-toggle">
+              <input v-model="muteNotifications" type="checkbox" class="mute-checkbox" />
+              <BellOff :size="14" />
+              <span>{{ t('manga.muteNotifications') }}</span>
+            </label>
+            <p class="text-xs mt-1" style="color: hsl(var(--muted-foreground))">{{ t('manga.muteHint') }}</p>
           </div>
 
           <!-- MangaDex Verknüpfung -->
@@ -490,6 +504,21 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
 }
 .mdx-btn:hover {
   background: hsl(var(--accent));
+}
+.mute-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  user-select: none;
+}
+.mute-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: hsl(var(--primary));
+  cursor: pointer;
 }
 .btn-primary {
   padding: 8px 14px;

@@ -10,12 +10,24 @@ import { useAdvFilter, type FilterPreset } from '../../composables/useAdvFilter'
 import { getBridge } from '../../services/platform'
 import { isMobile } from '../../composables/usePlatform'
 import ScanResultModal from '../manga/ScanResultModal.vue'
+import NewChapterInbox from './NewChapterInbox.vue'
+import { useStatisticsStore } from '../../stores/statistics.store'
+import { Flame } from 'lucide-vue-next'
+import { onMounted } from 'vue'
 import type { Manga } from '../../types/index'
 
 const { t } = useI18n()
 const route = useRoute()
 const mangaStore = useMangaStore()
 const logStore = useLogStore()
+const statisticsStore = useStatisticsStore()
+
+// Streak-Widget braucht die Statistik-Übersicht — nachladen, falls noch nie geladen
+onMounted(() => {
+  if (!statisticsStore.overview) void statisticsStore.fetchOverview()
+})
+
+const currentStreak = computed(() => statisticsStore.overview?.currentStreak ?? 0)
 
 function pushError(message: string): void {
   logStore.addEntry({ id: crypto.randomUUID(), type: 'error', message, timestamp: Date.now() })
@@ -132,6 +144,20 @@ function handleApplyPreset(p: FilterPreset): void {
       </div>
 
       <div class="flex-1" />
+
+      <!-- Lese-Streak -->
+      <RouterLink
+        v-if="currentStreak > 0"
+        to="/statistics"
+        class="streak-chip"
+        :title="t('header.streakTooltip', { days: currentStreak })"
+      >
+        <Flame :size="14" />
+        <span>{{ currentStreak }}</span>
+      </RouterLink>
+
+      <!-- Neue-Kapitel-Inbox -->
+      <NewChapterInbox />
 
       <!-- Scan Now -->
       <button class="icon-btn" :class="{ spinning: isScanning }" :title="t('manga.scanNow')" :disabled="isScanning" @click="handleScanNow">
@@ -444,4 +470,15 @@ function handleApplyPreset(p: FilterPreset): void {
 .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .spinning svg { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+/* Lese-Streak-Chip */
+.streak-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+  color: hsl(24 95% 53%);
+  background: hsl(24 95% 53% / 0.12);
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.streak-chip:hover { background: hsl(24 95% 53% / 0.22); }
 </style>

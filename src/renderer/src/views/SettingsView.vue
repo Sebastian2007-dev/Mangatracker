@@ -17,6 +17,7 @@ const metadataRefreshStatus = ref<'idle' | 'running' | 'ok' | 'fail'>('idle')
 const metadataRefreshMessage = ref('')
 
 onMounted(async () => {
+  void mangaStore.fetchTrash()
   if (!isMobile) {
     // Fetch installed mods (desktop only — IPC not available on mobile)
     await settings.fetchMods()
@@ -51,6 +52,31 @@ const readBehaviors: { value: ReadBehavior; label: string }[] = [
 
 async function setTheme(theme: Theme): Promise<void> {
   await settings.save({ theme })
+}
+
+// ── Kürzlich gelöscht ────────────────────────────────────────────────
+function formatDeletedAt(ts: number): string {
+  if (!ts) return ''
+  return new Date(ts).toLocaleDateString(locale.value === 'de' ? 'de-DE' : 'en-US', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
+  })
+}
+
+// ── Element Picker: ausgeblendete Elemente verwalten ─────────────────
+const hiddenElementDomains = computed(() => Object.keys(settings.hiddenElements))
+
+async function removeHiddenSelector(domain: string, selector: string): Promise<void> {
+  const hidden = { ...settings.hiddenElements }
+  const remaining = (hidden[domain] ?? []).filter((s) => s !== selector)
+  if (remaining.length > 0) hidden[domain] = remaining
+  else delete hidden[domain]
+  await settings.save({ hiddenElements: hidden })
+}
+
+async function clearHiddenDomain(domain: string): Promise<void> {
+  const hidden = { ...settings.hiddenElements }
+  delete hidden[domain]
+  await settings.save({ hiddenElements: hidden })
 }
 
 async function setLanguage(lang: Language): Promise<void> {
@@ -497,6 +523,50 @@ function formatLastSync(ts: number): string {
       </template>
     </section>
 
+    <!-- Kürzlich gelöscht (Trash mit 30-Tage-Retention) -->
+    <section class="settings-section">
+      <h2 class="section-title">{{ t('settings.trashTitle') }}</h2>
+      <p class="text-xs mb-3" style="color: hsl(var(--muted-foreground))">{{ t('settings.trashHint') }}</p>
+
+      <p v-if="mangaStore.trashItems.length === 0" class="text-xs" style="color: hsl(var(--muted-foreground))">
+        {{ t('settings.trashEmpty') }}
+      </p>
+
+      <div v-else class="trash-list">
+        <div v-for="entry in mangaStore.trashItems" :key="entry.id" class="trash-row">
+          <div class="trash-text">
+            <p class="trash-title">{{ entry.title }}</p>
+            <p class="trash-sub">{{ t('settings.trashDeletedAt', { date: formatDeletedAt(entry.deletedAt) }) }}</p>
+          </div>
+          <button class="action-btn" @click="mangaStore.restoreFromTrash(entry)">
+            {{ t('settings.trashRestore') }}
+          </button>
+          <button class="action-btn-ghost" @click="mangaStore.purgeFromTrash(entry.id)">
+            {{ t('settings.trashPurge') }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Element Picker: ausgeblendete Elemente (nur Desktop-Reader) -->
+    <section v-if="platformFeatures.hasDesktopReader && hiddenElementDomains.length > 0" class="settings-section">
+      <h2 class="section-title">{{ t('settings.hiddenElementsTitle') }}</h2>
+      <p class="text-xs mb-3" style="color: hsl(var(--muted-foreground))">{{ t('settings.hiddenElementsHint') }}</p>
+
+      <div v-for="domain in hiddenElementDomains" :key="domain" class="hidden-domain">
+        <div class="hidden-domain-header">
+          <span class="hidden-domain-name">{{ domain }}</span>
+          <button class="action-btn-ghost" @click="clearHiddenDomain(domain)">
+            {{ t('settings.hiddenElementsClearDomain') }}
+          </button>
+        </div>
+        <div v-for="selector in settings.hiddenElements[domain]" :key="selector" class="hidden-selector-row">
+          <code class="hidden-selector">{{ selector }}</code>
+          <button class="hidden-remove-btn" :title="t('settings.hiddenElementsRemove')" @click="removeHiddenSelector(domain, selector)">✕</button>
+        </div>
+      </div>
+    </section>
+
     </div><!-- end left column -->
 
     <!-- Right column: Mods sidebar (desktop only) -->
@@ -598,6 +668,39 @@ function formatLastSync(ts: number): string {
   color: hsl(var(--primary));
   border-color: hsl(var(--primary) / 0.4);
 }
+/* Kürzlich gelöscht */
+.trash-list { display: flex; flex-direction: column; gap: 8px; }
+.trash-row { display: flex; align-items: center; gap: 8px; }
+.trash-text { flex: 1; min-width: 0; }
+.trash-title {
+  font-size: 13px; font-weight: 500;
+  color: hsl(var(--foreground));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.trash-sub { font-size: 11px; color: hsl(var(--muted-foreground)); }
+/* Element Picker: ausgeblendete Elemente */
+.hidden-domain { margin-bottom: 12px; }
+.hidden-domain-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.hidden-domain-name { font-size: 12px; font-weight: 600; color: hsl(var(--foreground)); }
+.hidden-selector-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 0;
+}
+.hidden-selector {
+  flex: 1; min-width: 0;
+  font-size: 11px; font-family: monospace;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hidden-remove-btn {
+  width: 22px; height: 22px; border-radius: 6px;
+  font-size: 11px; color: hsl(var(--muted-foreground));
+  cursor: pointer; flex-shrink: 0;
+}
+.hidden-remove-btn:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
 .toggle {
   width: 40px;
   min-width: 40px;

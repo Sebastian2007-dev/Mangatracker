@@ -29,6 +29,8 @@ export interface Manga {
   rating?: number
   ignoreTemplateMismatch?: boolean
   chapterDetectionTemplate?: string
+  /** Neue Kapitel werden weiter erkannt (Badge/Inbox), aber ohne System-Benachrichtigung */
+  muteNotifications?: boolean
   scrollPosition?: { url: string; scrollY: number; scrollPercent: number }
   createdAt: number
   updatedAt: number

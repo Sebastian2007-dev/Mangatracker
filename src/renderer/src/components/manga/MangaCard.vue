@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { BookOpen, Pencil, Trash2, Star, Info, Bookmark, FileText } from 'lucide-vue-next'
+import { BookOpen, Pencil, Trash2, Star, Info, Bookmark, FileText, BellOff } from 'lucide-vue-next'
 import type { Manga } from '../../types/index'
 import ChapterInput from './ChapterInput.vue'
 import NewChapterBadge from './NewChapterBadge.vue'
@@ -276,6 +276,9 @@ async function openChapter(): Promise<void> {
           >
             <Info :size="12" />
           </button>
+          <span v-if="manga.muteNotifications" class="mute-indicator" :title="t('manga.muted')">
+            <BellOff :size="12" />
+          </span>
         </div>
 
         <!-- Action buttons -->
@@ -606,6 +609,15 @@ async function openChapter(): Promise<void> {
 }
 .info-icon-btn:hover {
   color: hsl(var(--foreground));
+}
+.mute-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: hsl(var(--muted-foreground) / 0.7);
+  flex-shrink: 0;
 }
 @media (pointer: coarse) {
   .info-icon-btn {

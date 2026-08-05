@@ -12,6 +12,7 @@ import { initAdBlocker } from './reader/adBlocker'
 import { startPoller, runPoll } from './notifications/chapterPoller'
 import { loadMods, applyThemeCSS, emitModEvent, startModsWatcher, stopModsWatcher } from './mods/mod-loader'
 import { registerModIpc } from './ipc/mod.ipc'
+import { runBackupRotation } from './backup'
 
 const isDev = process.env['NODE_ENV'] === 'development' || !!process.env['ELECTRON_RENDERER_URL']
 const winIconPath = (() => {
@@ -98,6 +99,8 @@ app.whenReady().then(async () => {
   }
 
   purgeExpiredTrash()
+  // Lokale Backup-Rotation: läuft asynchron neben dem Fensteraufbau
+  void runBackupRotation()
 
   const mainWindow = createWindow()
 

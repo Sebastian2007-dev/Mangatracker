@@ -216,7 +216,7 @@ export async function runPoll(force = false): Promise<void> {
           const source = result.source ?? `HTTP ${result.statusCode}`
           pushLog('success', `${manga.title} – Kapitel ${result.newChapter} verfügbar! (${source})`)
 
-          if (settings.notificationsEnabled) {
+          if (settings.notificationsEnabled && !manga.muteNotifications) {
             await LocalNotifications.schedule({
               notifications: [
                 {

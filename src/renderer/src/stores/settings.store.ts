@@ -29,6 +29,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const profileAvatar = ref<string>('')
   const profileUpdatedAt = ref<number>(0)
   const customTitle = ref<string>('')
+  const hiddenElements = ref<Record<string, string[]>>({})
   const loadedMods = ref<LoadedMod[]>([])
 
   function applySettings(s: AppSettings): void {
@@ -55,6 +56,7 @@ export const useSettingsStore = defineStore('settings', () => {
     profileAvatar.value = s.profileAvatar ?? ''
     profileUpdatedAt.value = s.profileUpdatedAt ?? 0
     customTitle.value = s.customTitle ?? ''
+    hiddenElements.value = s.hiddenElements ?? {}
   }
 
   async function load(): Promise<void> {
@@ -94,6 +96,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.profileAvatar !== undefined) profileAvatar.value = updates.profileAvatar
     if (updates.profileUpdatedAt !== undefined) profileUpdatedAt.value = updates.profileUpdatedAt
     if (updates.customTitle !== undefined) customTitle.value = updates.customTitle ?? ''
+    if (updates.hiddenElements !== undefined) hiddenElements.value = updates.hiddenElements ?? {}
   }
 
   async function syncGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
@@ -169,6 +172,7 @@ export const useSettingsStore = defineStore('settings', () => {
     elementPickerEnabled, blockNewWindows, titleExpand,
     gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
     profileName, profileAvatar, profileUpdatedAt, customTitle,
+    hiddenElements,
     loadedMods,
     load, save, setupListeners, syncGist, testGistAuth, disconnectGist,
     fetchMods, scanMods, setModEnabled, openModsFolder

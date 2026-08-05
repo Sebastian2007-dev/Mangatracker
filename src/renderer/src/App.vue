@@ -188,7 +188,10 @@ useTheme()
       <div class="view-area">
         <RouterView v-slot="{ Component }">
           <Transition name="page" mode="out-in">
-            <component :is="Component" :key="route.path" />
+            <!-- KeepAlive: Bibliothek behält Tab + Scrollposition bei Settings-Besuchen -->
+            <KeepAlive include="MangaListView">
+              <component :is="Component" :key="route.path" />
+            </KeepAlive>
           </Transition>
         </RouterView>
       </div>

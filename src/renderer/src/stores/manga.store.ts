@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Manga, MangaStatus } from '../types/index'
+import type { Manga, MangaStatus, TrashedManga } from '../types/index'
 import { getBridge } from '../services/platform'
 import { useSkillTreeStore } from './skill-tree.store'
 
@@ -82,6 +82,31 @@ export const useMangaStore = defineStore('manga', () => {
       lastMutationAt.value = Date.now()
     }
     recentlyDeleted.value = null
+  }
+
+  // ── Papierkorb („Kürzlich gelöscht") ────────────────────────────────
+  const trashItems = ref<TrashedManga[]>([])
+
+  async function fetchTrash(): Promise<void> {
+    const result = await api.invoke<{ success: boolean; data: TrashedManga[] }>('manga:getTrash')
+    if (result.success && result.data) trashItems.value = result.data
+  }
+
+  async function restoreFromTrash(trashed: TrashedManga): Promise<void> {
+    // updatedAt bumpen, damit der Tombstone beim nächsten Sync nicht gewinnt
+    const { deletedAt: _deletedAt, ...manga } = trashed
+    const restored: Manga = { ...manga, updatedAt: Date.now() }
+    const result = await api.invoke<{ success: boolean; data: Manga }>('manga:createWithId', restored)
+    if (result.success) {
+      items.value.push(result.data ?? restored)
+      lastMutationAt.value = Date.now()
+      trashItems.value = trashItems.value.filter((m) => m.id !== trashed.id)
+    }
+  }
+
+  async function purgeFromTrash(id: string): Promise<void> {
+    await api.invoke('manga:emptyTrash', { id })
+    trashItems.value = trashItems.value.filter((m) => m.id !== id)
   }
 
   function clearUndo(): void {
@@ -202,6 +227,10 @@ export const useMangaStore = defineStore('manga', () => {
     recentlyDeleted,
     focusFullVisible,
     lastMutationAt,
+    trashItems,
+    fetchTrash,
+    restoreFromTrash,
+    purgeFromTrash,
     fetchAll,
     create,
     update,
