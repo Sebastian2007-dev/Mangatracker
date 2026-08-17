@@ -3,6 +3,11 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 import { setDomainGuardContext, setupDomainGuard } from './domainGuard'
 import store from '../store'
+import { broadcastSettingsChanged } from '../ipc/settings.ipc'
+
+// Marker, mit dem der Picker-Script gewählte Selektoren an den Main-Prozess meldet
+// (BrowserView hat kein Preload — console-message ist der einfachste Rückkanal)
+const PICKER_HIDE_PREFIX = '__MANGA_PICKER_HIDE__'
 
 const ELEMENT_PICKER_SCRIPT = `
 (function() {
@@ -86,6 +91,7 @@ const ELEMENT_PICKER_SCRIPT = `
       document.head.appendChild(styleEl);
     }
     styleEl.textContent += '\\n' + sel + ' { display: none !important; }';
+    console.log('__MANGA_PICKER_HIDE__' + sel);
     deactivate();
   }
 
@@ -396,6 +402,20 @@ function attachReaderEvents(webContents: WebContents, mainWindow: BrowserWindow)
     }
   })
 
+  webContents.on('did-finish-load', () => {
+    // Scroll restore is only supported in embedded mode (overlay must be visible)
+    if (!currentMangaId || mainWindow.isDestroyed() || readerView?.webContents !== webContents) return
+    const manga = store.get('mangaList').find((m) => m.id === currentMangaId)
+    if (!manga?.scrollPosition) return
+    const currentUrl = webContents.getURL()
+    if (currentUrl === manga.scrollPosition.url && manga.scrollPosition.scrollY > 100) {
+      mainWindow.webContents.send('reader:scrollPositionAvailable', {
+        scrollY: manga.scrollPosition.scrollY,
+        scrollPercent: manga.scrollPosition.scrollPercent
+      })
+    }
+  })
+
   // F2: Element-Picker aktivieren
   webContents.on('before-input-event', (_event, input) => {
     if (input.type === 'keyDown' && input.key === 'F2') {
@@ -406,6 +426,35 @@ function attachReaderEvents(webContents: WebContents, mainWindow: BrowserWindow)
     }
   })
 
+  // Vom Picker gewählte Selektoren pro Domain persistieren
+  webContents.on('console-message', (_event, _level, message) => {
+    if (!message.startsWith(PICKER_HIDE_PREFIX)) return
+    const selector = message.slice(PICKER_HIDE_PREFIX.length).trim()
+    if (!selector) return
+    const domain = extractDomain(webContents.getURL())
+    if (!domain) return
+
+    const settings = store.get('settings')
+    const hidden = { ...(settings.hiddenElements ?? {}) }
+    const existing = hidden[domain] ?? []
+    if (existing.includes(selector)) return
+
+    hidden[domain] = [...existing, selector]
+    store.set('settings', { ...settings, hiddenElements: hidden })
+    broadcastSettingsChanged()
+  })
+
+  // Persistierte Selektoren nach jedem Laden wieder ausblenden
+  webContents.on('did-finish-load', () => {
+    const domain = extractDomain(webContents.getURL())
+    if (!domain) return
+    const selectors = store.get('settings').hiddenElements?.[domain]
+    if (selectors && selectors.length > 0) {
+      const css = selectors.map((sel) => `${sel} { display: none !important; }`).join('\n')
+      webContents.insertCSS(css).catch(() => {})
+    }
+  })
+
   // Neue Fenster blockieren (Popup-Ads)
   webContents.setWindowOpenHandler(() => {
     const settings = store.get('settings')
@@ -413,6 +462,14 @@ function attachReaderEvents(webContents: WebContents, mainWindow: BrowserWindow)
       return { action: 'deny' }
     }
     return { action: 'allow' }
+  })
+
+  // Erlaubte Child-Windows (blockNewWindows=false) bekommen ebenfalls
+  // Domain Guard + window-open-Handler (rekursiv für deren Popups).
+  webContents.on('did-create-window', (childWindow, details) => {
+    setupDomainGuard(childWindow.webContents, extractDomain(details.url), mainWindow)
+    setDomainGuardContext(childWindow.webContents, details.url)
+    attachReaderEvents(childWindow.webContents, mainWindow)
   })
 }
 
@@ -428,7 +485,28 @@ function getActiveReaderContents(): WebContents | null {
   return null
 }
 
+const READER_IPC_CHANNELS = [
+  'reader:open',
+  'reader:close',
+  'reader:restoreScrollPosition',
+  'reader:clearScrollPosition',
+  'reader:navigate',
+  'reader:goBack',
+  'reader:goForward',
+  'reader:reload',
+  'reader:getCurrentMangaId'
+] as const
+
 export function registerReaderIpc(mainWindow: BrowserWindow): void {
+  // Re-Registrierung (macOS 'activate' → neues Fenster) darf nicht werfen
+  for (const channel of READER_IPC_CHANNELS) {
+    ipcMain.removeHandler(channel)
+  }
+
+  // Ein Listener pro Fenster reicht — vorher wurde bei jedem reader:open
+  // ein weiterer 'resize'-Listener registriert (Leak).
+  mainWindow.on('resize', () => updateBoundsFor(mainWindow))
+
   ipcMain.handle('reader:open', (_event, { mangaId, url }: { mangaId: string; url: string }) => {
     const settings = store.get('settings')
     currentMangaId = mangaId
@@ -468,7 +546,6 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
       mainWindow.addBrowserView(readerView)
 
       updateBoundsFor(mainWindow)
-      mainWindow.on('resize', () => updateBoundsFor(mainWindow))
 
       setupDomainGuard(readerView.webContents, extractDomain(url), mainWindow)
       setDomainGuardContext(readerView.webContents, url)
@@ -480,7 +557,33 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
     return { success: true, separateWindow: false }
   })
 
-  ipcMain.handle('reader:close', () => {
+  ipcMain.handle('reader:close', async () => {
+    const savedMangaId = currentMangaId
+    const contents = getActiveReaderContents()
+
+    if (savedMangaId && contents && !contents.isDestroyed()) {
+      try {
+        const raw = await contents.executeJavaScript(
+          'JSON.stringify({ scrollY: Math.round(window.scrollY), scrollPercent: Math.min(1, window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight)) })',
+          true
+        )
+        const { scrollY, scrollPercent } = JSON.parse(raw) as { scrollY: number; scrollPercent: number }
+        const currentUrl = contents.getURL()
+        const mangaList = store.get('mangaList')
+        const idx = mangaList.findIndex((m) => m.id === savedMangaId)
+        if (idx !== -1 && currentUrl) {
+          if (scrollY > 100) {
+            mangaList[idx] = { ...mangaList[idx], scrollPosition: { url: currentUrl, scrollY, scrollPercent } }
+          } else {
+            mangaList[idx] = { ...mangaList[idx], scrollPosition: undefined }
+          }
+          store.set('mangaList', mangaList)
+        }
+      } catch {
+        // page may have crashed or navigated away — skip saving
+      }
+    }
+
     if (readerView) {
       mainWindow.removeBrowserView(readerView)
       ;(readerView.webContents as any).destroy()
@@ -493,6 +596,35 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
     }
 
     currentMangaId = null
+    return { success: true }
+  })
+
+  ipcMain.handle('reader:restoreScrollPosition', async (_event, { scrollY }: { scrollY: number }) => {
+    const contents = getActiveReaderContents()
+    const safeScrollY = Math.max(0, Number(scrollY) || 0)
+    if (contents && !contents.isDestroyed()) {
+      await contents.executeJavaScript(`window.scrollTo({ top: ${safeScrollY}, behavior: 'instant' })`, true)
+      if (currentMangaId) {
+        const mangaList = store.get('mangaList')
+        const idx = mangaList.findIndex((m) => m.id === currentMangaId)
+        if (idx !== -1) {
+          mangaList[idx] = { ...mangaList[idx], scrollPosition: undefined }
+          store.set('mangaList', mangaList)
+        }
+      }
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('reader:clearScrollPosition', () => {
+    if (currentMangaId) {
+      const mangaList = store.get('mangaList')
+      const idx = mangaList.findIndex((m) => m.id === currentMangaId)
+      if (idx !== -1 && mangaList[idx].scrollPosition) {
+        mangaList[idx] = { ...mangaList[idx], scrollPosition: undefined }
+        store.set('mangaList', mangaList)
+      }
+    }
     return { success: true }
   })
 

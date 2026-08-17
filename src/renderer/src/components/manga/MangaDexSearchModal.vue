@@ -27,20 +27,27 @@ function onBackdropMouseDown(event: MouseEvent): void {
   backdropDown = event.target === event.currentTarget
 }
 
+// Generation-Counter: invalidiert laufende Suchen beim Wiederöffnen/Neusuchen,
+// damit stale Ergebnisse nicht die aktuelle Anzeige überschreiben.
+let searchGeneration = 0
+
 watch(
   () => props.open,
   async (v) => {
     if (v) {
+      searchGeneration++
       query.value = props.initialQuery
       results.value = []
       error.value = ''
+      searching.value = false
       if (query.value.trim()) await doSearch()
     }
   }
 )
 
 async function doSearch(): Promise<void> {
-  if (!query.value.trim() || searching.value) return
+  if (!query.value.trim()) return
+  const gen = ++searchGeneration
   searching.value = true
   error.value = ''
   try {
@@ -50,15 +57,17 @@ async function doSearch(): Promise<void> {
       data?: { id: string; title: string; coverUrl: string | null }[]
       error?: string
     }
+    if (gen !== searchGeneration) return
     if (res.success) {
       results.value = res.data ?? []
     } else {
       error.value = res.error ? `${t('manga.mdxSearchError')}: ${res.error}` : t('manga.mdxSearchError')
     }
   } catch (e) {
+    if (gen !== searchGeneration) return
     error.value = `${t('manga.mdxSearchError')}: ${e instanceof Error ? e.message : String(e)}`
   } finally {
-    searching.value = false
+    if (gen === searchGeneration) searching.value = false
   }
 }
 

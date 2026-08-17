@@ -31,6 +31,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const customTitle = ref<string>('')
   const proxyUrl = ref<string>('')
   const lockRotation = ref<boolean>(true)
+  const hiddenElements = ref<Record<string, string[]>>({})
   const loadedMods = ref<LoadedMod[]>([])
 
   function applySettings(s: AppSettings): void {
@@ -59,6 +60,7 @@ export const useSettingsStore = defineStore('settings', () => {
     customTitle.value = s.customTitle ?? ''
     proxyUrl.value = s.proxyUrl ?? ''
     lockRotation.value = s.lockRotation ?? true
+    hiddenElements.value = s.hiddenElements ?? {}
   }
 
   async function load(): Promise<void> {
@@ -100,6 +102,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.customTitle !== undefined) customTitle.value = updates.customTitle ?? ''
     if (updates.proxyUrl !== undefined) proxyUrl.value = updates.proxyUrl ?? ''
     if (updates.lockRotation !== undefined) lockRotation.value = updates.lockRotation
+    if (updates.hiddenElements !== undefined) hiddenElements.value = updates.hiddenElements ?? {}
   }
 
   async function uploadGist(): Promise<{ success: boolean; error?: string }> {
@@ -200,6 +203,7 @@ export const useSettingsStore = defineStore('settings', () => {
     gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
     profileName, profileAvatar, profileUpdatedAt, customTitle, proxyUrl,
     lockRotation,
+    hiddenElements,
     loadedMods,
     load, save, setupListeners, syncGist, uploadGist, downloadGist, testGistAuth, disconnectGist,
     fetchMods, scanMods, setModEnabled, openModsFolder

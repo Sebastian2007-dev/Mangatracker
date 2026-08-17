@@ -4,6 +4,7 @@ import store from '../store'
 import type { Manga, MangaStatus, TrashedManga } from '../../types/index'
 import { emitModEvent } from '../mods/mod-loader'
 import { normalizeTagList } from '../../shared/statistics'
+import { filterExpiredTrash } from '../../shared/trash'
 import {
   notifyStatsUpdated,
   refreshLibraryMetadata,
@@ -20,6 +21,13 @@ function registerHandler(
 ): void {
   ipcMain.removeHandler(channel)
   ipcMain.handle(channel, listener)
+}
+
+/** Beim App-Start aufrufen: entfernt Trash-Einträge nach Ablauf der Retention. */
+export function purgeExpiredTrash(): void {
+  const trash = store.get('mangaTrash') as TrashedManga[]
+  const kept = filterExpiredTrash(trash)
+  if (kept.length !== trash.length) store.set('mangaTrash', kept)
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -96,6 +104,18 @@ function normalizeImportedEntry(entry: unknown): Manga | null {
   )
 
   const importedId = toStringValue(pickFirst(entry, ['id', 'Id']), '')
+
+  const bookmarkedChapter = toNumberValue(pickFirst(entry, ['bookmarkedChapter', 'BookmarkedChapter']), Number.NaN)
+  const rating = toNumberValue(pickFirst(entry, ['rating', 'Rating']), Number.NaN)
+  const scrollRaw = pickFirst(entry, ['scrollPosition', 'ScrollPosition'])
+  const scrollPosition =
+    isObject(scrollRaw) &&
+    typeof scrollRaw.url === 'string' &&
+    typeof scrollRaw.scrollY === 'number' &&
+    typeof scrollRaw.scrollPercent === 'number'
+      ? { url: scrollRaw.url, scrollY: scrollRaw.scrollY, scrollPercent: scrollRaw.scrollPercent }
+      : undefined
+
   return {
     id: importedId || randomUUID(),
     title,
@@ -114,7 +134,14 @@ function normalizeImportedEntry(entry: unknown): Manga | null {
     comickHid: toStringValue(pickFirst(entry, ['comickHid']), '') || undefined,
     comickTitle: toStringValue(pickFirst(entry, ['comickTitle']), '') || undefined,
     comickCoverUrl: toStringValue(pickFirst(entry, ['comickCoverUrl']), '') || undefined,
-    tags: toStringArrayValue(pickFirst(entry, ['tags', 'Tags', 'genres', 'Genres']))
+    tags: toStringArrayValue(pickFirst(entry, ['tags', 'Tags', 'genres', 'Genres'])),
+    bookmarkedChapter: Number.isFinite(bookmarkedChapter) ? bookmarkedChapter : undefined,
+    note: toStringValue(pickFirst(entry, ['note', 'Note']), '') || undefined,
+    rating: Number.isFinite(rating) ? rating : undefined,
+    ignoreTemplateMismatch: toBooleanValue(pickFirst(entry, ['ignoreTemplateMismatch', 'IgnoreTemplateMismatch']), false) || undefined,
+    muteNotifications: toBooleanValue(pickFirst(entry, ['muteNotifications', 'MuteNotifications']), false) || undefined,
+    chapterDetectionTemplate: toStringValue(pickFirst(entry, ['chapterDetectionTemplate', 'ChapterDetectionTemplate']), '') || undefined,
+    scrollPosition
   }
 }
 
@@ -202,6 +229,12 @@ export function registerMangaIpc(): void {
     recordStatisticsForDelete(manga, trashEntry.deletedAt)
     notifyStatsUpdated()
     return { success: true }
+  })
+
+  registerHandler('manga:getTrash', () => {
+    const trash = [...(store.get('mangaTrash') as TrashedManga[])]
+    trash.sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0))
+    return { success: true, data: trash }
   })
 
   registerHandler('manga:emptyTrash', (_event, { id }: { id: string }) => {

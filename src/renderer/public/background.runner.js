@@ -1,8 +1,30 @@
 /**
  * Background Runner Task — läuft via WorkManager (Android) im Hintergrund.
  * Kein DOM, kein Vue — nur CapacitorKV, CapacitorNotifications und fetch.
- * Manga-Liste wird via CapacitorKV gelesen (= @capacitor/preferences, gleicher Store).
+ * Manga-Liste wird via CapacitorKV gelesen. CapacitorKV nutzt das SharedPreferences-File
+ * mit dem Namen des Runner-Labels (capacitor.config.ts) — die App MUSS deshalb
+ * Preferences.configure({ group: '<label>' }) setzen (siehe storage.service.ts,
+ * ensurePreferencesReady), sonst schreiben App und Runner in verschiedene Stores.
+ *
+ * Check-Ergebnisse (Spiegel der Desktop-Logik in chapterPoller.ts):
+ *   { found: <number> }  → neues Kapitel
+ *   'same'               → Quelle sagt: kein neues Kapitel (Short-Circuit, KEIN HTTP-Fallback)
+ *   'skip'               → Quelle nicht nutzbar (Fehler/keine Daten) → nächste Stufe
  */
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// FNV-1a — kollisionsarm im Gegensatz zur Zeichencode-Summe der UUID
+function notificationIdFor(mangaId) {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < mangaId.length; i++) {
+    hash ^= mangaId.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0) % 2147483647
+}
 
 async function checkMangaDex(manga) {
   const feedUrl =
@@ -13,15 +35,16 @@ async function checkMangaDex(manga) {
   const res = await fetch(feedUrl, {
     headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
   })
-  if (!res.ok) return null
+  if (!res.ok) return 'skip'
 
   const json = await res.json()
   const data = json.data ?? []
-  if (data.length === 0) return null
+  if (data.length === 0) return 'skip'
 
   const latest = parseFloat(data[0].attributes.chapter ?? 'NaN')
-  if (isNaN(latest) || latest <= manga.currentChapter) return null
-  return latest
+  if (isNaN(latest)) return 'skip'
+  if (latest <= manga.currentChapter) return 'same'
+  return { found: latest }
 }
 
 async function checkComicK(manga) {
@@ -29,22 +52,24 @@ async function checkComicK(manga) {
   const res = await fetch(url, {
     headers: { 'Accept': 'application/json, text/plain, */*' }
   })
-  if (!res.ok) return null
+  if (!res.ok) return 'skip'
 
   const json = await res.json()
   const chapters = json.chapters ?? []
-  if (chapters.length === 0) return null
+  if (chapters.length === 0) return 'skip'
 
   const latest = parseFloat(chapters[0].chap ?? 'NaN')
-  if (isNaN(latest) || latest <= manga.currentChapter) return null
-  return latest
+  if (isNaN(latest)) return 'skip'
+  if (latest <= manga.currentChapter) return 'same'
+  return { found: latest }
 }
 
 async function checkHttp(manga) {
+  if (!manga.chapterUrlTemplate) return 'skip'
   const nextChapter = Math.floor(manga.currentChapter) + 1
   const chapterStr = Number.isInteger(nextChapter) ? String(nextChapter) : String(nextChapter).replace('.', '-')
   const url = manga.chapterUrlTemplate.replace('$chapter', chapterStr)
-  if (!url || !url.startsWith('http')) return null
+  if (!url || !url.startsWith('http')) return 'skip'
 
   const res = await fetch(url, {
     method: 'GET',
@@ -54,11 +79,22 @@ async function checkHttp(manga) {
       'Cache-Control': 'no-cache'
     }
   })
-  if (res.status >= 400) return null
+  if (res.status >= 400) return 'same'
 
   const body = await res.text()
-  if (body.length < 2000) return null
-  return nextChapter
+  if (body.length < 2000) return 'same'
+
+  // Kapitel-Nummer war in der angefragten URL, fehlt aber in der finalen URL →
+  // die Seite hat auf eine andere Seite umgeleitet/umgeschrieben (False Positive)
+  if (url.includes(chapterStr) && res.url && !res.url.includes(chapterStr)) return 'same'
+
+  // 200er-Fehlerseiten am <title> erkennen (gleiche Guards wie Desktop)
+  const titleMatch = body.match(/<title[^>]*>([^<]*)<\/title>/i)
+  const pageTitle = titleMatch ? titleMatch[1].toLowerCase() : ''
+  const notFoundTitles = ['not found', 'page not found', 'chapter not found', '404 not found', 'error 404']
+  if (pageTitle && notFoundTitles.some((p) => pageTitle.includes(p))) return 'same'
+
+  return { found: nextChapter }
 }
 
 addEventListener('checkChapters', async (resolve, reject, _args) => {
@@ -96,24 +132,35 @@ addEventListener('checkChapters', async (resolve, reject, _args) => {
     }
 
     let changed = false
+    let first = true
 
     for (const manga of candidates) {
       try {
-        let newChapter = null
+        // Rate-Limit-Schutz: 300 ms Pause zwischen den Manga (429-Risiko)
+        if (!first) await sleep(300)
+        first = false
+
+        let result = 'skip'
 
         if (manga.mangaDexId) {
-          newChapter = await checkMangaDex(manga)
+          result = await checkMangaDex(manga)
         }
 
-        if (newChapter === null && manga.comickHid) {
-          newChapter = await checkComicK(manga)
+        if (result === 'skip' && manga.comickHid) {
+          result = await checkComicK(manga)
         }
 
-        if (newChapter === null) {
-          newChapter = await checkHttp(manga)
+        // 'same' von einer API = verlässlich kein neues Kapitel → KEIN HTTP-Scrape
+        // (der produziert bei "same" gern False Positives)
+        if (result === 'skip') {
+          result = await checkHttp(manga)
         }
 
-        if (newChapter !== null) {
+        if (typeof result === 'object' && result !== null && typeof result.found === 'number') {
+          const newChapter = result.found
+          // Bereits gemeldet (App-Poller oder früherer Runner-Lauf) → nicht erneut
+          const alreadyReported = (manga.lastCheckedChapter ?? 0) >= newChapter
+
           const idx = mangaList.findIndex((m) => m.id === manga.id)
           if (idx !== -1) {
             mangaList[idx] = {
@@ -124,19 +171,15 @@ addEventListener('checkChapters', async (resolve, reject, _args) => {
             changed = true
           }
 
-          // Notification ID aus Manga-ID ableiten (deterministisch, kein crypto)
-          let notifId = 0
-          for (let i = 0; i < manga.id.length; i++) {
-            notifId = (notifId + manga.id.charCodeAt(i)) % 2147483647
+          if (!alreadyReported && !manga.muteNotifications) {
+            CapacitorNotifications.schedule([
+              {
+                id: notificationIdFor(manga.id),
+                title: 'Neues Kapitel verfügbar!',
+                body: `${manga.title} – Kapitel ${newChapter} ist da`
+              }
+            ])
           }
-
-          CapacitorNotifications.schedule([
-            {
-              id: notifId,
-              title: 'Neues Kapitel verfügbar!',
-              body: `${manga.title} \u2013 Kapitel ${newChapter} ist da`
-            }
-          ])
         }
       } catch (_e) {
         // Einzelne Fehler ignorieren, weiter mit nächstem Manga

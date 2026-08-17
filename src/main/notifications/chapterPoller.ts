@@ -6,6 +6,9 @@ import { getRegisteredScanners } from '../mods/mod-loader'
 import { notifyStatsUpdated } from '../stats.service'
 
 let pollerTimer: ReturnType<typeof setTimeout> | null = null
+let pollerWindow: BrowserWindow | null = null
+
+const FETCH_TIMEOUT_MS = 20_000
 
 function buildChapterUrl(template: string, chapter: number): string {
   const chapterStr = Number.isInteger(chapter) ? String(chapter) : String(chapter).replace('.', '-')
@@ -41,7 +44,8 @@ async function checkMangaDex(
     `&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`
 
   const res = await ses.fetch(feedUrl, {
-    headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
+    headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
   })
 
   if (!res.ok) return { ok: false, reason: `MDX_ERR(HTTP_${res.status})` }
@@ -72,7 +76,8 @@ async function checkComicK(
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       'Accept': 'application/json, text/plain, */*',
       'Referer': 'https://comick.dev/'
-    }
+    },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
   })
 
   if (!res.ok) return { ok: false, reason: `CK_ERR(HTTP_${res.status})` }
@@ -153,7 +158,8 @@ async function checkManga(
       'Sec-Fetch-Mode': 'navigate',
       'Sec-Fetch-Site': 'same-origin',
       Range: 'bytes=0-16383'
-    }
+    },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
   })
 
   // Anything other than 2xx/3xx → chapter doesn't exist or blocked
@@ -214,13 +220,8 @@ export async function runPoll(mainWindow: BrowserWindow, force = false): Promise
     try {
       const result = await checkManga(manga, ses)
       if (result.ok) {
-        newCount++
-        const source = result.source ?? `HTTP ${result.statusCode}`
-        pushLog(
-          mainWindow,
-          'success',
-          `${manga.title} – Kapitel ${result.newChapter} verfügbar! (${source})`
-        )
+        // Bereits in einem früheren Scan gemeldet → nicht erneut benachrichtigen
+        const alreadyReported = (manga.lastCheckedChapter ?? 0) >= result.newChapter
 
         const updatedList = store.get('mangaList').map((m) =>
           m.id === manga.id ? { ...m, hasNewChapter: true, lastCheckedChapter: result.newChapter } : m
@@ -228,15 +229,27 @@ export async function runPoll(mainWindow: BrowserWindow, force = false): Promise
         store.set('mangaList', updatedList)
         notifyStatsUpdated()
 
-        if (desktopNotificationsEnabled && Notification.isSupported()) {
-          new Notification({
-            title: 'Neues Kapitel verfügbar!',
-            body: `${result.title} – Kapitel ${result.newChapter} ist da`
-          }).show()
-        }
+        if (alreadyReported) {
+          pushLog(mainWindow, 'info', `${manga.title} – Kapitel ${result.newChapter} bereits gemeldet`)
+        } else {
+          newCount++
+          const source = result.source ?? `HTTP ${result.statusCode}`
+          pushLog(
+            mainWindow,
+            'success',
+            `${manga.title} – Kapitel ${result.newChapter} verfügbar! (${source})`
+          )
 
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('notifications:newChapter', result)
+          if (desktopNotificationsEnabled && !manga.muteNotifications && Notification.isSupported()) {
+            new Notification({
+              title: 'Neues Kapitel verfügbar!',
+              body: `${result.title} – Kapitel ${result.newChapter} ist da`
+            }).show()
+          }
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('notifications:newChapter', result)
+          }
         }
       } else {
         pushLog(mainWindow, 'info', `${manga.title} – kein neues Kapitel [${result.reason}]`)
@@ -266,6 +279,7 @@ export async function runPoll(mainWindow: BrowserWindow, force = false): Promise
 
 export function startPoller(mainWindow: BrowserWindow): void {
   stopPoller()
+  pollerWindow = mainWindow
 
   const settings = store.get('settings')
   const interval = settings.notificationIntervalMs
@@ -287,6 +301,7 @@ export function stopPoller(): void {
   }
 }
 
-export function restartPoller(mainWindow: BrowserWindow): void {
-  startPoller(mainWindow)
+export function restartPoller(mainWindow?: BrowserWindow): void {
+  const win = mainWindow ?? pollerWindow
+  if (win && !win.isDestroyed()) startPoller(win)
 }

@@ -9,6 +9,34 @@
     "focus": "Focus",
     "new": "New"
   },
+  "header": {
+    "scanFailed": "Scan failed: {error}",
+    "importFailed": "Import failed: {error}",
+    "streakTooltip": "Reading streak: {days} days – keep it up!"
+  },
+  "sort": {
+    "label": "Sort order",
+    "manual": "Custom order",
+    "newFirst": "New chapters first",
+    "title": "Title A–Z",
+    "chapter": "Chapter (descending)",
+    "rating": "Rating",
+    "updated": "Recently updated",
+    "added": "Recently added"
+  },
+  "inbox": {
+    "title": "New chapters",
+    "empty": "No new chapters – all caught up 🎉",
+    "chapterAvailable": "Chapter {chapter} available",
+    "open": "Open chapter",
+    "markSeen": "Mark as seen"
+  },
+  "levelUp": {
+    "title": "LEVEL UP!",
+    "multi": "MULTI LEVEL UP!",
+    "mega": "MEGA LEVEL UP!",
+    "max": "MAX LEVEL!"
+  },
   "manga": {
     "new": "New Manga",
     "edit": "Edit Manga",
@@ -20,6 +48,9 @@
     "chapterUrlTemplate": "Chapter URL Template",
     "chapterUrlHelp": "Use $chapter as a placeholder for the chapter number, e.g. https://example.com/manga/$chapter",
     "chapterUrlNoPlaceholder": "⚠ No $chapter found – automatic chapter detection won't work",
+    "muteNotifications": "Mute notifications",
+    "muteHint": "New chapters are still detected (badge & inbox), but no system notification is shown",
+    "muted": "Notifications muted",
     "duplicateWarningTitle": "Possible duplicate",
     "duplicateWarningText": "A manga named \"{title}\" already exists. Save anyway?",
     "duplicateSaveAnyway": "Save anyway",
@@ -80,7 +111,25 @@
     "scanResultTitle": "New Chapters Found",
     "scanResultEmpty": "No new chapters found",
     "scanResultChapter": "Chapter",
-    "scanResultClose": "Close"
+    "scanResultClose": "Close",
+    "newBadge": "New",
+    "requiredField": "Required",
+    "chapterAbbrev": "Ch.",
+    "close": "Close",
+    "note": "Note",
+    "addNote": "Add note",
+    "notePlaceholder": "Your note…",
+    "markReadTitle": "Read up to which chapter?",
+    "infoTooltip": "Info",
+    "bookmarkTooltip": "Bookmark",
+    "infoLoading": "Loading…",
+    "infoNoData": "No data available.",
+    "pubStatus": {
+      "ongoing": "Ongoing",
+      "completed": "Completed",
+      "hiatus": "Hiatus",
+      "cancelled": "Cancelled"
+    }
   },
   "reader": {
     "open": "Open Reader",
@@ -98,10 +147,16 @@
     "templateApply": "Apply",
     "templateDismiss": "Cancel",
     "templateIgnore": "Don't show again",
+    "prevChapter": "Open previous chapter",
+    "nextChapter": "Open next chapter",
+    "scrollRestoreHint": "You last scrolled to {percent}% – continue reading?",
+    "scrollRestoreYes": "Continue",
+    "scrollRestoreNo": "Start over",
     "templateKeepDetection": "Remember new URL for automatic chapter detection in the background",
     "domainGuard": {
       "title": "Different Domain",
       "message": "You are navigating to a different domain: {domain}",
+      "from": "From: {domain}",
       "yes": "Yes",
       "yesAlways": "Yes, always",
       "no": "No",
@@ -110,6 +165,17 @@
   },
   "settings": {
     "title": "Settings",
+    "hoursShort": "h",
+    "trashTitle": "Recently deleted",
+    "trashHint": "Deleted manga are kept for 30 days and can be restored here.",
+    "trashEmpty": "The trash is empty.",
+    "trashDeletedAt": "Deleted on {date}",
+    "trashRestore": "Restore",
+    "trashPurge": "Delete permanently",
+    "hiddenElementsTitle": "Hidden elements (F2 picker)",
+    "hiddenElementsHint": "Areas hidden with the element picker, stored per domain.",
+    "hiddenElementsClearDomain": "Remove all",
+    "hiddenElementsRemove": "Remove selector",
     "theme": "Theme",
     "themeLight": "Light",
     "themeDark": "Dark",

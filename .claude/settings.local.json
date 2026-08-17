@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find 'c:/Users/sebastian.wendt/Documents/Spaß und Übungs projekte/Manga/Mangatracker/src/renderer/src/views' -type f -name *.vue)"
+      "Bash(find 'c:/Users/sebastian.wendt/Documents/Spaß und Übungs projekte/Manga/Mangatracker/src/renderer/src/views' -type f -name *.vue)",
+      "WebFetch(domain:gist.github.com)"
     ]
   }
 }

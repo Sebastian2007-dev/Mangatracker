@@ -354,7 +354,8 @@ export function rebuildStatistics(): void {
   const now = Date.now()
   const additions: StatisticsEvent[] = []
   for (const manga of [...mangaList, ...mangaTrash]) {
-    const at = ('deletedAt' in manga && manga.deletedAt) ? manga.deletedAt : (manga.updatedAt || manga.createdAt || now)
+    const deletedAt = (manga as Partial<TrashedManga>).deletedAt
+    const at = typeof deletedAt === 'number' && deletedAt > 0 ? deletedAt : (manga.updatedAt || manga.createdAt || now)
     const seedEvent = createSyntheticChapterSeedEvent(manga, at)
     if (seedEvent) additions.push(seedEvent)
   }

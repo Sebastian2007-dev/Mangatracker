@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { existsSync } from 'fs'
 import { join } from 'path'
 import store from './store'
-import { registerMangaIpc } from './ipc/manga.ipc'
+import { registerMangaIpc, purgeExpiredTrash } from './ipc/manga.ipc'
 import { registerSettingsIpc, applyProxy } from './ipc/settings.ipc'
 import { registerGistIpc, syncGistDirect } from './ipc/gist.ipc'
 import { registerStatsIpc } from './ipc/stats.ipc'
@@ -12,6 +12,7 @@ import { initAdBlocker } from './reader/adBlocker'
 import { startPoller, runPoll } from './notifications/chapterPoller'
 import { loadMods, applyThemeCSS, emitModEvent, startModsWatcher, stopModsWatcher } from './mods/mod-loader'
 import { registerModIpc } from './ipc/mod.ipc'
+import { runBackupRotation } from './backup'
 
 const isDev = process.env['NODE_ENV'] === 'development' || !!process.env['ELECTRON_RENDERER_URL']
 const winIconPath = (() => {
@@ -23,11 +24,17 @@ const winIconPath = (() => {
   return undefined
 })()
 
+let staticIpcRegistered = false
+
 function createWindow(): BrowserWindow {
-  registerMangaIpc()
-  registerSettingsIpc()
-  registerStatsIpc()
-  registerGistIpc()
+  // ipcMain.handle wirft bei doppelter Registrierung (z. B. macOS 'activate')
+  if (!staticIpcRegistered) {
+    registerMangaIpc()
+    registerSettingsIpc()
+    registerStatsIpc()
+    registerGistIpc()
+    staticIpcRegistered = true
+  }
 
   const mainWindow = new BrowserWindow({
     width: 1280,
@@ -39,7 +46,8 @@ function createWindow(): BrowserWindow {
     icon: winIconPath,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      // Preload nutzt nur contextBridge + ipcRenderer — beides ist im Sandbox-Preload erlaubt
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -50,7 +58,9 @@ function createWindow(): BrowserWindow {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    if (/^https?:\/\//i.test(details.url)) {
+      shell.openExternal(details.url)
+    }
     return { action: 'deny' }
   })
 
@@ -87,6 +97,10 @@ app.whenReady().then(async () => {
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.mangaTracker.app')
   }
+
+  purgeExpiredTrash()
+  // Lokale Backup-Rotation: läuft asynchron neben dem Fensteraufbau
+  void runBackupRotation()
 
   const mainWindow = createWindow()
 

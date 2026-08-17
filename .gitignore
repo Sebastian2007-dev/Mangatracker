@@ -5,9 +5,16 @@ out
 .test-dist
 .DS_Store
 *.log
-# Android signing key — niemals committen!
+.cache/
+*.tsbuildinfo
+# Build-Artefakte — nur die .iss-Templates gehören ins Repo
+installer/*.exe
+installer/*.apk
+android/.idea/
+# Android signing key + Credentials — niemals committen!
 android/app/*.jks
 android/app/*.keystore
+android/keystore.properties
 .vscode
 
 switch-github-account.bat

@@ -5,7 +5,6 @@ import {
   debugSetChapters,
   getStatisticsOverview,
   rebuildStatistics,
-  refreshLibraryMetadata,
   refreshStatisticsTags
 } from '../stats.service'
 
@@ -44,13 +43,7 @@ export function registerStatsIpc(): void {
     }
   })
 
-  registerHandler('manga:refreshMetadata', async () => {
-    try {
-      return { success: true, data: await refreshLibraryMetadata() }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
-  })
+  // 'manga:refreshMetadata' wird in manga.ipc.ts registriert (Domain-Zugehörigkeit)
 
   registerHandler('stats:rebuild', async () => {
     try {

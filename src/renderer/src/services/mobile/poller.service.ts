@@ -7,13 +7,16 @@ import { LocalNotifications } from '@capacitor/local-notifications'
 import { App as CapApp } from '@capacitor/app'
 import { CapacitorHttp } from '@capacitor/core'
 import type { LogEntry, LogEntryType } from '../../../../types/index'
-import { getMangaList, setMangaList, getSettings } from './storage.service'
+import { getMangaList, setMangaList, getSettings, withMangaListLock } from './storage.service'
 
 type LogCallback = (entry: LogEntry) => void
 type NewChapterCallback = (data: { mangaId: string; title: string; newChapter: number }) => void
 
 let pollerTimer: ReturnType<typeof setTimeout> | null = null
 let appIsActive = true
+// Invalidiert nach stopPoller() noch laufende scheduleNext-Aufrufe, die gerade
+// in einem await hängen — sonst armieren sie einen nicht mehr abbrechbaren Timer.
+let pollerGeneration = 0
 
 const logListeners: Set<LogCallback> = new Set()
 const chapterListeners: Set<NewChapterCallback> = new Set()
@@ -31,6 +34,16 @@ export function onNewChapter(cb: NewChapterCallback): () => void {
 function pushLog(type: LogEntryType, message: string): void {
   const entry: LogEntry = { id: crypto.randomUUID(), type, message, timestamp: Date.now() }
   for (const cb of logListeners) cb(entry)
+}
+
+// FNV-1a — kollisionsarm im Gegensatz zur Zeichencode-Summe der UUID
+export function notificationIdFor(mangaId: string): number {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < mangaId.length; i++) {
+    hash ^= mangaId.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0) % 2_147_483_647
 }
 
 function buildChapterUrl(template: string, chapter: number): string {
@@ -186,28 +199,37 @@ export async function runPoll(force = false): Promise<void> {
     try {
       const result = await checkManga(manga)
       if (result.ok) {
-        newCount++
-        const source = result.source ?? `HTTP ${result.statusCode}`
-        pushLog('success', `${manga.title} – Kapitel ${result.newChapter} verfügbar! (${source})`)
+        // Bereits in einem früheren Scan gemeldet → nicht erneut benachrichtigen
+        const alreadyReported = (manga.lastCheckedChapter ?? 0) >= result.newChapter
 
-        const updatedList = (await getMangaList()).map((m) =>
-          m.id === manga.id ? { ...m, hasNewChapter: true, lastCheckedChapter: result.newChapter } : m
-        )
-        await setMangaList(updatedList)
+        await withMangaListLock(async () => {
+          const updatedList = (await getMangaList()).map((m) =>
+            m.id === manga.id ? { ...m, hasNewChapter: true, lastCheckedChapter: result.newChapter } : m
+          )
+          await setMangaList(updatedList)
+        })
 
-        if (settings.notificationsEnabled) {
-          await LocalNotifications.schedule({
-            notifications: [
-              {
-                id: Math.abs(result.mangaId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % 2_147_483_647,
-                title: 'Neues Kapitel verfügbar!',
-                body: `${result.title} – Kapitel ${result.newChapter} ist da`
-              }
-            ]
-          })
+        if (alreadyReported) {
+          pushLog('info', `${manga.title} – Kapitel ${result.newChapter} bereits gemeldet`)
+        } else {
+          newCount++
+          const source = result.source ?? `HTTP ${result.statusCode}`
+          pushLog('success', `${manga.title} – Kapitel ${result.newChapter} verfügbar! (${source})`)
+
+          if (settings.notificationsEnabled && !manga.muteNotifications) {
+            await LocalNotifications.schedule({
+              notifications: [
+                {
+                  id: notificationIdFor(result.mangaId),
+                  title: 'Neues Kapitel verfügbar!',
+                  body: `${result.title} – Kapitel ${result.newChapter} ist da`
+                }
+              ]
+            })
+          }
+
+          for (const cb of chapterListeners) cb(result)
         }
-
-        for (const cb of chapterListeners) cb(result)
       } else {
         pushLog('info', `${manga.title} – kein neues Kapitel [${result.reason}]`)
       }
@@ -227,6 +249,7 @@ export async function runPoll(force = false): Promise<void> {
 }
 
 function stopPoller(): void {
+  pollerGeneration++
   if (pollerTimer !== null) {
     clearTimeout(pollerTimer)
     pollerTimer = null
@@ -235,7 +258,9 @@ function stopPoller(): void {
 
 async function scheduleNext(): Promise<void> {
   if (!appIsActive) return
+  const generation = pollerGeneration
   const settings = await getSettings()
+  if (generation !== pollerGeneration || !appIsActive) return
   pollerTimer = setTimeout(async () => {
     await runPoll()
     scheduleNext()
@@ -257,4 +282,7 @@ export function initPollerLifecycle(): void {
       stopPoller()
     }
   })
+  // appStateChange feuert nicht beim Kaltstart — die App startet im Vordergrund,
+  // also muss der erste Poll-Zyklus hier explizit angestoßen werden.
+  startPoller()
 }

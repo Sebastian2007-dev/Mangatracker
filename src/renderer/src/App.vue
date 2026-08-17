@@ -102,6 +102,8 @@ let cleanupMangaListeners: (() => void) | null = null
 let cleanupLogListener: (() => void) | null = null
 let cleanupSettingsListener: (() => void) | null = null
 let cleanupStatisticsListener: (() => void) | null = null
+let cleanupTemplateMismatchListener: (() => void) | null = null
+let stopMutationWatch: (() => void) | null = null
 let mutationSyncTimer: ReturnType<typeof setTimeout> | null = null
 let syncInProgress = false
 
@@ -132,9 +134,10 @@ onMounted(async () => {
   })
 
   // Sync nach Mutations (create / update / remove) — debounced 3s
-  watch(() => mangaStore.lastMutationAt, scheduleMutationSync)
+  // (Watcher entsteht nach 'await' → nicht scope-gebunden, daher manuell stoppen)
+  stopMutationWatch = watch(() => mangaStore.lastMutationAt, scheduleMutationSync)
 
-  getBridge().on('reader:templateMismatch', (data: any) => {
+  cleanupTemplateMismatchListener = getBridge().on('reader:templateMismatch', (data: any) => {
     templateMismatch.value = data as TemplateMismatchData
   })
 
@@ -169,6 +172,8 @@ onUnmounted(() => {
   cleanupLogListener?.()
   cleanupSettingsListener?.()
   cleanupStatisticsListener?.()
+  cleanupTemplateMismatchListener?.()
+  stopMutationWatch?.()
   if (mutationSyncTimer !== null) clearTimeout(mutationSyncTimer)
 })
 
@@ -183,7 +188,10 @@ useTheme()
       <div class="view-area">
         <RouterView v-slot="{ Component }">
           <Transition name="page" mode="out-in">
-            <component :is="Component" :key="route.path" />
+            <!-- KeepAlive: Bibliothek behält Tab + Scrollposition bei Settings-Besuchen -->
+            <KeepAlive include="MangaListView">
+              <component :is="Component" :key="route.path" />
+            </KeepAlive>
           </Transition>
         </RouterView>
       </div>
@@ -202,6 +210,7 @@ useTheme()
 
     <TemplateMismatchModal
       v-if="templateMismatch"
+      :key="templateMismatch.mangaId + templateMismatch.suggestedTemplate"
       :manga-title="templateMismatch.mangaTitle"
       :old-template="templateMismatch.oldTemplate"
       :suggested-template="templateMismatch.suggestedTemplate"

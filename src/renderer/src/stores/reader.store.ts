@@ -13,9 +13,15 @@ export const useReaderStore = defineStore('reader', () => {
   const isLoading = ref(false)
   const pendingDomainGuard = ref<DomainGuardRequest | null>(null)
   const currentMangaId = ref<string | null>(null)
+  const scrollPositionAvailable = ref<{ scrollY: number; scrollPercent: number } | null>(null)
 
   function setupListeners(): () => void {
     const cleanupUrl = api.on('reader:urlChanged', (data: any) => {
+      // In-Reader-Navigation: Restore-Bar gehört zur alten Seite → ausblenden.
+      // (scrollPositionAvailable kommt bei passender Seite nach did-finish-load erneut)
+      if (data.url !== currentUrl.value) {
+        scrollPositionAvailable.value = null
+      }
       currentUrl.value = data.url
       canGoBack.value = data.canGoBack
       canGoForward.value = data.canGoForward
@@ -34,11 +40,16 @@ export const useReaderStore = defineStore('reader', () => {
       mangaStore.setChapter(data.mangaId, data.chapter)
     })
 
+    const cleanupScrollPos = api.on('reader:scrollPositionAvailable', (data: any) => {
+      scrollPositionAvailable.value = { scrollY: data.scrollY, scrollPercent: data.scrollPercent }
+    })
+
     return () => {
       cleanupUrl()
       cleanupLoading()
       cleanupDomain()
       cleanupChapter()
+      cleanupScrollPos()
     }
   }
 
@@ -58,6 +69,19 @@ export const useReaderStore = defineStore('reader', () => {
     currentMangaId.value = null
     canGoBack.value = false
     canGoForward.value = false
+    scrollPositionAvailable.value = null
+  }
+
+  async function restoreScrollPosition(): Promise<void> {
+    if (!scrollPositionAvailable.value) return
+    await api.invoke('reader:restoreScrollPosition', { scrollY: scrollPositionAvailable.value.scrollY })
+    scrollPositionAvailable.value = null
+  }
+
+  function dismissScrollPosition(): void {
+    scrollPositionAvailable.value = null
+    // Auch die persistierte Position löschen, sonst erscheint die Bar bei jedem Reload erneut
+    void api.invoke('reader:clearScrollPosition')
   }
 
   async function goBack(): Promise<void> {
@@ -83,7 +107,8 @@ export const useReaderStore = defineStore('reader', () => {
 
   return {
     isOpen, currentUrl, canGoBack, canGoForward, isLoading,
-    pendingDomainGuard, currentMangaId,
-    setupListeners, open, close, goBack, goForward, reload, navigate, respondToDomainGuard
+    pendingDomainGuard, currentMangaId, scrollPositionAvailable,
+    setupListeners, open, close, goBack, goForward, reload, navigate,
+    respondToDomainGuard, restoreScrollPosition, dismissScrollPosition
   }
 })

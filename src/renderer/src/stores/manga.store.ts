@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Manga, MangaStatus } from '../types/index'
+import type { Manga, MangaStatus, TrashedManga } from '../types/index'
 import { getBridge } from '../services/platform'
 import { useSkillTreeStore } from './skill-tree.store'
 
@@ -53,11 +53,12 @@ export const useMangaStore = defineStore('manga', () => {
     items.value = items.value.filter((m) => m.id !== id)
     lastMutationAt.value = Date.now()
 
-    // Undo window
+    // Undo window — nach Ablauf nur den Toast schließen. Der Trash-Eintrag bleibt
+    // als Tombstone-Quelle für den Gist-Sync erhalten (Retention-Purge beim App-Start),
+    // sonst resurrectet der nächste Sync ein offline gelöschtes Manga.
     recentlyDeleted.value = manga
     if (undoTimerId !== null) clearTimeout(undoTimerId)
-    undoTimerId = setTimeout(async () => {
-      await api.invoke('manga:emptyTrash', { id: manga.id })
+    undoTimerId = setTimeout(() => {
       recentlyDeleted.value = null
       undoTimerId = null
     }, 10_000)
@@ -72,11 +73,40 @@ export const useMangaStore = defineStore('manga', () => {
       undoTimerId = null
     }
 
-    const result = await api.invoke<{ success: boolean; data: Manga }>('manga:createWithId', manga)
+    // updatedAt bumpen, sonst gewinnt ein bereits gesynctes Lösch-Tombstone
+    // (deletedAt >= updatedAt) beim nächsten Gist-Sync und löscht das Manga erneut.
+    const restored: Manga = { ...manga, updatedAt: Date.now() }
+    const result = await api.invoke<{ success: boolean; data: Manga }>('manga:createWithId', restored)
     if (result.success) {
-      items.value.push(manga)
+      items.value.push(result.data ?? restored)
+      lastMutationAt.value = Date.now()
     }
     recentlyDeleted.value = null
+  }
+
+  // ── Papierkorb („Kürzlich gelöscht") ────────────────────────────────
+  const trashItems = ref<TrashedManga[]>([])
+
+  async function fetchTrash(): Promise<void> {
+    const result = await api.invoke<{ success: boolean; data: TrashedManga[] }>('manga:getTrash')
+    if (result.success && result.data) trashItems.value = result.data
+  }
+
+  async function restoreFromTrash(trashed: TrashedManga): Promise<void> {
+    // updatedAt bumpen, damit der Tombstone beim nächsten Sync nicht gewinnt
+    const { deletedAt: _deletedAt, ...manga } = trashed
+    const restored: Manga = { ...manga, updatedAt: Date.now() }
+    const result = await api.invoke<{ success: boolean; data: Manga }>('manga:createWithId', restored)
+    if (result.success) {
+      items.value.push(result.data ?? restored)
+      lastMutationAt.value = Date.now()
+      trashItems.value = trashItems.value.filter((m) => m.id !== trashed.id)
+    }
+  }
+
+  async function purgeFromTrash(id: string): Promise<void> {
+    await api.invoke('manga:emptyTrash', { id })
+    trashItems.value = trashItems.value.filter((m) => m.id !== id)
   }
 
   function clearUndo(): void {
@@ -197,6 +227,10 @@ export const useMangaStore = defineStore('manga', () => {
     recentlyDeleted,
     focusFullVisible,
     lastMutationAt,
+    trashItems,
+    fetchTrash,
+    restoreFromTrash,
+    purgeFromTrash,
     fetchAll,
     create,
     update,

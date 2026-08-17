@@ -40,7 +40,7 @@ function makeTrash(overrides: Partial<TrashedManga> = {}): TrashedManga {
 }
 
 test('buildStatisticsOverview handles an empty library', () => {
-  const overview = buildStatisticsOverview([], [], [], null, false, 1_700_200_000_000)
+  const overview = buildStatisticsOverview([], [], [], null, false, false, 1_700_200_000_000)
 
   assert.equal(overview.counts.current, 0)
   assert.equal(overview.counts.deleted, 0)
@@ -98,6 +98,7 @@ test('buildStatisticsOverview combines snapshot data, history, and tag cache', (
     events,
     cache,
     false,
+    false,
     1_700_300_000_000
   )
 
@@ -120,7 +121,7 @@ test('buildStatisticsOverview uses stored manga tags when no cache is available'
     tags: ['action', ' Fantasy ', 'Action']
   })
 
-  const overview = buildStatisticsOverview([active], [], [], null, false, 1_700_300_000_000)
+  const overview = buildStatisticsOverview([active], [], [], null, false, false, 1_700_300_000_000)
 
   assert.equal(overview.favoriteTag?.name, 'Action')
   assert.equal(overview.favoriteTag?.count, 1)

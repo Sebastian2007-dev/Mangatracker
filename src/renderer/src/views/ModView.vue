@@ -52,13 +52,20 @@ function onIframeMessage(event: MessageEvent): void {
   const { id, channel, payload, modId: requestModId } = data
   // Only relay channels that start with 'mod:' to prevent accidental IPC access
   if (typeof id !== 'string' || typeof channel !== 'string' || !channel.startsWith('mod:')) return
-  if (typeof requestModId === 'string' && requestModId !== modId.value) return
+  if (requestModId !== undefined && requestModId !== modId.value) return
+
+  // Payload-modId immer auf den eigenen Mod festnageln — sonst könnte ein Mod
+  // (mit oder ohne top-level modId) fremde Mod-Settings lesen/schreiben.
+  let safePayload = payload
+  if (payload && typeof payload === 'object' && 'modId' in (payload as Record<string, unknown>)) {
+    safePayload = { ...(payload as Record<string, unknown>), modId: modId.value }
+  }
 
   const replyTarget = resolveReplyTarget(event)
   if (!replyTarget) return
 
   getBridge()
-    .invoke<unknown>(channel, payload)
+    .invoke<unknown>(channel, safePayload)
     .then((result) => replyTarget.postMessage({ type: 'mod-ipc-reply', id, result }, '*'))
     .catch((e) => replyTarget.postMessage({ type: 'mod-ipc-reply', id, error: String(e) }, '*'))
 }

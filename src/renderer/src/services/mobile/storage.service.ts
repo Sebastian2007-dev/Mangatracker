@@ -10,9 +10,58 @@ import { normalizeMangaList, normalizeTagCache, normalizeTrashedMangaList } from
 const MANGA_FILE = 'manga-list.json'
 const MANGA_TRASH_FILE = 'manga-trash.json'
 const STATS_EVENTS_FILE = 'stats-events.json'
+const EARNED_ACHIEVEMENTS_FILE = 'earned-achievements.json'
 const STATS_TAG_CACHE_FILE = 'stats-tag-cache.json'
 const LEGACY_STATS_TAG_CACHE_FILE = 'stats-genre-cache.json'
 const SETTINGS_KEY = 'app-settings'
+
+// Muss dem BackgroundRunner-Label in capacitor.config.ts entsprechen: der Runner
+// liest via CapacitorKV aus dem SharedPreferences-File mit diesem Namen, während
+// @capacitor/preferences ohne configure() in "CapacitorStorage" schreiben würde —
+// dann sieht der Background-Task nie Settings/Manga-Liste.
+const BG_RUNNER_GROUP = 'com.mangaTracker.app.background'
+const LEGACY_GROUP = 'CapacitorStorage'
+const GROUP_MIGRATED_KEY = 'bg-group-migrated'
+const MIGRATED_KEYS = ['app-settings', 'manga-list', 'reading-session']
+
+let prefsReady: Promise<void> | null = null
+
+/** Preferences auf den Background-Runner-Store umstellen (+ einmalige Migration alter Daten). */
+export function ensurePreferencesReady(): Promise<void> {
+  if (!prefsReady) {
+    prefsReady = (async () => {
+      await Preferences.configure({ group: BG_RUNNER_GROUP })
+      const { value: migrated } = await Preferences.get({ key: GROUP_MIGRATED_KEY })
+      if (migrated) return
+
+      await Preferences.configure({ group: LEGACY_GROUP })
+      const legacyValues: Array<[string, string]> = []
+      for (const key of MIGRATED_KEYS) {
+        const { value } = await Preferences.get({ key })
+        if (value) legacyValues.push([key, value])
+      }
+
+      await Preferences.configure({ group: BG_RUNNER_GROUP })
+      for (const [key, value] of legacyValues) {
+        const { value: existing } = await Preferences.get({ key })
+        if (!existing) await Preferences.set({ key, value })
+      }
+      await Preferences.set({ key: GROUP_MIGRATED_KEY, value: '1' })
+    })()
+  }
+  return prefsReady
+}
+
+// Serialisiert Read-Modify-Write-Zyklen auf der Manga-Liste. Ohne Lock können
+// sich update/delete/moveItem/Poller gegenseitig überschreiben (Liste wird über
+// mehrere awaits komplett gelesen und zurückgeschrieben).
+let mangaListLock: Promise<unknown> = Promise.resolve()
+
+export function withMangaListLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = mangaListLock.then(fn, fn)
+  mangaListLock = run.catch(() => {})
+  return run
+}
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -63,6 +112,7 @@ async function writeJsonFile<T>(path: string, data: T): Promise<void> {
 const MANGA_BG_KEY = 'manga-list'
 
 export async function getMangaList(): Promise<Manga[]> {
+  await ensurePreferencesReady()
   const { value } = await Preferences.get({ key: MANGA_BG_KEY })
   if (value) {
     try {
@@ -90,6 +140,7 @@ export async function getMangaList(): Promise<Manga[]> {
 }
 
 export async function setMangaList(list: Manga[]): Promise<void> {
+  await ensurePreferencesReady()
   await Preferences.set({ key: MANGA_BG_KEY, value: JSON.stringify(list) })
   await writeJsonFile(MANGA_FILE, list)
 }
@@ -115,6 +166,15 @@ export async function setStatsEvents(events: StatisticsEvent[]): Promise<void> {
   await writeJsonFile(STATS_EVENTS_FILE, events)
 }
 
+export async function getEarnedAchievements(): Promise<string[]> {
+  const raw = await readJsonFile<unknown>(EARNED_ACHIEVEMENTS_FILE, [])
+  return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : []
+}
+
+export async function setEarnedAchievements(ids: string[]): Promise<void> {
+  await writeJsonFile(EARNED_ACHIEVEMENTS_FILE, ids)
+}
+
 export async function getStatsTagCache(): Promise<StatisticsTagCache | null> {
   const raw = await readJsonFile<unknown>(STATS_TAG_CACHE_FILE, null)
   if (raw !== null) {
@@ -138,12 +198,14 @@ export async function setStatsTagCache(cache: StatisticsTagCache | null): Promis
 }
 
 export async function getSettings(): Promise<AppSettings> {
+  await ensurePreferencesReady()
   const { value } = await Preferences.get({ key: SETTINGS_KEY })
   if (!value) return { ...DEFAULT_SETTINGS }
   return { ...DEFAULT_SETTINGS, ...(JSON.parse(value) as Partial<AppSettings>) }
 }
 
 export async function setSettings(updates: Partial<AppSettings>): Promise<void> {
+  await ensurePreferencesReady()
   const current = await getSettings()
   await Preferences.set({ key: SETTINGS_KEY, value: JSON.stringify({ ...current, ...updates }) })
 }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import type { Manga, StatisticsEvent, StatisticsTagCache } from '../src/types/index'
 import {
   buildSyncPayload,
+  GIST_VERSION,
   mergeLists,
   mergeStatisticsPayload,
   parseSyncPayload
@@ -68,7 +69,7 @@ test('buildSyncPayload round-trips statistics payloads', () => {
   const raw = buildSyncPayload([makeManga()], [], { events, tagCache })
   const parsed = parseSyncPayload(raw)
 
-  assert.equal(parsed.version, 3)
+  assert.equal(parsed.version, GIST_VERSION)
   assert.equal(parsed.stats.events.length, 1)
   assert.equal(parsed.stats.tagCache?.tags.Action, 1)
 })

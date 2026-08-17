@@ -3,6 +3,7 @@ import { onMounted, onUnmounted } from 'vue'
 import { useReaderStore } from '../stores/reader.store'
 import ReaderToolbar from '../components/reader/ReaderToolbar.vue'
 import DomainGuardDialog from '../components/reader/DomainGuardDialog.vue'
+import ScrollRestoreBar from '../components/reader/ScrollRestoreBar.vue'
 
 const reader = useReaderStore()
 
@@ -26,6 +27,7 @@ onUnmounted(() => {
     class="reader-overlay"
   >
     <ReaderToolbar />
+    <ScrollRestoreBar />
     <!-- The area below toolbar is transparent — the native view shows through -->
     <div class="reader-content-area" />
     <DomainGuardDialog />

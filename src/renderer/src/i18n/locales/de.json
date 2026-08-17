@@ -9,6 +9,34 @@
     "focus": "Fokus",
     "new": "Neu"
   },
+  "header": {
+    "scanFailed": "Scan fehlgeschlagen: {error}",
+    "importFailed": "Import fehlgeschlagen: {error}",
+    "streakTooltip": "Lese-Streak: {days} Tage – dranbleiben!"
+  },
+  "sort": {
+    "label": "Sortierung",
+    "manual": "Eigene Reihenfolge",
+    "newFirst": "Neue Kapitel zuerst",
+    "title": "Titel A–Z",
+    "chapter": "Kapitel (absteigend)",
+    "rating": "Bewertung",
+    "updated": "Zuletzt aktualisiert",
+    "added": "Zuletzt hinzugefügt"
+  },
+  "inbox": {
+    "title": "Neue Kapitel",
+    "empty": "Keine neuen Kapitel – alles gelesen 🎉",
+    "chapterAvailable": "Kapitel {chapter} verfügbar",
+    "open": "Kapitel öffnen",
+    "markSeen": "Als gesehen markieren"
+  },
+  "levelUp": {
+    "title": "LEVEL UP!",
+    "multi": "MULTI LEVEL UP!",
+    "mega": "MEGA LEVEL UP!",
+    "max": "MAX LEVEL!"
+  },
   "manga": {
     "new": "Neuer Manga",
     "edit": "Manga bearbeiten",
@@ -20,6 +48,9 @@
     "chapterUrlTemplate": "Kapitel-URL Vorlage",
     "chapterUrlHelp": "Nutze $chapter als Platzhalter fuer die Kapitelnummer, z.B. https://example.com/manga/$chapter",
     "chapterUrlNoPlaceholder": "Kein $chapter gefunden - automatische Kapitel-Erkennung funktioniert nicht",
+    "muteNotifications": "Benachrichtigungen stummschalten",
+    "muteHint": "Neue Kapitel werden weiter erkannt (Badge & Inbox), aber ohne System-Benachrichtigung",
+    "muted": "Benachrichtigungen stummgeschaltet",
     "duplicateWarningTitle": "Moegliches Duplikat",
     "duplicateWarningText": "Es existiert bereits ein Manga namens \"{title}\". Trotzdem speichern?",
     "duplicateSaveAnyway": "Trotzdem speichern",
@@ -80,7 +111,25 @@
     "scanResultTitle": "Neue Kapitel gefunden",
     "scanResultEmpty": "Keine neuen Kapitel gefunden",
     "scanResultChapter": "Kapitel",
-    "scanResultClose": "Schliessen"
+    "scanResultClose": "Schliessen",
+    "newBadge": "Neu",
+    "requiredField": "Pflichtfeld",
+    "chapterAbbrev": "Kap.",
+    "close": "Schliessen",
+    "note": "Notiz",
+    "addNote": "Notiz hinzufuegen",
+    "notePlaceholder": "Deine Notiz…",
+    "markReadTitle": "Bis zu welchem Kapitel gelesen?",
+    "infoTooltip": "Infos",
+    "bookmarkTooltip": "Lesezeichen",
+    "infoLoading": "Lade…",
+    "infoNoData": "Keine Daten verfuegbar.",
+    "pubStatus": {
+      "ongoing": "Laufend",
+      "completed": "Abgeschlossen",
+      "hiatus": "Pause",
+      "cancelled": "Abgebrochen"
+    }
   },
   "reader": {
     "open": "Reader oeffnen",
@@ -98,10 +147,16 @@
     "templateApply": "Uebernehmen",
     "templateDismiss": "Abbrechen",
     "templateIgnore": "Nicht mehr anzeigen",
+    "prevChapter": "Vorheriges Kapitel öffnen",
+    "nextChapter": "Nächstes Kapitel öffnen",
+    "scrollRestoreHint": "Zuletzt bis {percent}% gescrollt – weiterlesen?",
+    "scrollRestoreYes": "Weiterlesen",
+    "scrollRestoreNo": "Von vorne",
     "templateKeepDetection": "Neue URL für automatische Kapitel-Erkennung im Hintergrund merken",
     "domainGuard": {
       "title": "Andere Domain",
       "message": "Du navigierst zu einer anderen Domain: {domain}",
+      "from": "Von: {domain}",
       "yes": "Ja",
       "yesAlways": "Ja, immer",
       "no": "Nein",
@@ -110,6 +165,17 @@
   },
   "settings": {
     "title": "Einstellungen",
+    "hoursShort": "Std.",
+    "trashTitle": "Kürzlich gelöscht",
+    "trashHint": "Gelöschte Manga bleiben 30 Tage erhalten und können hier wiederhergestellt werden.",
+    "trashEmpty": "Der Papierkorb ist leer.",
+    "trashDeletedAt": "Gelöscht am {date}",
+    "trashRestore": "Wiederherstellen",
+    "trashPurge": "Endgültig löschen",
+    "hiddenElementsTitle": "Ausgeblendete Elemente (F2-Picker)",
+    "hiddenElementsHint": "Mit dem Element-Picker ausgeblendete Bereiche, gespeichert pro Domain.",
+    "hiddenElementsClearDomain": "Alle entfernen",
+    "hiddenElementsRemove": "Selektor entfernen",
     "theme": "Design",
     "themeLight": "Hell",
     "themeDark": "Dunkel",
