@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, inject } from 'vue'
-import { Plus } from 'lucide-vue-next'
+import { computed, ref, inject, watch } from 'vue'
+import { Plus, ArrowUpDown, RefreshCw } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { Manga, TabId } from '../types/index'
 import { useMangaStore } from '../stores/manga.store'
@@ -54,6 +54,41 @@ const filteredManga = computed(() => {
     })
 })
 
+// ── Sortierung ───────────────────────────────────────────────────────
+type SortMode = 'manual' | 'newFirst' | 'title' | 'chapter' | 'rating' | 'updated' | 'added'
+
+const SORT_STORAGE_KEY = 'mangatracker:librarySort'
+const SORT_MODES: SortMode[] = ['manual', 'newFirst', 'title', 'chapter', 'rating', 'updated', 'added']
+
+const storedSort = localStorage.getItem(SORT_STORAGE_KEY) as SortMode | null
+const sortMode = ref<SortMode>(storedSort && SORT_MODES.includes(storedSort) ? storedSort : 'manual')
+
+watch(sortMode, (v) => localStorage.setItem(SORT_STORAGE_KEY, v))
+
+const sortedManga = computed(() => {
+  const list = [...filteredManga.value]
+  switch (sortMode.value) {
+    case 'newFirst':
+      // sort ist stabil — innerhalb der Gruppen bleibt die manuelle Reihenfolge
+      return list.sort((a, b) => Number(b.hasNewChapter === true) - Number(a.hasNewChapter === true))
+    case 'title':
+      return list.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
+    case 'chapter':
+      return list.sort((a, b) => b.currentChapter - a.currentChapter)
+    case 'rating':
+      return list.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1))
+    case 'updated':
+      return list.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+    case 'added':
+      return list.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+    default:
+      return list
+  }
+})
+
+// Drag & Drop ergibt nur in der eigenen Reihenfolge Sinn
+const dragEnabled = computed(() => sortMode.value === 'manual')
+
 const isFocusFull = computed(() =>
   activeTab.value === 'focus' && mangaStore.items.filter((m) => m.isFocused).length >= skillTreeStore.maxFocusSlots
 )
@@ -70,11 +105,53 @@ function openEdit(manga: Manga): void {
   showForm.value = true
 }
 
+// ── Pull-to-Refresh (Mobile) ─────────────────────────────────────────
+const PULL_THRESHOLD = 64
+const PULL_MAX = 96
+const scrollEl = ref<HTMLElement | null>(null)
+const pullDistance = ref(0)
+const isRefreshing = ref(false)
+let pullStartY = 0
+let pulling = false
+
+function onTouchStart(e: TouchEvent): void {
+  if (!isMobile || isRefreshing.value) return
+  if ((scrollEl.value?.scrollTop ?? 1) > 0) return
+  pullStartY = e.touches[0].clientY
+  pulling = true
+}
+
+function onTouchMove(e: TouchEvent): void {
+  if (!pulling || isRefreshing.value) return
+  if ((scrollEl.value?.scrollTop ?? 1) > 0) {
+    pullDistance.value = 0
+    return
+  }
+  const dy = e.touches[0].clientY - pullStartY
+  // Wurzel-Dämpfung: Indikator klebt nicht 1:1 am Finger
+  pullDistance.value = dy > 0 ? Math.min(Math.sqrt(dy) * 6, PULL_MAX) : 0
+}
+
+async function onTouchEnd(): Promise<void> {
+  if (!pulling) return
+  pulling = false
+  const shouldRefresh = pullDistance.value >= PULL_THRESHOLD
+  pullDistance.value = 0
+  if (!shouldRefresh || isRefreshing.value) return
+  isRefreshing.value = true
+  try {
+    await mangaStore.scanNow()
+  } finally {
+    isRefreshing.value = false
+  }
+}
+
 // Drag-and-drop
 const draggedId = ref<string | null>(null)
 const dragOverId = ref<string | null>(null)
 
 function onDragStart(id: string, e: DragEvent): void {
+  if (!dragEnabled.value) return
   draggedId.value = id
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
 }
@@ -98,7 +175,43 @@ function onDrop(toId: string): void {
     <MangaTabBar v-model="activeTab" />
 
     <!-- Content -->
-    <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4" :class="{ 'scroll-content-mobile': isMobile }">
+    <div
+      ref="scrollEl"
+      class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4"
+      :class="{ 'scroll-content-mobile': isMobile }"
+      @touchstart.passive="onTouchStart"
+      @touchmove.passive="onTouchMove"
+      @touchend="onTouchEnd"
+      @touchcancel="onTouchEnd"
+    >
+      <!-- Pull-to-Refresh Indikator (Mobile) -->
+      <div
+        v-if="isMobile && (pullDistance > 0 || isRefreshing)"
+        class="ptr-indicator"
+        :style="{ height: (isRefreshing ? 44 : pullDistance) + 'px' }"
+      >
+        <RefreshCw
+          :size="18"
+          class="ptr-icon"
+          :class="{ spinning: isRefreshing, armed: !isRefreshing && pullDistance >= PULL_THRESHOLD }"
+          :style="!isRefreshing ? { transform: `rotate(${pullDistance * 3}deg)` } : undefined"
+        />
+      </div>
+
+      <!-- Sortierung -->
+      <div v-if="filteredManga.length > 1" class="sort-row">
+        <ArrowUpDown :size="13" class="sort-icon" />
+        <select v-model="sortMode" class="sort-select" :title="t('sort.label')">
+          <option value="manual">{{ t('sort.manual') }}</option>
+          <option value="newFirst">{{ t('sort.newFirst') }}</option>
+          <option value="title">{{ t('sort.title') }}</option>
+          <option value="chapter">{{ t('sort.chapter') }}</option>
+          <option value="rating">{{ t('sort.rating') }}</option>
+          <option value="updated">{{ t('sort.updated') }}</option>
+          <option value="added">{{ t('sort.added') }}</option>
+        </select>
+      </div>
+
       <!-- Focus hint -->
       <div v-if="activeTab === 'focus'" class="focus-hint-bar">
         <span class="focus-hint-text">{{ t('manga.focusHint', { max: skillTreeStore.maxFocusSlots }) }}</span>
@@ -106,13 +219,13 @@ function onDrop(toId: string): void {
       </div>
 
       <!-- Manga grid -->
-      <div v-if="filteredManga.length > 0" class="manga-grid">
+      <div v-if="sortedManga.length > 0" class="manga-grid">
         <div
-          v-for="manga in filteredManga"
+          v-for="manga in sortedManga"
           :key="manga.id"
           class="drag-item"
           :class="{ 'drag-over': dragOverId === manga.id, 'is-dragging': draggedId === manga.id }"
-          draggable="true"
+          :draggable="dragEnabled"
           @dragstart="onDragStart(manga.id, $event)"
           @dragend="draggedId = null; dragOverId = null"
           @dragover.prevent="onDragOver(manga.id)"
@@ -179,6 +292,32 @@ function onDrop(toId: string): void {
 }
 .focus-hint-text { overflow-wrap: break-word; }
 .focus-full-tag { font-weight: 500; color: hsl(var(--primary)); }
+.sort-row {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 6px; margin-bottom: 12px;
+}
+.sort-icon { color: hsl(var(--muted-foreground)); flex-shrink: 0; }
+.sort-select {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+}
+.sort-select:focus { outline: 1px solid hsl(var(--primary)); }
+.ptr-indicator {
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  color: hsl(var(--muted-foreground));
+}
+.ptr-icon.armed { color: hsl(var(--primary)); }
+.ptr-icon.spinning {
+  color: hsl(var(--primary));
+  animation: ptr-spin 0.8s linear infinite;
+}
+@keyframes ptr-spin { to { transform: rotate(360deg); } }
 .manga-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
 @media (min-width: 600px) {
   .manga-grid { grid-template-columns: repeat(auto-fill, minmax(max(220px, 16%), 1fr)); }

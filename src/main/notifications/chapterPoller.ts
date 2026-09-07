@@ -240,7 +240,7 @@ export async function runPoll(mainWindow: BrowserWindow, force = false): Promise
             `${manga.title} – Kapitel ${result.newChapter} verfügbar! (${source})`
           )
 
-          if (desktopNotificationsEnabled && Notification.isSupported()) {
+          if (desktopNotificationsEnabled && !manga.muteNotifications && Notification.isSupported()) {
             new Notification({
               title: 'Neues Kapitel verfügbar!',
               body: `${result.title} – Kapitel ${result.newChapter} ist da`

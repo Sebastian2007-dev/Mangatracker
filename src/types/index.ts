@@ -29,6 +29,8 @@ export interface Manga {
   rating?: number
   ignoreTemplateMismatch?: boolean
   chapterDetectionTemplate?: string
+  /** Neue Kapitel werden weiter erkannt (Badge/Inbox), aber ohne System-Benachrichtigung */
+  muteNotifications?: boolean
   scrollPosition?: { url: string; scrollY: number; scrollPercent: number }
   createdAt: number
   updatedAt: number
@@ -191,6 +193,8 @@ export interface AppSettings {
   profileAvatar?: string
   profileUpdatedAt?: number
   customTitle?: string
+  proxyUrl?: string
+  lockRotation?: boolean
   /** Element Picker (F2): pro Domain persistierte CSS-Selektoren, die ausgeblendet werden */
   hiddenElements?: Record<string, string[]>
 }

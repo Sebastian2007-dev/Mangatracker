@@ -15,7 +15,13 @@ import { purgeExpiredTrash } from './services/mobile/manga.service'
 import { notifyStatsUpdated } from './services/mobile/stats.service'
 import { useLogStore } from './stores/log.store'
 import { LocalNotifications } from '@capacitor/local-notifications'
+import { registerPlugin } from '@capacitor/core'
 import type { LogEntry } from '../../types/index'
+
+const ScreenOrientationPlugin = registerPlugin<{
+  lock: () => Promise<void>
+  unlock: () => Promise<void>
+}>('ScreenOrientationPlugin')
 
 // Bridge setzen bevor irgendein Store initialisiert wird
 setBridge(capacitorAdapter)
@@ -49,3 +55,31 @@ void purgeExpiredTrash()
 
 // App-Lifecycle für Poller initialisieren
 initPollerLifecycle()
+
+// Bildschirmrotation anwenden (über nativen Android-Plugin)
+async function applyRotationLock(locked: boolean): Promise<void> {
+  try {
+    if (locked) {
+      await ScreenOrientationPlugin.lock()
+    } else {
+      await ScreenOrientationPlugin.unlock()
+    }
+  } catch {
+    // Plugin nicht verfügbar (z.B. in Browser-Preview)
+  }
+}
+
+// Initiale Einstellung laden und Rotationssperre anwenden
+capacitorAdapter.invoke<{ success: boolean; data: { lockRotation?: boolean } }>('settings:get').then((result) => {
+  if (result.success) {
+    applyRotationLock(result.data?.lockRotation ?? true)
+  }
+})
+
+// Bei Einstellungsänderungen die Rotationssperre aktualisieren
+capacitorAdapter.on('settings:changed', (data: unknown) => {
+  const settings = data as { lockRotation?: boolean } | null
+  if (settings && 'lockRotation' in settings) {
+    applyRotationLock(settings.lockRotation ?? true)
+  }
+})

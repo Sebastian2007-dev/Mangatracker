@@ -185,6 +185,85 @@ export async function syncGistDirect(
   }
 }
 
+export async function uploadGistDirect(
+  token: string,
+  storedGistId: string
+): Promise<{ success: boolean; gistId?: string; error?: string }> {
+  try {
+    const settings = store.get('settings')
+    const gistId = await findOrCreateGist(token, storedGistId)
+
+    const localManga = (store.get('mangaList') ?? []) as Manga[]
+    const localTrash = (store.get('mangaTrash') ?? []) as TrashedManga[]
+    const localDeleted: GistTombstone[] = localTrash.map((manga) => ({
+      id: manga.id,
+      deletedAt: manga.deletedAt ?? manga.updatedAt
+    }))
+    const localStats = {
+      events: (store.get('statsEvents') ?? []) as StatisticsEvent[],
+      tagCache: (store.get('statsTagCache') ?? null) as StatisticsTagCache | null
+    }
+    const localProfile = (settings.profileName || settings.profileAvatar)
+      ? { name: settings.profileName ?? '', avatar: settings.profileAvatar ?? '', updatedAt: settings.profileUpdatedAt ?? 0 }
+      : undefined
+
+    const patchRes = await electronSession.defaultSession.fetch(`${GITHUB_API}/gists/${gistId}`, {
+      method: 'PATCH',
+      headers: githubHeaders(token),
+      body: JSON.stringify({
+        files: { [GIST_FILE_NAME]: { content: buildSyncPayload(localManga, localDeleted, localStats, localProfile) } }
+      })
+    })
+    if (!patchRes.ok) throw new Error(`Gist konnte nicht hochgeladen werden: HTTP ${patchRes.status}`)
+
+    store.set('settings', { ...settings, gistId, lastGistSync: Date.now() })
+    return { success: true, gistId }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+export async function downloadGistDirect(
+  token: string,
+  storedGistId: string
+): Promise<{ success: boolean; gistId?: string; error?: string }> {
+  try {
+    const settings = store.get('settings')
+    const gistId = await findOrCreateGist(token, storedGistId)
+
+    const gistRes = await electronSession.defaultSession.fetch(`${GITHUB_API}/gists/${gistId}`, {
+      headers: githubHeaders(token)
+    })
+    if (!gistRes.ok) throw new Error(`Gist konnte nicht geladen werden: HTTP ${gistRes.status}`)
+
+    const gistData = (await gistRes.json()) as { files: Record<string, { content: string }> }
+    const remoteContent = gistData.files[GIST_FILE_NAME]?.content ?? '{}'
+    const remotePayload = parseSyncPayload(remoteContent)
+
+    store.set('mangaList', remotePayload.manga)
+    store.set('statsEvents', remotePayload.stats.events)
+    store.set('statsTagCache', remotePayload.stats.tagCache)
+
+    const profileUpdated = remotePayload.profile && remotePayload.profile.updatedAt > (settings.profileUpdatedAt ?? 0)
+    store.set('settings', {
+      ...settings,
+      gistId,
+      lastGistSync: Date.now(),
+      ...(profileUpdated ? {
+        profileName: remotePayload.profile!.name,
+        profileAvatar: remotePayload.profile!.avatar,
+        profileUpdatedAt: remotePayload.profile!.updatedAt
+      } : {})
+    })
+    notifyStatsUpdated()
+    if (profileUpdated) broadcastSettingsChanged()
+
+    return { success: true, gistId }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 export function registerGistIpc(): void {
   ipcMain.handle('gist:testAuth', async (_event, { token }: { token: string }) => {
     try {
@@ -207,6 +286,30 @@ export function registerGistIpc(): void {
       if (!result.success) return result
       const mergedManga = store.get('mangaList')
       return { success: true, data: mergedManga, gistId: result.gistId }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  ipcMain.handle('gist:upload', async (_event, { token, gistId: providedGistId }: { token: string; gistId?: string }) => {
+    try {
+      const settings = store.get('settings')
+      const storedGistId = providedGistId ?? settings.gistId ?? ''
+      const result = await uploadGistDirect(token, storedGistId)
+      return result
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  ipcMain.handle('gist:download', async (_event, { token, gistId: providedGistId }: { token: string; gistId?: string }) => {
+    try {
+      const settings = store.get('settings')
+      const storedGistId = providedGistId ?? settings.gistId ?? ''
+      const result = await downloadGistDirect(token, storedGistId)
+      if (!result.success) return result
+      const mangaList = store.get('mangaList')
+      return { success: true, data: mangaList, gistId: result.gistId }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }

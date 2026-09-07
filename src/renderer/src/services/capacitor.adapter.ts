@@ -57,6 +57,7 @@ const handlers: Record<string, Handler> = {
   'manga:createWithId': (p) => mangaService.createWithId(p as Parameters<typeof mangaService.createWithId>[0]),
   'manga:update': (p) => mangaService.update(p as Parameters<typeof mangaService.update>[0]),
   'manga:delete': (p) => mangaService.deleteManga(p as { id: string }),
+  'manga:getTrash': () => mangaService.getTrash(),
   'manga:emptyTrash': (p) => mangaService.emptyTrash(p as { id: string }),
   'manga:moveItem': (p) => mangaService.moveItem(p as { fromId: string; toId: string }),
   'manga:refreshMetadata': () => mangaService.refreshMetadata(),
@@ -223,6 +224,8 @@ const handlers: Record<string, Handler> = {
 
   'gist:testAuth': (p) => gistService.testAuth(p),
   'gist:sync': (p) => gistService.sync(p),
+  'gist:upload': (p) => gistService.upload(p),
+  'gist:download': (p) => gistService.download(p),
   'gist:disconnect': () => gistService.disconnect(),
   'stats:getOverview': () => statsService.statsGetOverview(),
   'stats:refreshTags': () => statsService.statsRefreshTags(),

@@ -171,7 +171,7 @@ addEventListener('checkChapters', async (resolve, reject, _args) => {
             changed = true
           }
 
-          if (!alreadyReported) {
+          if (!alreadyReported && !manga.muteNotifications) {
             CapacitorNotifications.schedule([
               {
                 id: notificationIdFor(manga.id),

@@ -139,6 +139,7 @@ function normalizeImportedEntry(entry: unknown): Manga | null {
     note: toStringValue(pickFirst(entry, ['note', 'Note']), '') || undefined,
     rating: Number.isFinite(rating) ? rating : undefined,
     ignoreTemplateMismatch: toBooleanValue(pickFirst(entry, ['ignoreTemplateMismatch', 'IgnoreTemplateMismatch']), false) || undefined,
+    muteNotifications: toBooleanValue(pickFirst(entry, ['muteNotifications', 'MuteNotifications']), false) || undefined,
     chapterDetectionTemplate: toStringValue(pickFirst(entry, ['chapterDetectionTemplate', 'ChapterDetectionTemplate']), '') || undefined,
     scrollPosition
   }
@@ -228,6 +229,12 @@ export function registerMangaIpc(): void {
     recordStatisticsForDelete(manga, trashEntry.deletedAt)
     notifyStatsUpdated()
     return { success: true }
+  })
+
+  registerHandler('manga:getTrash', () => {
+    const trash = [...(store.get('mangaTrash') as TrashedManga[])]
+    trash.sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0))
+    return { success: true, data: trash }
   })
 
   registerHandler('manga:emptyTrash', (_event, { id }: { id: string }) => {

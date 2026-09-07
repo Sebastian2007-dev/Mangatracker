@@ -82,7 +82,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   gistAutoSync: false,
   githubToken: '',
   gistId: '',
-  lastGistSync: 0
+  lastGistSync: 0,
+  lockRotation: true
 }
 
 async function readJsonFile<T>(path: string, fallback: T): Promise<T> {

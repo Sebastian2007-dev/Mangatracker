@@ -17,6 +17,7 @@ const metadataRefreshStatus = ref<'idle' | 'running' | 'ok' | 'fail'>('idle')
 const metadataRefreshMessage = ref('')
 
 onMounted(async () => {
+  void mangaStore.fetchTrash()
   if (!isMobile) {
     // Fetch installed mods (desktop only — IPC not available on mobile)
     await settings.fetchMods()
@@ -53,6 +54,31 @@ async function setTheme(theme: Theme): Promise<void> {
   await settings.save({ theme })
 }
 
+// ── Kürzlich gelöscht ────────────────────────────────────────────────
+function formatDeletedAt(ts: number): string {
+  if (!ts) return ''
+  return new Date(ts).toLocaleDateString(locale.value === 'de' ? 'de-DE' : 'en-US', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
+  })
+}
+
+// ── Element Picker: ausgeblendete Elemente verwalten ─────────────────
+const hiddenElementDomains = computed(() => Object.keys(settings.hiddenElements))
+
+async function removeHiddenSelector(domain: string, selector: string): Promise<void> {
+  const hidden = { ...settings.hiddenElements }
+  const remaining = (hidden[domain] ?? []).filter((s) => s !== selector)
+  if (remaining.length > 0) hidden[domain] = remaining
+  else delete hidden[domain]
+  await settings.save({ hiddenElements: hidden })
+}
+
+async function clearHiddenDomain(domain: string): Promise<void> {
+  const hidden = { ...settings.hiddenElements }
+  delete hidden[domain]
+  await settings.save({ hiddenElements: hidden })
+}
+
 async function setLanguage(lang: Language): Promise<void> {
   await settings.save({ language: lang })
   locale.value = lang
@@ -85,6 +111,10 @@ async function setAutoLinkEnabled(v: boolean): Promise<void> {
   await settings.save({ autoLinkEnabled: v })
 }
 
+async function setLockRotation(v: boolean): Promise<void> {
+  await settings.save({ lockRotation: v })
+}
+
 async function setBackgroundNotificationsEnabled(v: boolean): Promise<void> {
   await settings.save({ backgroundNotificationsEnabled: v })
 }
@@ -112,6 +142,15 @@ async function setBlockNewWindows(v: boolean): Promise<void> {
   await settings.save({ blockNewWindows: v })
 }
 
+const proxyInput = ref(settings.proxyUrl)
+const proxyStatus = ref<'idle' | 'saved'>('idle')
+
+async function saveProxy(): Promise<void> {
+  await settings.save({ proxyUrl: proxyInput.value.trim() })
+  proxyStatus.value = 'saved'
+  setTimeout(() => { proxyStatus.value = 'idle' }, 2000)
+}
+
 async function setTitleExpand(v: boolean): Promise<void> {
   await settings.save({ titleExpand: v })
 }
@@ -122,7 +161,7 @@ const tokenInput = ref(settings.githubToken)
 const showToken = ref(false)
 const authStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 const authUsername = ref('')
-const syncStatus = ref<'idle' | 'running' | 'ok' | 'fail'>('idle')
+const syncStatus = ref<'idle' | 'uploading' | 'downloading' | 'ok' | 'fail'>('idle')
 const syncError = ref('')
 
 async function testAuth(): Promise<void> {
@@ -138,10 +177,22 @@ async function testAuth(): Promise<void> {
   }
 }
 
-async function syncNow(): Promise<void> {
-  syncStatus.value = 'running'
+async function uploadNow(): Promise<void> {
+  syncStatus.value = 'uploading'
   syncError.value = ''
-  const result = await settings.syncGist()
+  const result = await settings.uploadGist()
+  if (result.success) {
+    syncStatus.value = 'ok'
+  } else {
+    syncStatus.value = 'fail'
+    syncError.value = result.error ?? ''
+  }
+}
+
+async function downloadNow(): Promise<void> {
+  syncStatus.value = 'downloading'
+  syncError.value = ''
+  const result = await settings.downloadGist()
   if (result.success) {
     syncStatus.value = 'ok'
     await mangaStore.fetchAll()
@@ -249,6 +300,22 @@ function formatLastSync(ts: number): string {
       </div>
     </section>
 
+    <!-- Display (nur Mobile) -->
+    <section v-if="isMobile" class="settings-section">
+      <h2 class="section-title">{{ t('settings.display') }}</h2>
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.lockRotation') }}</span>
+          <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.lockRotationHint') }}</p>
+        </div>
+        <button
+          class="toggle"
+          :class="{ on: settings.lockRotation }"
+          @click="setLockRotation(!settings.lockRotation)"
+        />
+      </div>
+    </section>
+
     <!-- Library -->
     <section class="settings-section">
       <h2 class="section-title">{{ t('settings.library') }}</h2>
@@ -331,7 +398,7 @@ function formatLastSync(ts: number): string {
           @click="setElementPickerEnabled(!settings.elementPickerEnabled)"
         />
       </div>
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between mb-3">
         <div>
           <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.blockNewWindows') }}</span>
           <p class="text-xs mt-0.5" style="color: hsl(var(--muted-foreground))">{{ t('settings.blockNewWindowsHint') }}</p>
@@ -341,6 +408,24 @@ function formatLastSync(ts: number): string {
           :class="{ on: settings.blockNewWindows }"
           @click="setBlockNewWindows(!settings.blockNewWindows)"
         />
+      </div>
+
+      <!-- Proxy -->
+      <div>
+        <span class="text-sm" style="color: hsl(var(--foreground))">{{ t('settings.proxyUrl') }}</span>
+        <p class="text-xs mt-0.5 mb-2" style="color: hsl(var(--muted-foreground))">{{ t('settings.proxyUrlHint') }}</p>
+        <div class="flex gap-2">
+          <input
+            v-model="proxyInput"
+            type="text"
+            :placeholder="t('settings.proxyUrlPlaceholder')"
+            class="field-input flex-1"
+            @keyup.enter="saveProxy"
+          />
+          <button class="action-btn" @click="saveProxy">
+            {{ proxyStatus === 'saved' ? '✓' : t('settings.proxySaveBtn') }}
+          </button>
+        </div>
       </div>
     </section>
 
@@ -479,10 +564,17 @@ function formatLastSync(ts: number): string {
         <div class="flex gap-2">
           <button
             class="action-btn flex-1"
-            :disabled="!settings.githubToken || syncStatus === 'running'"
-            @click="syncNow"
+            :disabled="!settings.githubToken || syncStatus === 'uploading' || syncStatus === 'downloading'"
+            @click="uploadNow"
           >
-            {{ syncStatus === 'running' ? t('settings.syncRunning') : t('settings.syncNowBtn') }}
+            {{ syncStatus === 'uploading' ? t('settings.syncUploading') : t('settings.syncUploadBtn') }}
+          </button>
+          <button
+            class="action-btn flex-1"
+            :disabled="!settings.githubToken || syncStatus === 'uploading' || syncStatus === 'downloading'"
+            @click="downloadNow"
+          >
+            {{ syncStatus === 'downloading' ? t('settings.syncDownloading') : t('settings.syncDownloadBtn') }}
           </button>
           <button class="action-btn-ghost" @click="disconnectGist">
             {{ t('settings.syncDisconnectBtn') }}
@@ -495,6 +587,50 @@ function formatLastSync(ts: number): string {
           ✗ {{ t('settings.syncError') }}<span v-if="syncError">: {{ syncError }}</span>
         </div>
       </template>
+    </section>
+
+    <!-- Kürzlich gelöscht (Trash mit 30-Tage-Retention) -->
+    <section class="settings-section">
+      <h2 class="section-title">{{ t('settings.trashTitle') }}</h2>
+      <p class="text-xs mb-3" style="color: hsl(var(--muted-foreground))">{{ t('settings.trashHint') }}</p>
+
+      <p v-if="mangaStore.trashItems.length === 0" class="text-xs" style="color: hsl(var(--muted-foreground))">
+        {{ t('settings.trashEmpty') }}
+      </p>
+
+      <div v-else class="trash-list">
+        <div v-for="entry in mangaStore.trashItems" :key="entry.id" class="trash-row">
+          <div class="trash-text">
+            <p class="trash-title">{{ entry.title }}</p>
+            <p class="trash-sub">{{ t('settings.trashDeletedAt', { date: formatDeletedAt(entry.deletedAt) }) }}</p>
+          </div>
+          <button class="action-btn" @click="mangaStore.restoreFromTrash(entry)">
+            {{ t('settings.trashRestore') }}
+          </button>
+          <button class="action-btn-ghost" @click="mangaStore.purgeFromTrash(entry.id)">
+            {{ t('settings.trashPurge') }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Element Picker: ausgeblendete Elemente (nur Desktop-Reader) -->
+    <section v-if="platformFeatures.hasDesktopReader && hiddenElementDomains.length > 0" class="settings-section">
+      <h2 class="section-title">{{ t('settings.hiddenElementsTitle') }}</h2>
+      <p class="text-xs mb-3" style="color: hsl(var(--muted-foreground))">{{ t('settings.hiddenElementsHint') }}</p>
+
+      <div v-for="domain in hiddenElementDomains" :key="domain" class="hidden-domain">
+        <div class="hidden-domain-header">
+          <span class="hidden-domain-name">{{ domain }}</span>
+          <button class="action-btn-ghost" @click="clearHiddenDomain(domain)">
+            {{ t('settings.hiddenElementsClearDomain') }}
+          </button>
+        </div>
+        <div v-for="selector in settings.hiddenElements[domain]" :key="selector" class="hidden-selector-row">
+          <code class="hidden-selector">{{ selector }}</code>
+          <button class="hidden-remove-btn" :title="t('settings.hiddenElementsRemove')" @click="removeHiddenSelector(domain, selector)">✕</button>
+        </div>
+      </div>
     </section>
 
     </div><!-- end left column -->
@@ -598,6 +734,39 @@ function formatLastSync(ts: number): string {
   color: hsl(var(--primary));
   border-color: hsl(var(--primary) / 0.4);
 }
+/* Kürzlich gelöscht */
+.trash-list { display: flex; flex-direction: column; gap: 8px; }
+.trash-row { display: flex; align-items: center; gap: 8px; }
+.trash-text { flex: 1; min-width: 0; }
+.trash-title {
+  font-size: 13px; font-weight: 500;
+  color: hsl(var(--foreground));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.trash-sub { font-size: 11px; color: hsl(var(--muted-foreground)); }
+/* Element Picker: ausgeblendete Elemente */
+.hidden-domain { margin-bottom: 12px; }
+.hidden-domain-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.hidden-domain-name { font-size: 12px; font-weight: 600; color: hsl(var(--foreground)); }
+.hidden-selector-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 0;
+}
+.hidden-selector {
+  flex: 1; min-width: 0;
+  font-size: 11px; font-family: monospace;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hidden-remove-btn {
+  width: 22px; height: 22px; border-radius: 6px;
+  font-size: 11px; color: hsl(var(--muted-foreground));
+  cursor: pointer; flex-shrink: 0;
+}
+.hidden-remove-btn:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
 .toggle {
   width: 40px;
   min-width: 40px;

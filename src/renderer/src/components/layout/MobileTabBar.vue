@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
-import { BookOpen, ChartColumn, Settings, ScrollText, Terminal, Globe } from 'lucide-vue-next'
+import { BookOpen, ChartColumn, Settings, ScrollText, GitBranch, Globe } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useLogStore } from '../../stores/log.store'
-import { useSkillTreeStore } from '../../stores/skill-tree.store'
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const logStore = useLogStore()
-const skillTreeStore = useSkillTreeStore()
 </script>
 
 <template>
@@ -28,9 +26,8 @@ const skillTreeStore = useSkillTreeStore()
       <span class="tab-label">{{ t('nav.library') }}</span>
     </button>
 
-    <!-- Log (chronicle skill) -->
+    <!-- Log -->
     <button
-      v-if="skillTreeStore.isUnlocked('chronicle')"
       class="tab-btn"
       :class="{ active: route.path === '/log' }"
       :aria-label="t('nav.log')"
@@ -56,15 +53,15 @@ const skillTreeStore = useSkillTreeStore()
       <span class="tab-label">{{ t('nav.statistics') }}</span>
     </button>
 
-    <!-- Debug -->
+    <!-- Skill Tree -->
     <button
       class="tab-btn"
-      :class="{ active: route.path === '/debug' }"
-      aria-label="Debug"
-      @click="router.push('/debug')"
+      :class="{ active: route.path === '/skills' }"
+      aria-label="Skill Tree"
+      @click="router.push('/skills')"
     >
-      <Terminal :size="22" />
-      <span class="tab-label">Debug</span>
+      <GitBranch :size="22" />
+      <span class="tab-label">Skills</span>
     </button>
 
     <!-- Tracking -->
