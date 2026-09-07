@@ -5,12 +5,13 @@
  * Wird in src/renderer/src/main.mobile.ts per setBridge() registriert.
  */
 import type { PlatformBridge } from './platform'
+import type { SkillTreeState } from '../../../types/index'
 import * as mangaService from './mobile/manga.service'
 import * as settingsService from './mobile/settings.service'
 import * as gistService from './mobile/gist.service'
 import * as statsService from './mobile/stats.service'
 import { runPoll } from './mobile/poller.service'
-import { writeMangaExportFile } from './mobile/storage.service'
+import { getSkillTree, setSkillTree, writeMangaExportFile } from './mobile/storage.service'
 import { Share } from '@capacitor/share'
 
 // ─── Event-Bus für interne Ereignisse (ersetzt Electron IPC events) ────────
@@ -221,6 +222,16 @@ const handlers: Record<string, Handler> = {
 
   'settings:get': () => settingsService.settingsGet(),
   'settings:set': (p) => settingsService.settingsSet(p as Parameters<typeof settingsService.settingsSet>[0]),
+
+  'skillTree:get': async () => ({ success: true, data: await getSkillTree() }),
+  'skillTree:set': async (p) => {
+    const state = p as SkillTreeState
+    if (!state || typeof state !== 'object' || !Array.isArray(state.unlockedSkills)) {
+      return { success: false, error: 'Invalid skill tree payload' }
+    }
+    await setSkillTree(state)
+    return { success: true }
+  },
 
   'gist:testAuth': (p) => gistService.testAuth(p),
   'gist:sync': (p) => gistService.sync(p),

@@ -1,14 +1,25 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Lock } from 'lucide-vue-next'
 import { useSettingsStore } from '../stores/settings.store'
 import { useMangaStore } from '../stores/manga.store'
+import { useSkillTreeStore } from '../stores/skill-tree.store'
+import {
+  ACCENT_PALETTES,
+  AMBIENT_EFFECTS,
+  CARD_STYLES,
+  PROFILE_EFFECTS,
+  isCosmeticUnlocked
+} from '../../../shared/cosmetics'
+import { SKILLS } from '../../../shared/skill-tree'
 import type { Theme, Language, ReadBehavior } from '../types/index'
 import { platformFeatures, isMobile } from '../composables/usePlatform'
 
 const { t, locale } = useI18n()
 const settings = useSettingsStore()
 const mangaStore = useMangaStore()
+const skillTreeStore = useSkillTreeStore()
 
 // Mobile: aktueller Benachrichtigungs-Berechtigungsstatus
 const notifPermissionDenied = ref(false)
@@ -155,13 +166,71 @@ async function setTitleExpand(v: boolean): Promise<void> {
   await settings.save({ titleExpand: v })
 }
 
+// ─── Kosmetik (Skill-Tree) ────────────────────────────────────────────────
+
+/** i18n-Key aus Prefix + Optionswert, z. B. ('palette', 'ember') -> settings.paletteEmber */
+function cosmeticLabel(prefix: string, value: string): string {
+  return `settings.${prefix}${value.charAt(0).toUpperCase()}${value.slice(1)}`
+}
+
+/** Anzeigename des Skills, der eine gesperrte Option freischaltet. */
+function requiredSkillName(skillId: string): string {
+  const key = `skillTree.skills.${skillId}.name`
+  const translated = t(key)
+  if (translated !== key) return translated
+  return SKILLS.find((skill) => skill.id === skillId)?.name ?? skillId
+}
+
+type CosmeticGroup = {
+  title: string
+  prefix: string
+  current: string
+  options: { value: string; requiresSkill: string | null }[]
+  apply: (value: string) => Promise<void>
+}
+
+const cosmeticGroups = computed<CosmeticGroup[]>(() => [
+  {
+    title: 'settings.accentPalette',
+    prefix: 'palette',
+    current: settings.accentPalette ?? 'default',
+    options: ACCENT_PALETTES,
+    apply: (v) => settings.save({ accentPalette: v as (typeof ACCENT_PALETTES)[number]['value'] })
+  },
+  {
+    title: 'settings.cardStyle',
+    prefix: 'card',
+    current: settings.cardStyle ?? 'plain',
+    options: CARD_STYLES,
+    apply: (v) => settings.save({ cardStyle: v as (typeof CARD_STYLES)[number]['value'] })
+  },
+  {
+    title: 'settings.ambientEffect',
+    prefix: 'ambient',
+    current: settings.ambientEffect ?? 'none',
+    options: AMBIENT_EFFECTS,
+    apply: (v) => settings.save({ ambientEffect: v as (typeof AMBIENT_EFFECTS)[number]['value'] })
+  },
+  {
+    title: 'settings.profileEffect',
+    prefix: 'profileFx',
+    current: settings.profileEffect ?? 'none',
+    options: PROFILE_EFFECTS,
+    apply: (v) => settings.save({ profileEffect: v as (typeof PROFILE_EFFECTS)[number]['value'] })
+  }
+])
+
+function isOptionUnlocked(option: { value: string; requiresSkill: string | null }): boolean {
+  return isCosmeticUnlocked(option, skillTreeStore.unlockedSkills)
+}
+
 // ─── Gist Sync ────────────────────────────────────────────────────────────
 
 const tokenInput = ref(settings.githubToken)
 const showToken = ref(false)
 const authStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 const authUsername = ref('')
-const syncStatus = ref<'idle' | 'uploading' | 'downloading' | 'ok' | 'fail'>('idle')
+const syncStatus = ref<'idle' | 'syncing' | 'ok' | 'fail'>('idle')
 const syncError = ref('')
 
 async function testAuth(): Promise<void> {
@@ -177,24 +246,15 @@ async function testAuth(): Promise<void> {
   }
 }
 
-async function uploadNow(): Promise<void> {
-  syncStatus.value = 'uploading'
+async function syncNow(): Promise<void> {
+  syncStatus.value = 'syncing'
   syncError.value = ''
-  const result = await settings.uploadGist()
+  const result = await settings.syncGist()
   if (result.success) {
     syncStatus.value = 'ok'
-  } else {
-    syncStatus.value = 'fail'
-    syncError.value = result.error ?? ''
-  }
-}
-
-async function downloadNow(): Promise<void> {
-  syncStatus.value = 'downloading'
-  syncError.value = ''
-  const result = await settings.downloadGist()
-  if (result.success) {
-    syncStatus.value = 'ok'
+    // Skill-Tree wird beim Sync gemergt — vor fetchAll uebernehmen, damit die
+    // Focus-Slot-Obergrenze stimmt, bevor die Liste neu gelesen wird.
+    await skillTreeStore.load()
     await mangaStore.fetchAll()
   } else {
     syncStatus.value = 'fail'
@@ -281,6 +341,36 @@ function formatLastSync(ts: number): string {
         >
           {{ t(th.label) }}
         </button>
+      </div>
+    </section>
+
+    <!-- Aussehen (ueber den Skill-Tree freigeschaltet) -->
+    <section class="settings-section">
+      <h2 class="section-title">{{ t('settings.cosmetics') }}</h2>
+      <p class="text-xs mb-3" style="color: hsl(var(--muted-foreground))">
+        {{ t('settings.cosmeticsHint') }}
+      </p>
+
+      <div v-for="group in cosmeticGroups" :key="group.prefix" class="cosmetic-group">
+        <span class="cosmetic-label">{{ t(group.title) }}</span>
+        <div class="flex gap-2 flex-wrap">
+          <button
+            v-for="option in group.options"
+            :key="option.value"
+            class="option-btn"
+            :class="{ active: group.current === option.value, locked: !isOptionUnlocked(option) }"
+            :disabled="!isOptionUnlocked(option)"
+            :title="
+              isOptionUnlocked(option)
+                ? undefined
+                : `${t('settings.cosmeticLocked')}: ${requiredSkillName(option.requiresSkill!)}`
+            "
+            @click="group.apply(option.value)"
+          >
+            <Lock v-if="!isOptionUnlocked(option)" :size="11" class="cosmetic-lock" />
+            {{ t(cosmeticLabel(group.prefix, option.value)) }}
+          </button>
+        </div>
       </div>
     </section>
 
@@ -564,17 +654,10 @@ function formatLastSync(ts: number): string {
         <div class="flex gap-2">
           <button
             class="action-btn flex-1"
-            :disabled="!settings.githubToken || syncStatus === 'uploading' || syncStatus === 'downloading'"
-            @click="uploadNow"
+            :disabled="!settings.githubToken || syncStatus === 'syncing'"
+            @click="syncNow"
           >
-            {{ syncStatus === 'uploading' ? t('settings.syncUploading') : t('settings.syncUploadBtn') }}
-          </button>
-          <button
-            class="action-btn flex-1"
-            :disabled="!settings.githubToken || syncStatus === 'uploading' || syncStatus === 'downloading'"
-            @click="downloadNow"
-          >
-            {{ syncStatus === 'downloading' ? t('settings.syncDownloading') : t('settings.syncDownloadBtn') }}
+            {{ syncStatus === 'syncing' ? t('settings.syncRunning') : t('settings.syncNowBtn') }}
           </button>
           <button class="action-btn-ghost" @click="disconnectGist">
             {{ t('settings.syncDisconnectBtn') }}
@@ -716,6 +799,30 @@ function formatLastSync(ts: number): string {
   background: hsl(var(--primary) / 0.2);
   color: hsl(var(--primary));
   border-color: hsl(var(--primary) / 0.4);
+}
+.option-btn.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.option-btn.locked:hover {
+  background: hsl(var(--secondary));
+}
+.cosmetic-group {
+  margin-bottom: 14px;
+}
+.cosmetic-group:last-child {
+  margin-bottom: 0;
+}
+.cosmetic-label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: hsl(var(--muted-foreground));
+}
+.cosmetic-lock {
+  display: inline-block;
+  vertical-align: -1px;
+  margin-right: 4px;
 }
 .option-btn-full {
   padding: 9px 14px;

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { AppSettings, Theme, Language, ReadBehavior, Manga } from '../types/index'
+import type { AccentPalette, AmbientEffect, CardStyle, ProfileEffect } from '../../../shared/cosmetics'
 import type { LoadedMod } from '../../../types/mod'
 import { getBridge } from '../services/platform'
 
@@ -31,6 +32,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const customTitle = ref<string>('')
   const proxyUrl = ref<string>('')
   const lockRotation = ref<boolean>(true)
+  const accentPalette = ref<AccentPalette>('default')
+  const cardStyle = ref<CardStyle>('plain')
+  const ambientEffect = ref<AmbientEffect>('none')
+  const profileEffect = ref<ProfileEffect>('none')
   const hiddenElements = ref<Record<string, string[]>>({})
   const loadedMods = ref<LoadedMod[]>([])
 
@@ -60,6 +65,10 @@ export const useSettingsStore = defineStore('settings', () => {
     customTitle.value = s.customTitle ?? ''
     proxyUrl.value = s.proxyUrl ?? ''
     lockRotation.value = s.lockRotation ?? true
+    accentPalette.value = s.accentPalette ?? 'default'
+    cardStyle.value = s.cardStyle ?? 'plain'
+    ambientEffect.value = s.ambientEffect ?? 'none'
+    profileEffect.value = s.profileEffect ?? 'none'
     hiddenElements.value = s.hiddenElements ?? {}
   }
 
@@ -102,6 +111,10 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.customTitle !== undefined) customTitle.value = updates.customTitle ?? ''
     if (updates.proxyUrl !== undefined) proxyUrl.value = updates.proxyUrl ?? ''
     if (updates.lockRotation !== undefined) lockRotation.value = updates.lockRotation
+    if (updates.accentPalette !== undefined) accentPalette.value = updates.accentPalette
+    if (updates.cardStyle !== undefined) cardStyle.value = updates.cardStyle
+    if (updates.ambientEffect !== undefined) ambientEffect.value = updates.ambientEffect
+    if (updates.profileEffect !== undefined) profileEffect.value = updates.profileEffect
     if (updates.hiddenElements !== undefined) hiddenElements.value = updates.hiddenElements ?? {}
   }
 
@@ -203,6 +216,10 @@ export const useSettingsStore = defineStore('settings', () => {
     gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
     profileName, profileAvatar, profileUpdatedAt, customTitle, proxyUrl,
     lockRotation,
+    accentPalette,
+    cardStyle,
+    ambientEffect,
+    profileEffect,
     hiddenElements,
     loadedMods,
     load, save, setupListeners, syncGist, uploadGist, downloadGist, testGistAuth, disconnectGist,

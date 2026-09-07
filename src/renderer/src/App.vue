@@ -13,9 +13,11 @@ import TemplateMismatchModal from './components/manga/TemplateMismatchModal.vue'
 import DuplicatesModal from './components/manga/DuplicatesModal.vue'
 import { useMangaStore } from './stores/manga.store'
 import { useSettingsStore } from './stores/settings.store'
+import { useSkillTreeStore } from './stores/skill-tree.store'
 import { useLogStore } from './stores/log.store'
 import { useStatisticsStore } from './stores/statistics.store'
 import { useTheme } from './composables/useTheme'
+import { useCosmetics } from './composables/useCosmetics'
 import type { LogEntry, Manga } from '../../types/index'
 import { getBridge } from './services/platform'
 import { isMobile } from './composables/usePlatform'
@@ -27,6 +29,7 @@ const mangaStore = useMangaStore()
 const settingsStore = useSettingsStore()
 const logStore = useLogStore()
 const statisticsStore = useStatisticsStore()
+const skillTreeStore = useSkillTreeStore()
 
 const searchQuery = ref('')
 provide('searchQuery', searchQuery)
@@ -126,6 +129,8 @@ onMounted(async () => {
   cleanupSettingsListener = settingsStore.setupListeners()
   await settingsStore.load()
   locale.value = settingsStore.language
+  // Vor fetchAll laden: die Focus-Slot-Obergrenze haengt an den freigeschalteten Skills
+  await skillTreeStore.load()
   await mangaStore.fetchAll()
   cleanupMangaListeners = mangaStore.setupListeners()
   cleanupStatisticsListener = statisticsStore.setupListeners()
@@ -145,6 +150,9 @@ onMounted(async () => {
   if (settingsStore.gistSyncEnabled && settingsStore.gistAutoSync && settingsStore.githubToken) {
     settingsStore.syncGist().then(async (result) => {
       if (result.success) {
+        // Der Sync mergt den Skill-Tree remote+lokal — Ergebnis vor fetchAll uebernehmen,
+        // damit die Focus-Slot-Obergrenze schon stimmt.
+        await skillTreeStore.load()
         await mangaStore.fetchAll()
         const dupes = mangaStore.detectDuplicates()
         if (dupes.length > 0) syncDuplicates.value = dupes
@@ -178,6 +186,7 @@ onUnmounted(() => {
 })
 
 useTheme()
+useCosmetics()
 </script>
 
 <template>

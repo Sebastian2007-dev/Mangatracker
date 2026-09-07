@@ -4,7 +4,7 @@
  */
 import { Preferences } from '@capacitor/preferences'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
-import type { AppSettings, Manga, StatisticsEvent, StatisticsTagCache, TrashedManga } from '../../../../types/index'
+import type { AppSettings, Manga, SkillTreeState, StatisticsEvent, StatisticsTagCache, TrashedManga } from '../../../../types/index'
 import { normalizeMangaList, normalizeTagCache, normalizeTrashedMangaList } from '../../../../shared/manga'
 
 const MANGA_FILE = 'manga-list.json'
@@ -12,6 +12,7 @@ const MANGA_TRASH_FILE = 'manga-trash.json'
 const STATS_EVENTS_FILE = 'stats-events.json'
 const EARNED_ACHIEVEMENTS_FILE = 'earned-achievements.json'
 const STATS_TAG_CACHE_FILE = 'stats-tag-cache.json'
+const SKILL_TREE_FILE = 'skill-tree.json'
 const LEGACY_STATS_TAG_CACHE_FILE = 'stats-genre-cache.json'
 const SETTINGS_KEY = 'app-settings'
 
@@ -83,7 +84,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   githubToken: '',
   gistId: '',
   lastGistSync: 0,
-  lockRotation: true
+  lockRotation: true,
+  accentPalette: 'default',
+  cardStyle: 'plain',
+  ambientEffect: 'none',
+  profileEffect: 'none'
 }
 
 async function readJsonFile<T>(path: string, fallback: T): Promise<T> {
@@ -173,6 +178,23 @@ export async function getEarnedAchievements(): Promise<string[]> {
 
 export async function setEarnedAchievements(ids: string[]): Promise<void> {
   await writeJsonFile(EARNED_ACHIEVEMENTS_FILE, ids)
+}
+
+export async function getSkillTree(): Promise<SkillTreeState> {
+  const raw = await readJsonFile<Partial<SkillTreeState> | null>(SKILL_TREE_FILE, null)
+  return {
+    unlockedSkills: Array.isArray(raw?.unlockedSkills)
+      ? [...new Set(raw.unlockedSkills.filter((id): id is string => typeof id === 'string'))]
+      : [],
+    version: Number.isFinite(raw?.version) ? Number(raw?.version) : 1
+  }
+}
+
+export async function setSkillTree(state: SkillTreeState): Promise<void> {
+  await writeJsonFile(SKILL_TREE_FILE, {
+    unlockedSkills: [...new Set(state.unlockedSkills.filter((id): id is string => typeof id === 'string'))],
+    version: Number.isFinite(state.version) ? Number(state.version) : 1
+  })
 }
 
 export async function getStatsTagCache(): Promise<StatisticsTagCache | null> {

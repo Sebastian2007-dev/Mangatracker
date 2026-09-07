@@ -8,7 +8,6 @@ import NewChapterBadge from './NewChapterBadge.vue'
 import { useMangaStore } from '../../stores/manga.store'
 import { useReaderStore } from '../../stores/reader.store'
 import { useSettingsStore } from '../../stores/settings.store'
-import { useSkillTreeStore } from '../../stores/skill-tree.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
@@ -26,7 +25,6 @@ const { t } = useI18n()
 const mangaStore = useMangaStore()
 const readerStore = useReaderStore()
 const settingsStore = useSettingsStore()
-const skillTreeStore = useSkillTreeStore()
 
 const showNote = ref(false)
 
@@ -302,8 +300,8 @@ async function openChapter(): Promise<void> {
           </button>
         </div>
 
-        <!-- Bookmark (Lesezeichen-Skill) -->
-        <div v-if="skillTreeStore.isUnlocked('bookmark')" class="skill-row bookmark-row" @click.stop>
+        <!-- Bookmark -->
+        <div class="skill-row bookmark-row" @click.stop>
           <button
             class="skill-icon-btn"
             :class="{ 'bookmark-active': manga.bookmarkedChapter != null }"
@@ -318,8 +316,8 @@ async function openChapter(): Promise<void> {
           <span v-else class="skill-hint">Kein Lesezeichen</span>
         </div>
 
-        <!-- Note (Lesenotiz-Skill) -->
-        <div v-if="skillTreeStore.isUnlocked('note')" class="skill-row note-row" @click.stop>
+        <!-- Note -->
+        <div class="skill-row note-row" @click.stop>
           <button class="skill-icon-btn note-toggle" @click.stop="showNote = !showNote">
             <FileText :size="12" />
             <span>{{ manga.note ? t('manga.note') : t('manga.addNote') }}</span>

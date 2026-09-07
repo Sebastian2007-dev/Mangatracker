@@ -3,6 +3,7 @@ import store from '../store'
 import type {
   GistTombstone,
   Manga,
+  SkillTreeState,
   StatisticsEvent,
   StatisticsTagCache,
   TrashedManga
@@ -12,6 +13,7 @@ import {
   GIST_FILE_NAME,
   mergeLists,
   mergeProfile,
+  mergeSkillTree,
   mergeStatisticsPayload,
   parseSyncPayload
 } from '../../shared/gist.sync'
@@ -27,6 +29,38 @@ function ghFetch(url: string, init: RequestInit = {}): Promise<Response> {
     ...init,
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
   })
+}
+
+// GitHub beantwortet gleichzeitige PATCHes desselben Gists mit 409 Conflict.
+// Auto-Sync beim Start, der debounced Mutations-Sync und der Button in den
+// Einstellungen liefen bisher ungebremst parallel — deshalb laufen ab hier alle
+// Gist-Operationen serialisiert durch diese Queue.
+let gistQueue: Promise<unknown> = Promise.resolve()
+
+function serializeGistOp<T>(task: () => Promise<T>): Promise<T> {
+  const run = gistQueue.then(task, task)
+  // Fehler nicht weiterreichen, sonst reisst ein Fehlschlag die Queue ab
+  gistQueue = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
+}
+
+function isConflict(error: string | undefined): boolean {
+  return typeof error === 'string' && error.includes('HTTP 409')
+}
+
+/** Haengt GitHubs eigene Fehlermeldung an, damit ein Status allein nicht raetselhaft bleibt. */
+async function ghError(label: string, res: Response): Promise<Error> {
+  let detail = ''
+  try {
+    const body = (await res.json()) as { message?: string }
+    if (body.message) detail = ` — ${body.message}`
+  } catch {
+    // Kein JSON-Body — dann bleibt es beim Status
+  }
+  return new Error(`${label}: HTTP ${res.status}${detail}`)
 }
 
 function githubHeaders(token: string): Record<string, string> {
@@ -68,13 +102,13 @@ async function findOrCreateGist(token: string, existingGistId: string): Promise<
       }
     })
   })
-  if (!createRes.ok) throw new Error(`Gist konnte nicht erstellt werden: HTTP ${createRes.status}`)
+  if (!createRes.ok) throw await ghError('Gist konnte nicht erstellt werden', createRes)
 
   const created = (await createRes.json()) as { id: string }
   return created.id
 }
 
-export async function syncGistDirect(
+async function syncGistInner(
   token: string,
   storedGistId: string
 ): Promise<{ success: boolean; gistId?: string; error?: string }> {
@@ -85,7 +119,7 @@ export async function syncGistDirect(
     const gistRes = await ghFetch(`${GITHUB_API}/gists/${gistId}`, {
       headers: githubHeaders(token)
     })
-    if (!gistRes.ok) throw new Error(`Gist konnte nicht geladen werden: HTTP ${gistRes.status}`)
+    if (!gistRes.ok) throw await ghError('Gist konnte nicht geladen werden', gistRes)
 
     const gistData = (await gistRes.json()) as { files: Record<string, { content: string }> }
     const remoteContent = gistData.files[GIST_FILE_NAME]?.content ?? '{}'
@@ -122,11 +156,19 @@ export async function syncGistDirect(
         }
       : undefined
 
+    const localSkillTree = store.get('skillTree') as SkillTreeState | undefined
+
+    // Skill-Tree zuerst mergen: mergeLists braucht ihn, um die Focus-Slot-Obergrenze
+    // zu kennen — ohne ihn faellt es auf FOCUS_BASE (3) zurueck und entfokussiert alles
+    // darueber hinaus.
+    const mergedSkillTree = mergeSkillTree(localSkillTree, remotePayload.skillTree)
+
     const { manga: mergedManga, deleted: mergedDeleted } = mergeLists(
       localManga,
       remotePayload.manga,
       localDeleted,
-      remotePayload.deleted
+      remotePayload.deleted,
+      mergedSkillTree
     )
     const mergedStats = mergeStatisticsPayload(localStats, remotePayload.stats)
     const mergedProfile = mergeProfile(localProfile, remotePayload.profile)
@@ -137,12 +179,12 @@ export async function syncGistDirect(
       body: JSON.stringify({
         files: {
           [GIST_FILE_NAME]: {
-            content: buildSyncPayload(mergedManga, mergedDeleted, mergedStats, mergedProfile)
+            content: buildSyncPayload(mergedManga, mergedDeleted, mergedStats, mergedProfile, mergedSkillTree)
           }
         }
       })
     })
-    if (!patchRes.ok) throw new Error(`Gist konnte nicht aktualisiert werden: HTTP ${patchRes.status}`)
+    if (!patchRes.ok) throw await ghError('Gist konnte nicht aktualisiert werden', patchRes)
 
     // Während der Netzwerk-Roundtrips kann der Store lokal weiterbearbeitet worden
     // sein (User-Edit, Poller) — deshalb vor dem Zurückschreiben frisch lesen und
@@ -158,12 +200,14 @@ export async function syncGistDirect(
       events: (store.get('statsEvents') ?? []) as StatisticsEvent[],
       tagCache: (store.get('statsTagCache') ?? null) as StatisticsTagCache | null
     }
-    const { manga: finalManga } = mergeLists(freshManga, mergedManga, freshDeleted, mergedDeleted)
+    const freshSkillTree = mergeSkillTree(store.get('skillTree') as SkillTreeState | undefined, mergedSkillTree)
+    const { manga: finalManga } = mergeLists(freshManga, mergedManga, freshDeleted, mergedDeleted, freshSkillTree)
     const finalStats = mergeStatisticsPayload(freshStats, mergedStats)
     const freshSettings = store.get('settings')
 
     const profileUpdated = mergedProfile && mergedProfile.updatedAt > (freshSettings.profileUpdatedAt ?? 0)
     store.set('mangaList', finalManga)
+    store.set('skillTree', freshSkillTree)
     store.set('statsEvents', finalStats.events)
     store.set('statsTagCache', finalStats.tagCache)
     store.set('settings', {
@@ -185,7 +229,7 @@ export async function syncGistDirect(
   }
 }
 
-export async function uploadGistDirect(
+async function uploadGistInner(
   token: string,
   storedGistId: string
 ): Promise<{ success: boolean; gistId?: string; error?: string }> {
@@ -211,10 +255,20 @@ export async function uploadGistDirect(
       method: 'PATCH',
       headers: githubHeaders(token),
       body: JSON.stringify({
-        files: { [GIST_FILE_NAME]: { content: buildSyncPayload(localManga, localDeleted, localStats, localProfile) } }
+        files: {
+          [GIST_FILE_NAME]: {
+            content: buildSyncPayload(
+              localManga,
+              localDeleted,
+              localStats,
+              localProfile,
+              store.get('skillTree') as SkillTreeState | undefined
+            )
+          }
+        }
       })
     })
-    if (!patchRes.ok) throw new Error(`Gist konnte nicht hochgeladen werden: HTTP ${patchRes.status}`)
+    if (!patchRes.ok) throw await ghError('Gist konnte nicht hochgeladen werden', patchRes)
 
     store.set('settings', { ...settings, gistId, lastGistSync: Date.now() })
     return { success: true, gistId }
@@ -223,7 +277,7 @@ export async function uploadGistDirect(
   }
 }
 
-export async function downloadGistDirect(
+async function downloadGistInner(
   token: string,
   storedGistId: string
 ): Promise<{ success: boolean; gistId?: string; error?: string }> {
@@ -234,12 +288,15 @@ export async function downloadGistDirect(
     const gistRes = await electronSession.defaultSession.fetch(`${GITHUB_API}/gists/${gistId}`, {
       headers: githubHeaders(token)
     })
-    if (!gistRes.ok) throw new Error(`Gist konnte nicht geladen werden: HTTP ${gistRes.status}`)
+    if (!gistRes.ok) throw await ghError('Gist konnte nicht geladen werden', gistRes)
 
     const gistData = (await gistRes.json()) as { files: Record<string, { content: string }> }
     const remoteContent = gistData.files[GIST_FILE_NAME]?.content ?? '{}'
     const remotePayload = parseSyncPayload(remoteContent)
 
+    if (remotePayload.skillTree) {
+      store.set('skillTree', remotePayload.skillTree)
+    }
     store.set('mangaList', remotePayload.manga)
     store.set('statsEvents', remotePayload.stats.events)
     store.set('statsTagCache', remotePayload.stats.tagCache)
@@ -262,6 +319,40 @@ export async function downloadGistDirect(
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
+}
+
+// ─── Serialisierte, oeffentliche Einstiegspunkte ──────────────────────────
+// Ein 409 heisst: ein anderes Geraet hat parallel in denselben Gist geschrieben.
+// Der Inner-Aufruf beginnt mit einem GET, ein zweiter Versuch mergt also gegen
+// den frischen Remote-Stand statt ihn zu ueberschreiben.
+
+export function syncGistDirect(
+  token: string,
+  storedGistId: string
+): Promise<{ success: boolean; gistId?: string; error?: string }> {
+  return serializeGistOp(async () => {
+    const first = await syncGistInner(token, storedGistId)
+    if (first.success || !isConflict(first.error)) return first
+    return syncGistInner(token, storedGistId)
+  })
+}
+
+export function uploadGistDirect(
+  token: string,
+  storedGistId: string
+): Promise<{ success: boolean; gistId?: string; error?: string }> {
+  return serializeGistOp(async () => {
+    const first = await uploadGistInner(token, storedGistId)
+    if (first.success || !isConflict(first.error)) return first
+    return uploadGistInner(token, storedGistId)
+  })
+}
+
+export function downloadGistDirect(
+  token: string,
+  storedGistId: string
+): Promise<{ success: boolean; gistId?: string; error?: string }> {
+  return serializeGistOp(() => downloadGistInner(token, storedGistId))
 }
 
 export function registerGistIpc(): void {

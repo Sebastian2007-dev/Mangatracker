@@ -25,7 +25,7 @@ const editingManga = ref<Manga | null>(null)
 
 const filteredManga = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
-  const advActive = skillTreeStore.isUnlocked('adv_search') && hasFilters.value
+  const advActive = hasFilters.value
   return mangaStore.items
     .filter((m) => {
       if (activeTab.value === 'all') return true

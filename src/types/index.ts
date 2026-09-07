@@ -155,6 +155,8 @@ export interface StatisticsOverview {
   }
 }
 
+import type { AccentPalette, AmbientEffect, CardStyle, ProfileEffect } from '../shared/cosmetics'
+
 export type Theme = 'light' | 'dark' | 'system'
 export type Language = 'en' | 'de'
 export type ReadBehavior = 'main' | 'chapter' | 'ask'
@@ -195,6 +197,11 @@ export interface AppSettings {
   customTitle?: string
   proxyUrl?: string
   lockRotation?: boolean
+  /** Kosmetik aus dem Skill-Tree — Auswahl greift nur, wenn der Skill freigeschaltet ist */
+  accentPalette?: AccentPalette
+  cardStyle?: CardStyle
+  ambientEffect?: AmbientEffect
+  profileEffect?: ProfileEffect
   /** Element Picker (F2): pro Domain persistierte CSS-Selektoren, die ausgeblendet werden */
   hiddenElements?: Record<string, string[]>
 }

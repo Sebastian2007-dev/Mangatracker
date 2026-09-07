@@ -34,6 +34,7 @@ export async function runBackupRotation(): Promise<void> {
         mangaTrash: store.get('mangaTrash'),
         statsEvents: store.get('statsEvents'),
         earnedAchievements: store.get('earnedAchievements'),
+        skillTree: store.get('skillTree'),
         settings: store.get('settings')
       }
       await writeFile(join(dir, fileName), JSON.stringify(snapshot, null, 2), 'utf-8')
