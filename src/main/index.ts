@@ -24,6 +24,9 @@ const winIconPath = (() => {
   return undefined
 })()
 
+// Obergrenze fuer den Sync beim Fensterschliessen — danach wird trotzdem geschlossen
+const CLOSE_SYNC_DEADLINE_MS = 8_000
+
 let staticIpcRegistered = false
 
 function createWindow(): BrowserWindow {
@@ -78,7 +81,14 @@ function createWindow(): BrowserWindow {
     if (settings.gistSyncEnabled && settings.githubToken) {
       event.preventDefault()
       try {
-        await syncGistDirect(settings.githubToken, settings.gistId ?? '')
+        // Gist-Operationen laufen serialisiert (sonst 409 Conflict). Der Sync beim
+        // Schließen kann daher hinter einem laufenden warten — plus 20 s Timeout pro
+        // Request und einem Retry bei 409. Ohne Deadline haengt das Fenster minutenlang.
+        // Wird der Sync abgeschnitten, holt ihn der naechste Start nach.
+        await Promise.race([
+          syncGistDirect(settings.githubToken, settings.gistId ?? ''),
+          new Promise((resolve) => setTimeout(resolve, CLOSE_SYNC_DEADLINE_MS))
+        ])
       } catch { /* Sync-Fehler beim Schließen ignorieren */ }
       mainWindow.destroy()
     }
