@@ -121,29 +121,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.hiddenElements !== undefined) hiddenElements.value = updates.hiddenElements ?? {}
   }
 
-  async function uploadGist(): Promise<{ success: boolean; error?: string }> {
-    const result = await api.invoke<{ success: boolean; gistId?: string; error?: string }>(
-      'gist:upload',
-      { token: githubToken.value, gistId: gistId.value }
-    )
-    if (result.success && result.gistId) {
-      gistId.value = result.gistId
-      lastGistSync.value = Date.now()
-    }
-    return result
-  }
 
-  async function downloadGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
-    const result = await api.invoke<{ success: boolean; data?: Manga[]; gistId?: string; error?: string }>(
-      'gist:download',
-      { token: githubToken.value, gistId: gistId.value }
-    )
-    if (result.success && result.gistId) {
-      gistId.value = result.gistId
-      lastGistSync.value = Date.now()
-    }
-    return result
-  }
 
   async function syncGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
     const result = await api.invoke<{ success: boolean; data?: Manga[]; gistId?: string; error?: string }>(
@@ -226,7 +204,7 @@ export const useSettingsStore = defineStore('settings', () => {
     profileEffect,
     hiddenElements,
     loadedMods,
-    load, save, setupListeners, syncGist, uploadGist, downloadGist, testGistAuth, disconnectGist,
+    load, save, setupListeners, syncGist, testGistAuth, disconnectGist,
     fetchMods, scanMods, setModEnabled, openModsFolder
   }
 })

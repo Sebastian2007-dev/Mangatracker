@@ -103,6 +103,32 @@ function createWindow(): BrowserWindow {
   return mainWindow
 }
 
+// Nur eine Instanz zulassen.
+//
+// productName steht in package.json nur unter "build", weshalb app.getName() in
+// der Dev- *und* der installierten App "manga-tracker" liefert — beide arbeiten
+// damit auf %APPDATA%/manga-tracker/config.json. electron-store haelt diese Datei
+// vollstaendig im Speicher und schreibt sie bei jedem set komplett zurueck: laufen
+// zwei Instanzen parallel, gewinnt der letzte Schreibvorgang und verwirft still,
+// was die andere seither geaendert hat. Mit aktivem Gist-Sync landet der Verlust
+// zusaetzlich in der Cloud.
+//
+// Die Sperre laesst den Fehler laut scheitern (die zweite Instanz startet nicht)
+// statt leise Daten zu kosten. Wer Dev und Installation wirklich gleichzeitig
+// braucht, muss der Dev-Variante ein eigenes userData geben — das setzt aber ein
+// app.setPath('userData', ...) *vor* dem Import von ./store voraus.
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0)
+}
+
+// Startversuch einer zweiten Instanz: bestehendes Fenster nach vorn holen
+app.on('second-instance', () => {
+  const [existing] = BrowserWindow.getAllWindows()
+  if (!existing) return
+  if (existing.isMinimized()) existing.restore()
+  existing.focus()
+})
+
 app.whenReady().then(async () => {
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.mangaTracker.app')

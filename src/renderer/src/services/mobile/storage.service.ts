@@ -16,10 +16,12 @@ const SKILL_TREE_FILE = 'skill-tree.json'
 const LEGACY_STATS_TAG_CACHE_FILE = 'stats-genre-cache.json'
 const SETTINGS_KEY = 'app-settings'
 
-// Muss dem BackgroundRunner-Label in capacitor.config.ts entsprechen: der Runner
-// liest via CapacitorKV aus dem SharedPreferences-File mit diesem Namen, während
-// @capacitor/preferences ohne configure() in "CapacitorStorage" schreiben würde —
-// dann sieht der Background-Task nie Settings/Manga-Liste.
+// NICHT AENDERN — hier liegen die Daten.
+//
+// Der Name stammt vom fruehreren BackgroundRunner (dessen Plugin und Config
+// inzwischen entfernt sind), ist aber weiterhin der SharedPreferences-Gruppenname,
+// in dem @capacitor/preferences Settings und Manga-Liste ablegt. Wird er geaendert
+// oder entfernt, liest die App eine leere Gruppe und die Bibliothek erscheint leer.
 const BG_RUNNER_GROUP = 'com.mangaTracker.app.background'
 const LEGACY_GROUP = 'CapacitorStorage'
 const GROUP_MIGRATED_KEY = 'bg-group-migrated'

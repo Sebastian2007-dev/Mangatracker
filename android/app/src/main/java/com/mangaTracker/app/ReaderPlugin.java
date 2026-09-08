@@ -411,7 +411,7 @@ public class ReaderPlugin extends Plugin {
             webView.loadUrl("about:blank");
             webView.stopLoading();
         }
-        Log.i(TAG, "closed mangaId=" + currentMangaId);
+        Log.d(TAG, "closed mangaId=" + currentMangaId);
         JSObject data = new JSObject();
         data.put("mangaId", currentMangaId == null ? "" : currentMangaId);
         notifyListeners("readerClosed", data);
@@ -426,8 +426,15 @@ public class ReaderPlugin extends Plugin {
      * gerade nicht gefragt werden.
      */
     private void notifyBlocked(String url, String domain, String reason, boolean hasGesture) {
-        Log.i(TAG, "navBlocked reason=" + reason + " gesture=" + hasGesture
-                + " domain=" + domain + " url=" + url);
+        // Automatische Umleitungen und Werbe-Hosts feuern haeufig — nur die
+        // Faelle mit Rueckfrage sind einzeln interessant.
+        String line = "navBlocked reason=" + reason + " gesture=" + hasGesture
+                + " domain=" + domain + " url=" + url;
+        if ("ask".equals(reason)) {
+            Log.i(TAG, line);
+        } else {
+            Log.d(TAG, line);
+        }
         JSObject data = new JSObject();
         data.put("url", url);
         data.put("domain", domain);
@@ -442,7 +449,7 @@ public class ReaderPlugin extends Plugin {
         if (url.equals(lastReportedUrl)) return;
         lastReportedUrl = url;
         if (urlLabel != null) urlLabel.setText(url);
-        Log.i(TAG, "urlChanged " + url);
+        Log.d(TAG, "urlChanged " + url);
         JSObject data = new JSObject();
         data.put("url", url);
         data.put("mangaId", currentMangaId == null ? "" : currentMangaId);
@@ -559,7 +566,7 @@ public class ReaderPlugin extends Plugin {
             toolbar.setPadding(toolbarPadding, toolbarPadding + top, toolbarPadding, toolbarPadding);
         }
         overlay.setPadding(0, 0, 0, bottom);
-        Log.i(TAG, "insets top=" + top + " bottom=" + bottom);
+        Log.d(TAG, "insets top=" + top + " bottom=" + bottom);
     }
 
     private int dp(int value) {
@@ -675,8 +682,11 @@ public class ReaderPlugin extends Plugin {
             public void onPageFinished(WebView v, String url) {
                 emitUrlChanged(url);
                 Log.i(TAG, "pageFinished blockedRequests=" + blockedCount.get() + " url=" + url);
+                // Bis zu 80 Hostnamen pro Seitenladung — nur auf Debug-Ebene,
+                // sonst flutet es das Log. Zum Pflegen der Werbeliste:
+                // adb logcat -s MangaReader:D | grep thirdPartyHosts
                 synchronized (thirdPartyHosts) {
-                    Log.i(TAG, "thirdPartyHosts(" + thirdPartyHosts.size() + ")="
+                    Log.d(TAG, "thirdPartyHosts(" + thirdPartyHosts.size() + ")="
                             + android.text.TextUtils.join(",", thirdPartyHosts));
                 }
                 JSObject data = new JSObject();
@@ -698,7 +708,7 @@ public class ReaderPlugin extends Plugin {
             public boolean onConsoleMessage(ConsoleMessage message) {
                 String text = message.message();
                 if (text != null && text.startsWith(MESSAGE_PREFIX)) {
-                    Log.i(TAG, "message " + (text.length() > 160 ? text.substring(0, 160) : text));
+                    Log.d(TAG, "message " + (text.length() > 160 ? text.substring(0, 160) : text));
                     JSObject data = new JSObject();
                     data.put("message", text);
                     data.put("mangaId", currentMangaId == null ? "" : currentMangaId);

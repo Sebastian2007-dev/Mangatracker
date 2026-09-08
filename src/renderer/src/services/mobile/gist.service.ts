@@ -221,87 +221,7 @@ async function syncInner(payload: unknown): Promise<{ success: boolean; data?: M
   }
 }
 
-async function uploadInner(payload: unknown): Promise<{ success: boolean; gistId?: string; error?: string }> {
-  const { token, gistId: providedGistId } = payload as { token: string; gistId?: string }
 
-  try {
-    const settings = await getSettings()
-    const storedGistId = providedGistId ?? settings.gistId ?? ''
-    const gistId = await findOrCreateGist(token, storedGistId)
-
-    const localManga = await getMangaList()
-    const localTrash = await getMangaTrash()
-    const localDeleted: GistTombstone[] = (localTrash as TrashedManga[]).map((manga) => ({
-      id: manga.id,
-      deletedAt: manga.deletedAt ?? manga.updatedAt
-    }))
-    const localStats = {
-      events: await getStatsEvents(),
-      tagCache: await getStatsTagCache()
-    }
-    const localProfile = (settings.profileName || settings.profileAvatar)
-      ? { name: settings.profileName ?? '', avatar: settings.profileAvatar ?? '', updatedAt: settings.profileUpdatedAt ?? 0 }
-      : undefined
-
-    const patchRes = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-      method: 'PATCH',
-      headers: githubHeaders(token),
-      body: JSON.stringify({
-        files: {
-          [GIST_FILE_NAME]: {
-            content: buildSyncPayload(localManga, localDeleted, localStats, localProfile, await getSkillTree())
-          }
-        }
-      })
-    })
-    if (!patchRes.ok) throw await ghError('Gist konnte nicht hochgeladen werden', patchRes)
-
-    await setSettings({ gistId, lastGistSync: Date.now() })
-    return { success: true, gistId }
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
-  }
-}
-
-async function downloadInner(payload: unknown): Promise<{ success: boolean; data?: Manga[]; gistId?: string; error?: string }> {
-  const { token, gistId: providedGistId } = payload as { token: string; gistId?: string }
-
-  try {
-    const settings = await getSettings()
-    const storedGistId = providedGistId ?? settings.gistId ?? ''
-    const gistId = await findOrCreateGist(token, storedGistId)
-
-    const gistRes = await fetch(`${GITHUB_API}/gists/${gistId}`, { headers: githubHeaders(token) })
-    if (!gistRes.ok) throw await ghError('Gist konnte nicht geladen werden', gistRes)
-
-    const gistData = (await gistRes.json()) as { files: Record<string, { content: string }> }
-    const remoteContent = gistData.files[GIST_FILE_NAME]?.content ?? '{}'
-    const remotePayload = parseSyncPayload(remoteContent)
-
-    if (remotePayload.skillTree) {
-      await setSkillTree(remotePayload.skillTree)
-    }
-    await setMangaList(remotePayload.manga)
-    await setStatsEvents(remotePayload.stats.events)
-    await setStatsTagCache(remotePayload.stats.tagCache)
-
-    const profileUpdated = remotePayload.profile && remotePayload.profile.updatedAt > (settings.profileUpdatedAt ?? 0)
-    await setSettings({
-      gistId,
-      lastGistSync: Date.now(),
-      ...(profileUpdated ? {
-        profileName: remotePayload.profile!.name,
-        profileAvatar: remotePayload.profile!.avatar,
-        profileUpdatedAt: remotePayload.profile!.updatedAt
-      } : {})
-    })
-    notifyStatsUpdated()
-
-    return { success: true, data: remotePayload.manga, gistId }
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
-  }
-}
 
 // ─── Serialisierte, oeffentliche Einstiegspunkte ──────────────────────────
 // Ein 409 heisst: ein anderes Geraet hat parallel in denselben Gist geschrieben.
@@ -318,21 +238,7 @@ export function sync(
   })
 }
 
-export function upload(
-  payload: unknown
-): Promise<{ success: boolean; gistId?: string; error?: string }> {
-  return serializeGistOp(async () => {
-    const first = await uploadInner(payload)
-    if (first.success || !isConflict(first.error)) return first
-    return uploadInner(payload)
-  })
-}
 
-export function download(
-  payload: unknown
-): Promise<{ success: boolean; data?: Manga[]; gistId?: string; error?: string }> {
-  return serializeGistOp(() => downloadInner(payload))
-}
 
 export async function disconnect(): Promise<{ success: boolean }> {
   try {

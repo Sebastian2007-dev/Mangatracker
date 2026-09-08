@@ -235,8 +235,6 @@ const handlers: Record<string, Handler> = {
 
   'gist:testAuth': (p) => gistService.testAuth(p),
   'gist:sync': (p) => gistService.sync(p),
-  'gist:upload': (p) => gistService.upload(p),
-  'gist:download': (p) => gistService.download(p),
   'gist:disconnect': () => gistService.disconnect(),
   'stats:getOverview': () => statsService.statsGetOverview(),
   'stats:refreshTags': () => statsService.statsRefreshTags(),
