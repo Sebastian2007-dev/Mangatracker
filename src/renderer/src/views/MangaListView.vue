@@ -322,7 +322,13 @@ function onDrop(toId: string): void {
 @media (min-width: 600px) {
   .manga-grid { grid-template-columns: repeat(auto-fill, minmax(max(220px, 16%), 1fr)); }
 }
-.drag-item { border-radius: 8px; transition: opacity 0.15s; }
+/* min-width: 0 hebt die automatische Mindestbreite von Grid-Items auf.
+   Ohne sie ist die Untergrenze eines Items seine Inhaltsbreite (min-width: auto);
+   ein Item mit breitem Inhalt dehnt dann seine Spalte, die Zeile wird breiter als
+   der Container und der overflow-x-hidden des Scroll-Bereichs schneidet rechts ab.
+   Mit 0 schrumpfen die Spalten auf ihren 1fr-Anteil und der Inhalt wird innerhalb
+   der Karte gekuerzt statt das Raster zu sprengen. */
+.drag-item { border-radius: 8px; transition: opacity 0.15s; min-width: 0; }
 .drag-item.is-dragging { opacity: 0.4; }
 .drag-item.drag-over { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
 .scroll-content-mobile {

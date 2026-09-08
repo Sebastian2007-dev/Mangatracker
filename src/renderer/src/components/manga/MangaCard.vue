@@ -484,6 +484,10 @@ async function openChapter(): Promise<void> {
 
 <style scoped>
 .manga-card {
+  /* Gleiche Begruendung wie bei .drag-item: die Karte darf ihre Spalte nicht
+     ueber den 1fr-Anteil hinaus aufdehnen. Kein overflow: hidden hier — das
+     wuerde die Dialoge und Auswahlfelder der Karte abschneiden. */
+  min-width: 0;
   padding: 12px;
   border-radius: 8px;
   background: hsl(var(--card));
