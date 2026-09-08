@@ -11,6 +11,8 @@ import { useSettingsStore } from '../../stores/settings.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
+import { openInReader } from '../../services/mobile/reader.service'
+import { ReaderWebView } from '../../services/mobile/reader.plugin'
 import { setReadingSession, clearReadingSession } from '../../composables/useReadingSession'
 import {
   areTagListsEqual,
@@ -47,11 +49,65 @@ async function onChapterChange(chapter: number): Promise<void> {
 
 async function openUrl(url: string, trackFromChapter?: number): Promise<void> {
   if (isMobile) {
+    // Die Lese-Session bleibt als Netz fuer den Fall, dass die App abgeschossen
+    // wird, bevor der Reader ein Kapitel melden konnte.
     if (trackFromChapter !== undefined) {
       await setReadingSession({ mangaId: props.manga.id, title: props.manga.title, chapter: trackFromChapter })
+    }
+    try {
+      await openInReader(url, props.manga.id, {
+        getManga: (id) => mangaStore.items.find((m) => m.id === id),
+        onChapterDetected: (id, chapter) => mangaStore.setChapter(id, chapter),
+        onScrollPosition: (id, position) => mangaStore.update(id, { scrollPosition: position }),
+        getHiddenSelectors: (domain) => settingsStore.hiddenElements?.[domain] ?? [],
+        buildLabels: (percent) => ({
+          jump: t('reader.scrollRestoreHint', { percent }),
+          dismiss: t('reader.scrollRestoreNo')
+        }),
+        guardMode: settingsStore.domainGuardMode,
+        allowedDomains: settingsStore.domainWhitelist,
+        blockedDomains: settingsStore.domainBlocklist,
+        buildGuardLabels: (targetDomain, originDomain) => ({
+          title: t('reader.domainGuard.title'),
+          message: t('reader.domainGuard.message', { domain: targetDomain }),
+          from: t('reader.domainGuard.from', { domain: originDomain }),
+          yes: t('reader.domainGuard.yes'),
+          yesAlways: t('reader.domainGuard.yesAlways'),
+          no: t('reader.domainGuard.no'),
+          noBlock: t('reader.domainGuard.noBlock')
+        }),
+        onGuardDecision: async (domain, decision) => {
+          // Landet in denselben Listen wie auf dem Desktop — und weil beide in
+          // AppSettings stehen, gilt die Entscheidung nach dem Sync dort ebenfalls.
+          if (decision === 'allow_always') {
+            if (settingsStore.domainWhitelist.includes(domain)) return
+            await settingsStore.save({
+              domainWhitelist: [...settingsStore.domainWhitelist, domain]
+            })
+          } else {
+            if (settingsStore.domainBlocklist.includes(domain)) return
+            await settingsStore.save({
+              domainBlocklist: [...settingsStore.domainBlocklist, domain]
+            })
+          }
+          // Das Plugin haelt eigene Kopien der Listen — nachziehen, damit die
+          // Entscheidung sofort und nicht erst beim naechsten Oeffnen greift.
+          await ReaderWebView.updateGuardLists({
+            guardMode: settingsStore.domainGuardMode,
+            allowedDomains: settingsStore.domainWhitelist,
+            blockedDomains: settingsStore.domainBlocklist
+          }).catch(() => {})
+        }
+      })
+      return
+    } catch (error) {
+      // Plugin fehlt (z. B. alte APK) — auf den Systembrowser zurueckfallen,
+      // dann greift wieder der manuelle Kapitel-Dialog.
+      console.error('In-App-Reader nicht verfuegbar, nutze Systembrowser:', error)
+    }
+    if (trackFromChapter !== undefined) {
       const listener = await Browser.addListener('browserFinished', async () => {
         await listener.remove()
-        // Dialog anzeigen: bis zu welchem Kapitel hast du gelesen?
         markReadChapter.value = trackFromChapter
         showMarkReadDialog.value = true
       })

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { AppSettings, Theme, Language, ReadBehavior, Manga } from '../types/index'
+import type { AppSettings, Theme, Language, ReadBehavior, Manga, DomainGuardMode } from '../types/index'
 import type { AccentPalette, AmbientEffect, CardStyle, ProfileEffect } from '../../../shared/cosmetics'
 import type { LoadedMod } from '../../../types/mod'
 import { getBridge } from '../services/platform'
@@ -32,6 +32,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const customTitle = ref<string>('')
   const proxyUrl = ref<string>('')
   const lockRotation = ref<boolean>(true)
+  const domainGuardMode = ref<DomainGuardMode>('ask')
   const accentPalette = ref<AccentPalette>('default')
   const cardStyle = ref<CardStyle>('plain')
   const ambientEffect = ref<AmbientEffect>('none')
@@ -65,6 +66,7 @@ export const useSettingsStore = defineStore('settings', () => {
     customTitle.value = s.customTitle ?? ''
     proxyUrl.value = s.proxyUrl ?? ''
     lockRotation.value = s.lockRotation ?? true
+    domainGuardMode.value = s.domainGuardMode ?? 'ask'
     accentPalette.value = s.accentPalette ?? 'default'
     cardStyle.value = s.cardStyle ?? 'plain'
     ambientEffect.value = s.ambientEffect ?? 'none'
@@ -111,6 +113,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.customTitle !== undefined) customTitle.value = updates.customTitle ?? ''
     if (updates.proxyUrl !== undefined) proxyUrl.value = updates.proxyUrl ?? ''
     if (updates.lockRotation !== undefined) lockRotation.value = updates.lockRotation
+    if (updates.domainGuardMode !== undefined) domainGuardMode.value = updates.domainGuardMode
     if (updates.accentPalette !== undefined) accentPalette.value = updates.accentPalette
     if (updates.cardStyle !== undefined) cardStyle.value = updates.cardStyle
     if (updates.ambientEffect !== undefined) ambientEffect.value = updates.ambientEffect
@@ -216,6 +219,7 @@ export const useSettingsStore = defineStore('settings', () => {
     gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
     profileName, profileAvatar, profileUpdatedAt, customTitle, proxyUrl,
     lockRotation,
+    domainGuardMode,
     accentPalette,
     cardStyle,
     ambientEffect,

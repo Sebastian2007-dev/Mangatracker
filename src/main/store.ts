@@ -44,6 +44,7 @@ const store = new Store<StoreSchema>({
       githubToken: '',
       gistId: '',
       lastGistSync: 0,
+      domainGuardMode: 'ask',
       accentPalette: 'default',
       cardStyle: 'plain',
       ambientEffect: 'none',

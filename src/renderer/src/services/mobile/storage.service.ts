@@ -85,6 +85,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   gistId: '',
   lastGistSync: 0,
   lockRotation: true,
+  domainGuardMode: 'ask',
   accentPalette: 'default',
   cardStyle: 'plain',
   ambientEffect: 'none',

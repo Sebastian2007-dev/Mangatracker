@@ -13,7 +13,7 @@ import {
   isCosmeticUnlocked
 } from '../../../shared/cosmetics'
 import { SKILLS } from '../../../shared/skill-tree'
-import type { Theme, Language, ReadBehavior } from '../types/index'
+import type { Theme, Language, ReadBehavior, DomainGuardMode } from '../types/index'
 import { platformFeatures, isMobile } from '../composables/usePlatform'
 
 const { t, locale } = useI18n()
@@ -164,6 +164,18 @@ async function saveProxy(): Promise<void> {
 
 async function setTitleExpand(v: boolean): Promise<void> {
   await settings.save({ titleExpand: v })
+}
+
+// ─── Domain Guard (Reader) ────────────────────────────────────────────────
+
+const domainGuardModes: { value: DomainGuardMode; label: string }[] = [
+  { value: 'ask', label: 'settings.domainGuardAsk' },
+  { value: 'block', label: 'settings.domainGuardBlock' },
+  { value: 'off', label: 'settings.domainGuardOff' }
+]
+
+async function setDomainGuardMode(mode: DomainGuardMode): Promise<void> {
+  await settings.save({ domainGuardMode: mode })
 }
 
 // ─── Kosmetik (Skill-Tree) ────────────────────────────────────────────────
@@ -340,6 +352,25 @@ function formatLastSync(ts: number): string {
           @click="setTheme(th.value)"
         >
           {{ t(th.label) }}
+        </button>
+      </div>
+    </section>
+
+    <!-- Reader: fremde Domains -->
+    <section class="settings-section">
+      <h2 class="section-title">{{ t('settings.domainGuardMode') }}</h2>
+      <p class="text-xs mb-3" style="color: hsl(var(--muted-foreground))">
+        {{ t('settings.domainGuardModeHint') }}
+      </p>
+      <div class="flex gap-2 flex-wrap">
+        <button
+          v-for="mode in domainGuardModes"
+          :key="mode.value"
+          class="option-btn"
+          :class="{ active: (settings.domainGuardMode ?? 'ask') === mode.value }"
+          @click="setDomainGuardMode(mode.value)"
+        >
+          {{ t(mode.label) }}
         </button>
       </div>
     </section>
