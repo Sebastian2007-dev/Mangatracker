@@ -5,6 +5,7 @@ import type {
   StatisticsTagCache,
   TrashedManga
 } from '../../../../types/index'
+import { mangaDexGet } from './mangadex-http'
 import {
   appendStatisticsEvents,
   buildCreateStatisticsEvents,
@@ -127,13 +128,7 @@ export async function recordStatisticsForImportedManga(manga: Manga, at: number)
 }
 
 async function fetchMangaDexTags(mangaDexId: string): Promise<string[]> {
-  const response = await fetch(
-    `https://api.mangadex.org/manga/${mangaDexId}?includes[]=cover_art&includes[]=author&includes[]=artist`,
-    { headers: { 'User-Agent': 'MangaTracker/1.0' } }
-  )
-  if (!response.ok) throw new Error(`MangaDex HTTP ${response.status}`)
-
-  const json = (await response.json()) as {
+  const response = await mangaDexGet<{
     data?: {
       attributes?: {
         tags?: Array<{
@@ -143,7 +138,9 @@ async function fetchMangaDexTags(mangaDexId: string): Promise<string[]> {
         }>
       }
     }
-  }
+  }>(`https://api.mangadex.org/manga/${mangaDexId}?includes[]=cover_art&includes[]=author&includes[]=artist`)
+  if (!response.ok) throw new Error(`MangaDex HTTP ${response.status}`)
+  const json = response.json ?? {}
 
   return (json.data?.attributes?.tags ?? [])
     .map((tag) => tag.attributes?.name?.en ?? Object.values(tag.attributes?.name ?? {})[0] ?? '')

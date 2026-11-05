@@ -23,6 +23,10 @@ export interface Manga {
   comickHid?: string
   comickTitle?: string
   comickCoverUrl?: string
+  /** MangaUpdates series_id (numerisch, als String gespeichert) */
+  mangaUpdatesId?: string
+  mangaUpdatesTitle?: string
+  mangaUpdatesCoverUrl?: string
   tags?: string[]
   bookmarkedChapter?: number
   note?: string

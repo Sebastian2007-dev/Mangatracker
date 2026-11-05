@@ -4,6 +4,7 @@ import store from '../store'
 import type { Manga, MangaStatus, TrashedManga } from '../../types/index'
 import { emitModEvent } from '../mods/mod-loader'
 import { normalizeTagList } from '../../shared/statistics'
+import { MU_USER_AGENT, muSearchUrl, muSearchPayload, mapMuSearch } from '../../shared/mangaupdates'
 import { filterExpiredTrash } from '../../shared/trash'
 import {
   notifyStatsUpdated,
@@ -134,6 +135,9 @@ function normalizeImportedEntry(entry: unknown): Manga | null {
     comickHid: toStringValue(pickFirst(entry, ['comickHid']), '') || undefined,
     comickTitle: toStringValue(pickFirst(entry, ['comickTitle']), '') || undefined,
     comickCoverUrl: toStringValue(pickFirst(entry, ['comickCoverUrl']), '') || undefined,
+    mangaUpdatesId: toStringValue(pickFirst(entry, ['mangaUpdatesId']), '') || undefined,
+    mangaUpdatesTitle: toStringValue(pickFirst(entry, ['mangaUpdatesTitle']), '') || undefined,
+    mangaUpdatesCoverUrl: toStringValue(pickFirst(entry, ['mangaUpdatesCoverUrl']), '') || undefined,
     tags: toStringArrayValue(pickFirst(entry, ['tags', 'Tags', 'genres', 'Genres'])),
     bookmarkedChapter: Number.isFinite(bookmarkedChapter) ? bookmarkedChapter : undefined,
     note: toStringValue(pickFirst(entry, ['note', 'Note']), '') || undefined,
@@ -322,6 +326,20 @@ export function registerMangaIpc(): void {
           : null
       }))
       return { success: true, data: results }
+    } catch (e) {
+      return { success: false, error: String(e) }
+    }
+  })
+
+  registerHandler('mangaupdates:search', async (_event, { title }: { title: string }) => {
+    try {
+      const res = await electronSession.defaultSession.fetch(muSearchUrl, {
+        method: 'POST',
+        headers: { 'User-Agent': MU_USER_AGENT, 'Content-Type': 'application/json' },
+        body: JSON.stringify(muSearchPayload(title))
+      })
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      return { success: true, data: mapMuSearch(await res.json()) }
     } catch (e) {
       return { success: false, error: String(e) }
     }

@@ -12,8 +12,11 @@ Log-Einträge der Form `kein neues Kapitel [CODE]` erklären warum ein Kapitel a
 | `URL_MISMATCH` | Kapitelnummer war in der angefragten URL, fehlt aber in der finalen URL – Seite hat intern umgeleitet |
 | `TITLE_404` | Seitentitel enthält „not found", „page not found", „chapter not found" o.ä. – Seite gibt 200 zurück, aber es ist eine Fehlerseite |
 | `MDX_SAME` | MangaDex: neuestes Kapitel ≤ currentChapter — kein neues Kapitel |
-| `MDX_NO_DATA` | MangaDex: keine englischen Kapitel gefunden → fällt auf ComicK oder HTTP-Fallback zurück |
-| `MDX_ERR(...)` | MangaDex: API-Fehler (HTTP-Code oder Parse-Fehler) → fällt auf ComicK oder HTTP-Fallback zurück |
+| `MDX_NO_DATA` | MangaDex: keine englischen Kapitel gefunden → fällt auf MangaUpdates, ComicK oder HTTP-Fallback zurück |
+| `MDX_ERR(...)` | MangaDex: API-Fehler (HTTP-Code oder Parse-Fehler) → fällt auf MangaUpdates, ComicK oder HTTP-Fallback zurück |
+| `MU_SAME` | MangaUpdates: neuestes Kapitel ≤ currentChapter — kein neues Kapitel (weiter zu ComicK, falls verknüpft) |
+| `MU_NO_DATA` | MangaUpdates: kein `latest_chapter` gemeldet → fällt auf ComicK oder HTTP-Fallback zurück |
+| `MU_ERR(...)` | MangaUpdates: API-Fehler (HTTP-Code) → fällt auf ComicK oder HTTP-Fallback zurück |
 | `CK_SAME` | ComicK: neuestes Kapitel ≤ currentChapter — kein neues Kapitel |
 | `CK_NO_DATA` | ComicK: keine englischen Kapitel gefunden → fällt auf HTTP-Fallback zurück (falls URL-Template gesetzt) |
 | `CK_ERR(...)` | ComicK: API-Fehler (HTTP-Code oder Parse-Fehler) → fällt auf HTTP-Fallback zurück |

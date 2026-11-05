@@ -6,6 +6,7 @@ import type { Manga } from '../../types/index'
 import { useMangaStore } from '../../stores/manga.store'
 import { useReaderStore } from '../../stores/reader.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
+import { coverUrlFor, onCoverError } from '../../composables/useCoverUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
 
@@ -67,10 +68,12 @@ async function markSeen(manga: Manga): Promise<void> {
         <div v-else class="inbox-list">
           <div v-for="manga in entries" :key="manga.id" class="inbox-row">
             <img
-              v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl"
+              v-if="coverUrlFor(manga)"
+              :key="coverUrlFor(manga)!"
               class="inbox-cover"
-              :src="manga.mangaDexCoverUrl || manga.comickCoverUrl"
+              :src="coverUrlFor(manga)!"
               :alt="manga.title"
+              @error="onCoverError"
             />
             <div v-else class="inbox-cover inbox-cover-placeholder" />
             <div class="inbox-text">

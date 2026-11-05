@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { Manga } from '../../types/index'
+import { coverUrlFor, onCoverError } from '../../composables/useCoverUrl'
 
 defineProps<{ manga: Manga[] }>()
 const emit = defineEmits<{ close: [] }>()
@@ -26,10 +27,12 @@ const { t } = useI18n()
         <ul v-else class="manga-list">
           <li v-for="m in manga" :key="m.id" class="manga-row">
             <img
-              v-if="m.mangaDexCoverUrl || m.comickCoverUrl"
-              :src="(m.mangaDexCoverUrl ?? m.comickCoverUrl)!"
+              v-if="coverUrlFor(m)"
+              :key="coverUrlFor(m)!"
+              :src="coverUrlFor(m)!"
               class="cover"
               loading="lazy"
+              @error="onCoverError"
             />
             <div v-else class="cover-placeholder">
               {{ m.title.charAt(0).toUpperCase() }}

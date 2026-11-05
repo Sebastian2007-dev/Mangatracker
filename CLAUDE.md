@@ -88,13 +88,14 @@ Push events from main → renderer: `notifications:newChapter`, `settings:change
 
 Store shape: `{ mangaList, mangaTrash, statsEvents, statsTagCache, earnedAchievements, settings, modDisabled, modSettings }`.
 
-### Chapter detection (3-stage fallback)
+### Chapter detection (4-stage fallback)
 
 Implemented identically in `src/main/notifications/chapterPoller.ts` (desktop) and `src/renderer/src/services/mobile/poller.service.ts` (mobile):
 
 1. **MangaDex API** — if `manga.mangaDexId` is set
-2. **ComicK API** — if `manga.comickHid` is set
-3. **HTTP scraping** — if `manga.chapterUrlTemplate` is set (HEAD/GET next chapter URL, validate by body size + URL)
+2. **MangaUpdates API** — if `manga.mangaUpdatesId` is set (community release data, `latest_chapter`; shared helpers in `src/shared/mangaupdates.ts`)
+3. **ComicK API** — if `manga.comickHid` is set
+4. **HTTP scraping** — if `manga.chapterUrlTemplate` is set (HEAD/GET next chapter URL, validate by body size + URL)
 
 Status codes are documented in `POLLER_CODES.md`.
 
@@ -124,6 +125,7 @@ German (`de.json`) and English (`en.json`) under `src/renderer/src/i18n/locales/
 
 ## Notable implementation details
 
+- **Mobile HTTP for JSON APIs**: MangaDex sends browser user agents to a bot challenge, and WebView `fetch()` can't override the User-Agent. Mobile therefore calls MangaDex/MangaUpdates via `CapacitorHttp` (`services/mobile/mangadex-http.ts`).
 - **IS_MOBILE build flag**: `vite.mobile.config.mts` injects `import.meta.env.IS_MOBILE`; code that only runs on one platform is gated by this.
 - **Domain Guard**: 3-tier whitelist/dialog/blocklist system in the reader; see `src/main/reader/domainGuard.ts`.
 - **Element Picker** (F2): lets users hide DOM elements persistently, stored per-domain in settings.

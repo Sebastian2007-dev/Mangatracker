@@ -9,6 +9,7 @@ import { useMangaStore } from '../../stores/manga.store'
 import { useReaderStore } from '../../stores/reader.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
+import { coverUrlFor, onCoverError } from '../../composables/useCoverUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
 import { openInReader } from '../../services/mobile/reader.service'
@@ -21,6 +22,7 @@ import {
 } from '../../services/manga-details.service'
 
 const props = defineProps<{ manga: Manga }>()
+const coverUrl = computed(() => coverUrlFor(props.manga))
 const emit = defineEmits<{ edit: [manga: Manga] }>()
 
 const { t } = useI18n()
@@ -294,10 +296,10 @@ async function openChapter(): Promise<void> {
     :class="{ 'has-new': manga.hasNewChapter }"
   >
     <!-- Card inner: two-column when cover present -->
-    <div class="card-inner" :class="{ 'has-cover': manga.mangaDexCoverUrl || manga.comickCoverUrl }">
+    <div class="card-inner" :class="{ 'has-cover': coverUrl }">
       <!-- Cover panel (left column) -->
-      <div v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl" class="cover-panel">
-        <img :src="manga.mangaDexCoverUrl || manga.comickCoverUrl" :alt="manga.title" loading="lazy" />
+      <div v-if="coverUrl" class="cover-panel">
+        <img :key="coverUrl" :src="coverUrl" :alt="manga.title" loading="lazy" @error="onCoverError" />
       </div>
 
       <!-- Content column -->
@@ -431,10 +433,12 @@ async function openChapter(): Promise<void> {
         <div class="modal-box info-modal-box">
           <div class="info-header">
             <img
-              v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl"
+              v-if="coverUrl"
+              :key="coverUrl"
               class="info-cover"
-              :src="manga.mangaDexCoverUrl || manga.comickCoverUrl"
+              :src="coverUrl"
               :alt="manga.title"
+              @error="onCoverError"
             />
             <div class="info-header-text">
               <p class="info-title">{{ manga.title }}</p>
