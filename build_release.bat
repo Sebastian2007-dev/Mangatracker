@@ -118,7 +118,10 @@ if errorlevel 1 goto :error
 
 echo [7/7] Building Android release APK and copying artifacts...
 pushd "android" >nul
-call gradlew.bat assembleRelease
+rem Vollstaendiger Pfad statt "call gradlew.bat": ist NoDefaultCurrentDirectoryInExePath
+rem gesetzt (z. B. in CI- oder Tool-Shells), durchsucht cmd das aktuelle Verzeichnis
+rem nicht und der Aufruf schlaegt mit "Befehl nicht gefunden" fehl.
+call "%ROOT%android\gradlew.bat" assembleRelease
 if errorlevel 1 (
   popd >nul
   goto :error
@@ -155,6 +158,10 @@ popd >nul
 exit /B %BUILD_EXIT_CODE%
 
 :ensure_win_codesign_cache
+rem DisableDelayedExpansion ist hier Pflicht: bei aktivem "!" -Parsing wuerde cmd
+rem das Ausrufezeichen aus dem 7za-Ausschlussschalter "-xr!darwin" entfernen und
+rem 7-Zip bricht mit "Incorrect wildcard type marker" ab.
+setlocal EnableExtensions DisableDelayedExpansion
 set "WIN_CODESIGN_VERSION=2.6.0"
 set "WIN_CODESIGN_DIR=%ELECTRON_BUILDER_CACHE%\winCodeSign\winCodeSign-%WIN_CODESIGN_VERSION%"
 set "WIN_CODESIGN_ARCHIVE=%ELECTRON_BUILDER_CACHE%\winCodeSign\winCodeSign-%WIN_CODESIGN_VERSION%.7z"
@@ -180,7 +187,9 @@ if not exist "%WIN_CODESIGN_ARCHIVE%" (
 )
 
 echo       Preparing winCodeSign cache ...
-"%SEVEN_ZIP%" x -y -bd "%WIN_CODESIGN_ARCHIVE%" "-o%WIN_CODESIGN_DIR%" "-x!darwin\*"
+rem -xr! schliesst den darwin-Ordner samt Unterordnern aus ("-x!darwin\*" wuerde
+rem nur die direkten Kinder treffen und die macOS-Symlinks trotzdem entpacken).
+"%SEVEN_ZIP%" x -y -bd "%WIN_CODESIGN_ARCHIVE%" "-o%WIN_CODESIGN_DIR%" "-xr!darwin"
 if errorlevel 1 (
   echo ERROR: Unable to extract winCodeSign %WIN_CODESIGN_VERSION%.
   exit /B 1

@@ -5,6 +5,7 @@ import { BookOpen, Pencil, Trash2, Star, Info, Bookmark, FileText, BellOff } fro
 import type { Manga } from '../../types/index'
 import ChapterInput from './ChapterInput.vue'
 import NewChapterBadge from './NewChapterBadge.vue'
+import MangaCover from './MangaCover.vue'
 import { useMangaStore } from '../../stores/manga.store'
 import { useReaderStore } from '../../stores/reader.store'
 import { useSettingsStore } from '../../stores/settings.store'
@@ -243,7 +244,14 @@ async function openChapter(): Promise<void> {
     <div class="card-inner" :class="{ 'has-cover': manga.mangaDexCoverUrl || manga.comickCoverUrl }">
       <!-- Cover panel (left column) -->
       <div v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl" class="cover-panel">
-        <img :src="manga.mangaDexCoverUrl || manga.comickCoverUrl" :alt="manga.title" loading="lazy" />
+        <MangaCover
+          :manga-dex-cover-url="manga.mangaDexCoverUrl"
+          :comick-cover-url="manga.comickCoverUrl"
+          :alt="manga.title"
+          loading="lazy"
+        >
+          <div class="cover-fallback">{{ manga.title.charAt(0).toUpperCase() }}</div>
+        </MangaCover>
       </div>
 
       <!-- Content column -->
@@ -376,12 +384,15 @@ async function openChapter(): Promise<void> {
       <div v-if="showInfoModal" class="modal-backdrop" @mousedown="onBackdropMouseDown" @click.self="backdropDown && (showInfoModal = false)">
         <div class="modal-box info-modal-box">
           <div class="info-header">
-            <img
+            <MangaCover
               v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl"
               class="info-cover"
-              :src="manga.mangaDexCoverUrl || manga.comickCoverUrl"
+              :manga-dex-cover-url="manga.mangaDexCoverUrl"
+              :comick-cover-url="manga.comickCoverUrl"
               :alt="manga.title"
-            />
+            >
+              <div class="info-cover info-cover-fallback">{{ manga.title.charAt(0).toUpperCase() }}</div>
+            </MangaCover>
             <div class="info-header-text">
               <p class="info-title">{{ manga.title }}</p>
               <div v-if="infoData" class="info-badges">
@@ -464,6 +475,16 @@ async function openChapter(): Promise<void> {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+.cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
 }
 .card-content {
   flex: 1;
@@ -646,6 +667,15 @@ async function openChapter(): Promise<void> {
   border-radius: 7px;
   flex-shrink: 0;
   box-shadow: 0 4px 12px hsl(0 0% 0% / 0.4);
+}
+.info-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--secondary));
+  font-size: 34px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
 }
 @media (max-width: 400px) {
   .info-modal-box {
