@@ -6,6 +6,8 @@
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { App as CapApp } from '@capacitor/app'
 import { CapacitorHttp } from '@capacitor/core'
+import { mangaDexGet, nativeJson } from './mangadex-http'
+import { muSeriesUrl, muLatestChapter } from '../../../../shared/mangaupdates'
 import type { LogEntry, LogEntryType } from '../../../../types/index'
 import { getMangaList, setMangaList, getSettings, withMangaListLock } from './storage.service'
 
@@ -70,16 +72,11 @@ async function checkMangaDex(manga: {
     `?translatedLanguage[]=en&order[chapter]=desc&limit=1` +
     `&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic`
 
-  const res = await fetch(feedUrl, {
-    headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
-  })
+  const res = await mangaDexGet<{ data?: { attributes: { chapter: string | null } }[] }>(feedUrl)
 
   if (!res.ok) return { ok: false, reason: `MDX_ERR(HTTP_${res.status})` }
 
-  const json = (await res.json()) as {
-    data: { attributes: { chapter: string | null } }[]
-  }
-  const data = json.data ?? []
+  const data = res.json?.data ?? []
 
   if (data.length === 0) return { ok: false, reason: 'MDX_NO_DATA' }
 
@@ -88,6 +85,23 @@ async function checkMangaDex(manga: {
   if (latest <= manga.currentChapter) return { ok: false, reason: 'MDX_SAME' }
 
   return { ok: true, mangaId: manga.id, title: manga.title, newChapter: latest, statusCode: res.status, source: 'MDX' }
+}
+
+async function checkMangaUpdates(manga: {
+  id: string
+  title: string
+  currentChapter: number
+  mangaUpdatesId: string
+}): Promise<CheckResult> {
+  const res = await nativeJson<unknown>(muSeriesUrl(manga.mangaUpdatesId))
+
+  if (!res.ok) return { ok: false, reason: `MU_ERR(HTTP_${res.status})` }
+
+  const latest = muLatestChapter(res.json)
+  if (latest === null) return { ok: false, reason: 'MU_NO_DATA' }
+  if (latest <= manga.currentChapter) return { ok: false, reason: 'MU_SAME' }
+
+  return { ok: true, mangaId: manga.id, title: manga.title, newChapter: latest, statusCode: res.status, source: 'MU' }
 }
 
 async function checkComicK(manga: {
@@ -123,19 +137,34 @@ async function checkManga(manga: {
   chapterUrlTemplate: string
   currentChapter: number
   mangaDexId?: string
+  mangaUpdatesId?: string
   comickHid?: string
 }): Promise<CheckResult> {
   if (manga.mangaDexId) {
     const mdxResult = await checkMangaDex({ id: manga.id, title: manga.title, currentChapter: manga.currentChapter, mangaDexId: manga.mangaDexId })
     if (mdxResult.ok) return mdxResult
-    if (mdxResult.reason === 'MDX_SAME' && !manga.comickHid) return mdxResult
-    // MDX_NO_DATA, MDX_ERR oder MDX_SAME+comickHid → weiter zu ComicK
+    if (mdxResult.reason === 'MDX_SAME' && !manga.mangaUpdatesId && !manga.comickHid) return mdxResult
+    // MDX_NO_DATA, MDX_ERR oder MDX_SAME+weitere Quelle → weiter zu MangaUpdates
+  }
+
+  if (manga.mangaUpdatesId) {
+    try {
+      const muResult = await checkMangaUpdates({ id: manga.id, title: manga.title, currentChapter: manga.currentChapter, mangaUpdatesId: manga.mangaUpdatesId })
+      if (muResult.ok) return muResult
+      if (muResult.reason === 'MU_SAME' && !manga.comickHid) return muResult
+      // MU_NO_DATA, MU_ERR oder MU_SAME+comickHid → weiter zu ComicK
+    } catch { /* Netzwerkfehler → weiter zu ComicK */ }
   }
 
   if (manga.comickHid) {
-    const ckResult = await checkComicK({ id: manga.id, title: manga.title, currentChapter: manga.currentChapter, comickHid: manga.comickHid })
-    if (ckResult.ok || ckResult.reason === 'CK_SAME') return ckResult
-    // CK_NO_DATA oder CK_ERR → weiter zu HTTP
+    try {
+      const ckResult = await checkComicK({ id: manga.id, title: manga.title, currentChapter: manga.currentChapter, comickHid: manga.comickHid })
+      if (ckResult.ok || ckResult.reason === 'CK_SAME') return ckResult
+      // CK_NO_DATA oder CK_ERR → weiter zu HTTP
+    } catch {
+      // In der WebView wirft fetch() bei Cloudflare-Challenge (kein CORS-Header)
+      // statt 403 zu liefern → trotzdem auf HTTP-Scraping zurückfallen
+    }
   }
 
   const nextChapter = Math.floor(manga.currentChapter) + 1
@@ -233,7 +262,7 @@ export async function runPoll(force = false): Promise<void> {
       } else {
         pushLog('info', `${manga.title} – kein neues Kapitel [${result.reason}]`)
       }
-      if (manga.mangaDexId || manga.comickHid) await sleep(300)
+      if (manga.mangaDexId || manga.mangaUpdatesId || manga.comickHid) await sleep(300)
     } catch (e) {
       errorCount++
       const msg = e instanceof Error ? e.message : String(e)

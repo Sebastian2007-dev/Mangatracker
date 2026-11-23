@@ -5,9 +5,11 @@ import {
   buildSyncPayload,
   GIST_VERSION,
   mergeLists,
+  mergeSkillTree,
   mergeStatisticsPayload,
   parseSyncPayload
 } from '../src/shared/gist.sync'
+import { normalizeUnlockedSkills } from '../src/shared/skill-tree'
 
 function makeManga(overrides: Partial<Manga> = {}): Manga {
   return {
@@ -82,6 +84,74 @@ test('mergeLists keeps the newest manga and respects tombstones', () => {
   assert.equal(merged.manga.length, 1)
   assert.equal(merged.manga[0].title, 'Remote')
   assert.equal(merged.deleted.length, 1)
+})
+
+test('mergeLists restores remote entries when the local side is empty', () => {
+  // Absicherung fuer den Fall "lokal leer, Gist voll": der Sync muss die
+  // Remote-Eintraege zurueckbringen und darf die Leere nicht hochschieben.
+  const remote = [1, 2, 3].map((n) => makeManga({ id: `r${n}`, updatedAt: 1_000 + n }))
+  const merged = mergeLists([], remote, [], [])
+
+  assert.deepEqual(merged.manga.map((m) => m.id).sort(), ['r1', 'r2', 'r3'])
+
+  // Ein lokaler Papierkorb-Eintrag loescht nur, wenn er neuer ist als der Manga
+  const withTombstone = mergeLists([], remote, [{ id: 'r2', deletedAt: 5_000 }], [])
+  assert.deepEqual(withTombstone.manga.map((m) => m.id).sort(), ['r1', 'r3'])
+
+  const staleTombstone = mergeLists([], remote, [{ id: 'r2', deletedAt: 1 }], [])
+  assert.deepEqual(staleTombstone.manga.map((m) => m.id).sort(), ['r1', 'r2', 'r3'])
+})
+
+test('mergeLists respects the focus limit from the merged skill tree', () => {
+  // Regression: ohne skillTree-Argument fiel mergeLists auf FOCUS_BASE (3) zurueck
+  // und hat bei jedem Sync alles ab dem 4. Fokus-Eintrag entfokussiert — auch wenn
+  // focus_1..focus_4 freigeschaltet waren.
+  const focused = [1, 2, 3, 4, 5, 6].map((n) =>
+    makeManga({ id: `m${n}`, isFocused: true, updatedAt: 1_000 + n })
+  )
+
+  const withoutSkills = mergeLists(focused, [], [], [])
+  assert.equal(withoutSkills.manga.filter((m) => m.isFocused).length, 3)
+
+  const withSkills = mergeLists(focused, [], [], [], {
+    unlockedSkills: ['focus_1', 'focus_2', 'focus_3'],
+    version: 1
+  })
+  assert.equal(withSkills.manga.filter((m) => m.isFocused).length, 6)
+
+  // Bei Ueberschreitung bleiben die zuletzt aktualisierten Eintraege fokussiert.
+  // focus_1 allein ergibt FOCUS_BASE (3) + 1 = 4 Slots.
+  const capped = mergeLists(focused, [], [], [], {
+    unlockedSkills: ['focus_1'],
+    version: 1
+  })
+  const stillFocused = capped.manga.filter((m) => m.isFocused).map((m) => m.id).sort()
+  assert.deepEqual(stillFocused, ['m3', 'm4', 'm5', 'm6'])
+})
+
+test('mergeSkillTree unions both sides and survives a payload round-trip', () => {
+  const merged = mergeSkillTree(
+    { unlockedSkills: ['focus_1', 'palette_ember'], version: 1 },
+    { unlockedSkills: ['focus_1', 'card_glow'], version: 1 }
+  )
+  assert.deepEqual(merged.unlockedSkills.sort(), ['card_glow', 'focus_1', 'palette_ember'])
+
+  // Der Skill-Tree muss den Gist-Roundtrip ueberleben — vorher liess der Desktop
+  // das Argument weg, wodurch buildSyncPayload den Key ganz weggelassen hat.
+  const json = buildSyncPayload([], [], { events: [], tagCache: null }, undefined, merged)
+  const parsed = parseSyncPayload(json)
+  assert.deepEqual(parsed.skillTree?.unlockedSkills.sort(), ['card_glow', 'focus_1', 'palette_ember'])
+})
+
+test('normalizeUnlockedSkills migrates renamed skills and drops removed ones', () => {
+  const normalized = normalizeUnlockedSkills([
+    'focus_1',
+    'legendary',   // umbenannt -> profile_legendary
+    'adv_search',  // entfernt (Kernfunktion, nicht mehr gegatet)
+    'export_list', // entfernt
+    'focus_1'      // Duplikat
+  ])
+  assert.deepEqual(normalized.sort(), ['focus_1', 'profile_legendary'])
 })
 
 test('mergeStatisticsPayload de-duplicates events and prefers the newest cache', () => {

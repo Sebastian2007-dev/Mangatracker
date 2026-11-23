@@ -10,6 +10,12 @@ MangaTracker is a desktop/mobile manga tracking app built with Electron + Vue an
 npm run dev
 ```
 
+On Windows, double-click `start-dev.bat` to start DEV. If `node_modules` is
+missing, the script installs dependencies first (Node.js/npm required).
+
+In VS Code, open **Run and Debug** (`Ctrl+Shift+D`), select **MangaTracker DEV**,
+and click the green start button (or press `F5`).
+
 ### Android (Capacitor)
 
 ```bash

@@ -33,8 +33,28 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(ScreenOrientationPlugin.class);
+        registerPlugin(ReaderPlugin.class);
         super.onCreate(savedInstanceState);
         applyStoredRotationLock();
+    }
+
+    // Der Reader-WebView liegt als Overlay ueber dieser Activity und hat daher
+    // keine eigene Zurueck-Behandlung. Erst ihn fragen, dann normal weiter.
+    @Override
+    public void onBackPressed() {
+        ReaderPlugin reader = null;
+        try {
+            if (getBridge() != null) {
+                com.getcapacitor.PluginHandle handle = getBridge().getPlugin("ReaderWebView");
+                if (handle != null && handle.getInstance() instanceof ReaderPlugin) {
+                    reader = (ReaderPlugin) handle.getInstance();
+                }
+            }
+        } catch (Exception ignored) {
+            // Bridge noch nicht bereit — dann gibt es auch keinen offenen Reader
+        }
+        if (reader != null && reader.handleBackPressed()) return;
+        super.onBackPressed();
     }
 
     // Liest die lockRotation-Einstellung direkt aus SharedPreferences,

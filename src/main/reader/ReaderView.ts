@@ -4,6 +4,17 @@ import { join } from 'path'
 import { setDomainGuardContext, setupDomainGuard } from './domainGuard'
 import store from '../store'
 import { broadcastSettingsChanged } from '../ipc/settings.ipc'
+import {
+  SCROLL_REPORT_PREFIX,
+  SCROLL_TRACK_SCRIPT,
+  buildScrollRestoreScript,
+  scrollUrlKey
+} from '../../shared/reader-scripts'
+import {
+  buildChapterRegex,
+  parseChapter,
+  tryFixTemplate
+} from '../../shared/chapter-template'
 
 // Marker, mit dem der Picker-Script gewählte Selektoren an den Main-Prozess meldet
 // (BrowserView hat kein Preload — console-message ist der einfachste Rückkanal)
@@ -107,6 +118,42 @@ const ELEMENT_PICKER_SCRIPT = `
 
 const TOOLBAR_HEIGHT = 48
 
+// Letzte vom Tracking-Skript gemeldete Position. Beim Schliessen die Seite noch
+// auszulesen ist nicht zuverlaessig — ueber das Fenster-X geschlossen ist sie schon
+// zerstoert. Deshalb wird der jeweils letzte Stand hier vorgehalten.
+let lastScrollReport: { mangaId: string; url: string; scrollY: number; scrollPercent: number } | null = null
+
+/**
+ * Schreibt den letzten gemeldeten Stand an den Manga.
+ * Muss auf jedem Schliessweg laufen: reader:close aus der App-UI *und* beim
+ * Schliessen des separaten Reader-Fensters.
+ */
+function persistScrollPosition(mangaId: string | null): void {
+  if (!mangaId) return
+  const report = lastScrollReport
+  const mangaList = store.get('mangaList')
+  const idx = mangaList.findIndex((m) => m.id === mangaId)
+  if (idx === -1) return
+
+  const keep = report !== null && report.mangaId === mangaId && report.scrollY > 100
+  const next = keep
+    ? { url: report!.url, scrollY: report!.scrollY, scrollPercent: report!.scrollPercent }
+    : undefined
+
+  // Unnoetige Schreibvorgaenge vermeiden — jeder store.set schreibt die ganze Datei
+  const current = mangaList[idx].scrollPosition
+  const unchanged =
+    (!current && !next) ||
+    (current &&
+      next &&
+      current.url === next.url &&
+      current.scrollY === next.scrollY)
+  if (unchanged) return
+
+  mangaList[idx] = { ...mangaList[idx], scrollPosition: next }
+  store.set('mangaList', mangaList)
+}
+
 let readerView: BrowserView | null = null
 let separateWindow: BrowserWindow | null = null
 let currentMangaId: string | null = null
@@ -132,94 +179,6 @@ function extractDomain(url: string): string {
   }
 }
 
-interface TemplateFixResult {
-  newTemplate: string
-  confidence: number
-}
-
-function tryFixTemplate(navUrl: string, template: string): TemplateFixResult | null {
-  const chapterIdx = template.indexOf('$chapter')
-  if (chapterIdx === -1) return null
-  try {
-    const navUrlObj = new URL(navUrl)
-    const templatePrefix = template.substring(0, chapterIdx)
-    const templateSuffix = template.substring(chapterIdx + '$chapter'.length)
-    const templateUrlObj = new URL(templatePrefix.replace(/\/?$/, '/dummy'))
-
-    if (templateUrlObj.hostname !== navUrlObj.hostname) return null
-
-    // Find last numeric path segment (= chapter number)
-    const pathSegs = navUrlObj.pathname.split('/')
-    let chapterSegIdx = -1
-    for (let i = pathSegs.length - 1; i >= 0; i--) {
-      if (/^\d+(\.\d+)?$/.test(pathSegs[i]) && pathSegs[i].length > 0) {
-        chapterSegIdx = i
-        break
-      }
-    }
-    if (chapterSegIdx === -1) return null
-
-    // Rebuild template with $chapter
-    const newPathSegs = [...pathSegs]
-    newPathSegs[chapterSegIdx] = '$chapter'
-    const newTemplate =
-      navUrlObj.protocol + '//' + navUrlObj.host + newPathSegs.join('/') + templateSuffix
-
-    // Compare path segments before the chapter number
-    const oldSegs = templateUrlObj.pathname.replace('/dummy', '').split('/').filter(Boolean)
-    const newSegs = pathSegs.slice(0, chapterSegIdx).filter(Boolean)
-
-    if (oldSegs.length !== newSegs.length) return null
-
-    let diffCount = 0
-    let hexHashDiffCount = 0
-    for (let i = 0; i < oldSegs.length; i++) {
-      if (oldSegs[i] !== newSegs[i]) {
-        diffCount++
-        const oldBase = oldSegs[i].replace(/-[0-9a-fA-F]{6,12}$/, '')
-        const newBase = newSegs[i].replace(/-[0-9a-fA-F]{6,12}$/, '')
-        if (oldBase === newBase && oldBase !== oldSegs[i] && newBase !== newSegs[i]) {
-          hexHashDiffCount++
-        }
-      }
-    }
-
-    if (diffCount === 0) return null
-
-    let confidence: number
-    if (diffCount === hexHashDiffCount) {
-      confidence = diffCount === 1 ? 0.95 : 0.8
-    } else {
-      confidence = Math.max(0, 0.5 - (diffCount - hexHashDiffCount) * 0.2)
-    }
-
-    return { newTemplate, confidence }
-  } catch {
-    return null
-  }
-}
-
-function parseChapter(s: string): number {
-  // Support dash-decimal notation used by some sites (e.g. "62-1" → 62.1)
-  return parseFloat(s.replace(/^(\d+)-(\d+)$/, '$1.$2'))
-}
-
-function buildChapterRegex(template: string): RegExp | null {
-  try {
-    const parts = template.split('$chapter')
-    if (parts.length < 2) return null
-    const escapedParts = parts.map((part) => {
-      const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      // Hex-Hashes in URL-Slugs flexibel matchen — manche Seiten (z.B. AsuraComic)
-      // ändern den Hash-Teil des Slugs, leiten aber trotzdem korrekt weiter.
-      return escaped.replace(/-[0-9a-fA-F]{6,12}(?=\/)/g, '-[0-9a-fA-F]{6,12}')
-    })
-    // Match both dot-decimal (62.1) and dash-decimal (62-1) chapter numbers
-    return new RegExp(escapedParts.join('(\\d+(?:[-.]\\d+)?)'))
-  } catch {
-    return null
-  }
-}
 
 function pushReaderLog(
   mainWindow: BrowserWindow,
@@ -403,17 +362,20 @@ function attachReaderEvents(webContents: WebContents, mainWindow: BrowserWindow)
   })
 
   webContents.on('did-finish-load', () => {
-    // Scroll restore is only supported in embedded mode (overlay must be visible)
-    if (!currentMangaId || mainWindow.isDestroyed() || readerView?.webContents !== webContents) return
+    // Gilt fuer beide Modi: die Leiste sitzt im Hauptfenster, das separate
+    // Reader-Fenster ist davon unabhaengig sichtbar.
+    if (!currentMangaId || mainWindow.isDestroyed()) return
+    if (readerView?.webContents !== webContents && separateWindow?.webContents !== webContents) return
     const manga = store.get('mangaList').find((m) => m.id === currentMangaId)
     if (!manga?.scrollPosition) return
-    const currentUrl = webContents.getURL()
-    if (currentUrl === manga.scrollPosition.url && manga.scrollPosition.scrollY > 100) {
-      mainWindow.webContents.send('reader:scrollPositionAvailable', {
-        scrollY: manga.scrollPosition.scrollY,
-        scrollPercent: manga.scrollPosition.scrollPercent
-      })
-    }
+    // Normalisiert vergleichen — Fragmente und Trailing Slashes haben den Treffer
+    // bisher verhindert.
+    if (scrollUrlKey(webContents.getURL()) !== scrollUrlKey(manga.scrollPosition.url)) return
+    if (manga.scrollPosition.scrollY <= 100) return
+    mainWindow.webContents.send('reader:scrollPositionAvailable', {
+      scrollY: manga.scrollPosition.scrollY,
+      scrollPercent: manga.scrollPosition.scrollPercent
+    })
   })
 
   // F2: Element-Picker aktivieren
@@ -423,6 +385,28 @@ function attachReaderEvents(webContents: WebContents, mainWindow: BrowserWindow)
       if (settings.elementPickerEnabled ?? true) {
         webContents.executeJavaScript(ELEMENT_PICKER_SCRIPT).catch(() => {})
       }
+    }
+  })
+
+  // Scroll-Meldungen des Tracking-Skripts aufnehmen
+  webContents.on('console-message', (_event, _level, message) => {
+    if (!message.startsWith(SCROLL_REPORT_PREFIX)) return
+    if (!currentMangaId) return
+    try {
+      const state = JSON.parse(message.slice(SCROLL_REPORT_PREFIX.length)) as {
+        y: number
+        pct: number
+        url: string
+      }
+      if (!Number.isFinite(state.y) || !state.url) return
+      lastScrollReport = {
+        mangaId: currentMangaId,
+        url: state.url,
+        scrollY: Math.max(0, Math.round(state.y)),
+        scrollPercent: Math.min(1, Math.max(0, Number(state.pct) || 0))
+      }
+    } catch {
+      // Unvollstaendige Meldung ignorieren
     }
   })
 
@@ -442,6 +426,11 @@ function attachReaderEvents(webContents: WebContents, mainWindow: BrowserWindow)
     hidden[domain] = [...existing, selector]
     store.set('settings', { ...settings, hiddenElements: hidden })
     broadcastSettingsChanged()
+  })
+
+  // Scroll-Tracking nach jedem Laden neu injizieren (die Seite ist danach frisch)
+  webContents.on('did-finish-load', () => {
+    webContents.executeJavaScript(SCROLL_TRACK_SCRIPT, true).catch(() => {})
   })
 
   // Persistierte Selektoren nach jedem Laden wieder ausblenden
@@ -529,7 +518,12 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
         setDomainGuardContext(separateWindow.webContents, url)
         attachReaderEvents(separateWindow.webContents, mainWindow)
         separateWindow.loadURL(url)
+        // Der eigentliche Defekt: hier wurde bisher nur die Referenz genullt.
+        // Wer das Reader-Fenster ueber das X schliesst, hat nie eine Position
+        // gespeichert bekommen — reader:close feuert dabei nicht.
         separateWindow.on('closed', () => {
+          // Vor dem Nullen von currentMangaId speichern
+          persistScrollPosition(currentMangaId)
           separateWindow = null
           currentMangaId = null
         })
@@ -561,28 +555,29 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
     const savedMangaId = currentMangaId
     const contents = getActiveReaderContents()
 
+    // Letzten gemeldeten Stand nachziehen, falls seit der letzten Meldung noch
+    // gescrollt wurde; scheitert das, bleibt der Stand aus dem Tracking gueltig.
     if (savedMangaId && contents && !contents.isDestroyed()) {
       try {
-        const raw = await contents.executeJavaScript(
-          'JSON.stringify({ scrollY: Math.round(window.scrollY), scrollPercent: Math.min(1, window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight)) })',
+        const raw = (await contents.executeJavaScript(
+          'JSON.stringify(window.__mangaScrollRead__ ? window.__mangaScrollRead__() : null)',
           true
-        )
-        const { scrollY, scrollPercent } = JSON.parse(raw) as { scrollY: number; scrollPercent: number }
-        const currentUrl = contents.getURL()
-        const mangaList = store.get('mangaList')
-        const idx = mangaList.findIndex((m) => m.id === savedMangaId)
-        if (idx !== -1 && currentUrl) {
-          if (scrollY > 100) {
-            mangaList[idx] = { ...mangaList[idx], scrollPosition: { url: currentUrl, scrollY, scrollPercent } }
-          } else {
-            mangaList[idx] = { ...mangaList[idx], scrollPosition: undefined }
+        )) as string
+        const state = JSON.parse(raw) as { y: number; pct: number; url: string } | null
+        if (state && Number.isFinite(state.y) && state.url) {
+          lastScrollReport = {
+            mangaId: savedMangaId,
+            url: state.url,
+            scrollY: Math.max(0, Math.round(state.y)),
+            scrollPercent: Math.min(1, Math.max(0, Number(state.pct) || 0))
           }
-          store.set('mangaList', mangaList)
         }
       } catch {
-        // page may have crashed or navigated away — skip saving
+        // Seite weg oder abgestuerzt — Tracking-Stand genuegt
       }
     }
+
+    persistScrollPosition(savedMangaId)
 
     if (readerView) {
       mainWindow.removeBrowserView(readerView)
@@ -603,7 +598,7 @@ export function registerReaderIpc(mainWindow: BrowserWindow): void {
     const contents = getActiveReaderContents()
     const safeScrollY = Math.max(0, Number(scrollY) || 0)
     if (contents && !contents.isDestroyed()) {
-      await contents.executeJavaScript(`window.scrollTo({ top: ${safeScrollY}, behavior: 'instant' })`, true)
+      await contents.executeJavaScript(buildScrollRestoreScript(safeScrollY), true)
       if (currentMangaId) {
         const mangaList = store.get('mangaList')
         const idx = mangaList.findIndex((m) => m.id === currentMangaId)

@@ -3,10 +3,10 @@ import { computed, ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Bell, BookOpen, Check } from 'lucide-vue-next'
 import type { Manga } from '../../types/index'
-import MangaCover from '../manga/MangaCover.vue'
 import { useMangaStore } from '../../stores/manga.store'
 import { useReaderStore } from '../../stores/reader.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
+import { coverUrlFor, onCoverError } from '../../composables/useCoverUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
 
@@ -67,15 +67,14 @@ async function markSeen(manga: Manga): Promise<void> {
 
         <div v-else class="inbox-list">
           <div v-for="manga in entries" :key="manga.id" class="inbox-row">
-            <MangaCover
-              v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl"
+            <img
+              v-if="coverUrlFor(manga)"
+              :key="coverUrlFor(manga)!"
               class="inbox-cover"
-              :manga-dex-cover-url="manga.mangaDexCoverUrl"
-              :comick-cover-url="manga.comickCoverUrl"
+              :src="coverUrlFor(manga)!"
               :alt="manga.title"
-            >
-              <div class="inbox-cover inbox-cover-placeholder" />
-            </MangaCover>
+              @error="onCoverError"
+            />
             <div v-else class="inbox-cover inbox-cover-placeholder" />
             <div class="inbox-text">
               <p class="inbox-title" :title="manga.title">{{ manga.title }}</p>

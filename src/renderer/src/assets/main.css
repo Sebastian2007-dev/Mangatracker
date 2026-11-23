@@ -75,6 +75,9 @@ body {
 
 #app {
   height: 100%;
+  /* Eigener Stacking-Context ueber den Ambiente-Overlays auf dem body */
+  position: relative;
+  z-index: 1;
 }
 
 /* Scrollbar styling */
@@ -91,4 +94,173 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Kosmetik aus dem Skill-Tree
+   Die data-Attribute setzt useCosmetics() auf <html>; die Auswahl liegt
+   in den AppSettings und greift nur bei freigeschaltetem Skill.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Akzentfarben (Branch "Palette") ──────────────────────────────── */
+:root[data-palette='ember']  { --primary:  14 90% 62%; --ring:  14 90% 62%; }
+:root[data-palette='ocean']  { --primary: 190 85% 60%; --ring: 190 85% 60%; }
+:root[data-palette='forest'] { --primary: 152 65% 52%; --ring: 152 65% 52%; }
+:root[data-palette='gold']   { --primary:  43 90% 62%; --ring:  43 90% 62%; }
+
+.light[data-palette='ember']  { --primary:  14 85% 46%; --ring:  14 85% 46%; }
+.light[data-palette='ocean']  { --primary: 195 85% 38%; --ring: 195 85% 38%; }
+.light[data-palette='forest'] { --primary: 155 65% 32%; --ring: 155 65% 32%; }
+.light[data-palette='gold']   { --primary:  38 85% 40%; --ring:  38 85% 40%; }
+
+/* ── Karten-Design (Branch "Karten") ──────────────────────────────── */
+[data-card-style='glow'] .manga-card,
+[data-card-style='gradient'] .manga-card,
+[data-card-style='frame'] .manga-card,
+[data-card-style='holo'] .manga-card {
+  position: relative;
+}
+
+[data-card-style='glow'] .manga-card:hover {
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.5), 0 6px 24px hsl(var(--primary) / 0.28);
+}
+
+[data-card-style='gradient'] .manga-card {
+  background-image: linear-gradient(135deg, hsl(var(--primary) / 0.14), transparent 62%);
+}
+
+[data-card-style='frame'] .manga-card {
+  border: 1px solid hsl(var(--primary) / 0.45);
+  box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.12);
+}
+
+/* Holo: bewegter Regenbogen-Schimmer als Overlay, ohne Klicks zu blockieren */
+[data-card-style='holo'] .manga-card {
+  border: 1px solid hsl(var(--primary) / 0.35);
+  overflow: hidden;
+}
+[data-card-style='holo'] .manga-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    hsl(320 90% 70% / 0.16) 35%,
+    hsl(190 90% 70% / 0.16) 50%,
+    hsl(60 90% 70% / 0.16) 65%,
+    transparent 80%
+  );
+  background-size: 260% 100%;
+  animation: holo-shift 7s linear infinite;
+}
+@keyframes holo-shift {
+  from { background-position: 0% 0; }
+  to   { background-position: 260% 0; }
+}
+
+/* ── Ambiente (Branch "Ambiente") ─────────────────────────────────── */
+/* Alle Effekte liegen hinter der Oberflaeche: #app hat einen eigenen
+   Stacking-Context, das Overlay sitzt auf dem body dahinter. */
+body[data-ambient]::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+body[data-ambient='grain']::before {
+  opacity: 0.32;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+body[data-ambient='aurora']::before {
+  background:
+    radial-gradient(60% 45% at 15% 12%, hsl(var(--primary) / 0.22), transparent 70%),
+    radial-gradient(55% 40% at 85% 85%, hsl(190 80% 60% / 0.16), transparent 70%);
+  animation: aurora-drift 24s ease-in-out infinite alternate;
+}
+@keyframes aurora-drift {
+  from { transform: translate3d(-3%, -2%, 0) scale(1.05); }
+  to   { transform: translate3d(3%, 2%, 0) scale(1.12); }
+}
+
+body[data-ambient='stars']::before {
+  background-image:
+    radial-gradient(1.5px 1.5px at 20% 30%, hsl(var(--foreground) / 0.55), transparent 100%),
+    radial-gradient(1.5px 1.5px at 70% 15%, hsl(var(--foreground) / 0.45), transparent 100%),
+    radial-gradient(1px 1px at 45% 70%, hsl(var(--foreground) / 0.5), transparent 100%),
+    radial-gradient(1px 1px at 85% 55%, hsl(var(--foreground) / 0.4), transparent 100%),
+    radial-gradient(1.5px 1.5px at 10% 80%, hsl(var(--foreground) / 0.45), transparent 100%);
+  background-size: 260px 260px;
+  animation: star-twinkle 5s ease-in-out infinite alternate;
+}
+@keyframes star-twinkle {
+  from { opacity: 0.35; }
+  to   { opacity: 0.8; }
+}
+
+/* "Sanfte Bewegung" faerbt keinen Hintergrund, sondern verlaengert Uebergaenge */
+:root[data-ambient='motion'] * {
+  transition-duration: 0.32s !important;
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+}
+
+/* Wer Bewegung reduziert haben will, bekommt keine Animationen */
+@media (prefers-reduced-motion: reduce) {
+  body[data-ambient]::before,
+  [data-card-style='holo'] .manga-card::after {
+    animation: none;
+  }
+  :root[data-ambient='motion'] * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Profil-Effekte (Branch "Profil") ─────────────────────────────── */
+[data-profile-fx='aura'] .hero-avatar-wrap,
+[data-profile-fx='legendary'] .hero-avatar-wrap {
+  position: relative;
+}
+[data-profile-fx='aura'] .hero-avatar-wrap::before,
+[data-profile-fx='legendary'] .hero-avatar-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(circle, hsl(var(--primary) / 0.42), transparent 68%);
+  animation: aura-pulse 3.4s ease-in-out infinite alternate;
+}
+@keyframes aura-pulse {
+  from { transform: scale(0.92); opacity: 0.55; }
+  to   { transform: scale(1.08); opacity: 1; }
+}
+
+[data-profile-fx='legendary'] .hero-avatar-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 35%, hsl(0 0% 100% / 0.55) 50%, transparent 65%);
+  background-size: 300% 100%;
+  animation: legendary-shine 3.6s linear infinite;
+  mix-blend-mode: overlay;
+}
+@keyframes legendary-shine {
+  from { background-position: -50% 0; }
+  to   { background-position: 250% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-profile-fx='aura'] .hero-avatar-wrap::before,
+  [data-profile-fx='legendary'] .hero-avatar-wrap::before,
+  [data-profile-fx='legendary'] .hero-avatar-wrap::after {
+    animation: none;
+  }
 }

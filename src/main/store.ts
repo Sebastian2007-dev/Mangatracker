@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import type { AppSettings, Manga, StatisticsEvent, StatisticsTagCache, TrashedManga } from '../types/index'
+import type { AppSettings, Manga, SkillTreeState, StatisticsEvent, StatisticsTagCache, TrashedManga } from '../types/index'
 import { normalizeMangaList, normalizeTagCache, normalizeTrashedMangaList } from '../shared/manga'
 
 interface StoreSchema {
@@ -8,6 +8,7 @@ interface StoreSchema {
   statsEvents: StatisticsEvent[]
   statsTagCache: StatisticsTagCache | null
   earnedAchievements: string[]
+  skillTree: SkillTreeState
   settings: AppSettings
   modDisabled: string[]
   modSettings: Record<string, Record<string, unknown>>
@@ -20,6 +21,7 @@ const store = new Store<StoreSchema>({
     statsEvents: [],
     statsTagCache: null,
     earnedAchievements: [],
+    skillTree: { unlockedSkills: [], version: 1 },
     modDisabled: [],
     modSettings: {},
     settings: {
@@ -41,7 +43,12 @@ const store = new Store<StoreSchema>({
       gistAutoSync: false,
       githubToken: '',
       gistId: '',
-      lastGistSync: 0
+      lastGistSync: 0,
+      domainGuardMode: 'ask',
+      accentPalette: 'default',
+      cardStyle: 'plain',
+      ambientEffect: 'none',
+      profileEffect: 'none'
     }
   }
 })

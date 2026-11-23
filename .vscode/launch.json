@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MangaTracker DEV",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "cmd /c start-dev.bat",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

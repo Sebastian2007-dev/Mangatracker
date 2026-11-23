@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { AppSettings, Theme, Language, ReadBehavior, Manga } from '../types/index'
+import type { AppSettings, Theme, Language, ReadBehavior, Manga, DomainGuardMode } from '../types/index'
+import type { AccentPalette, AmbientEffect, CardStyle, ProfileEffect } from '../../../shared/cosmetics'
 import type { LoadedMod } from '../../../types/mod'
 import { getBridge } from '../services/platform'
 
@@ -31,6 +32,11 @@ export const useSettingsStore = defineStore('settings', () => {
   const customTitle = ref<string>('')
   const proxyUrl = ref<string>('')
   const lockRotation = ref<boolean>(true)
+  const domainGuardMode = ref<DomainGuardMode>('ask')
+  const accentPalette = ref<AccentPalette>('default')
+  const cardStyle = ref<CardStyle>('plain')
+  const ambientEffect = ref<AmbientEffect>('none')
+  const profileEffect = ref<ProfileEffect>('none')
   const hiddenElements = ref<Record<string, string[]>>({})
   const loadedMods = ref<LoadedMod[]>([])
 
@@ -60,6 +66,11 @@ export const useSettingsStore = defineStore('settings', () => {
     customTitle.value = s.customTitle ?? ''
     proxyUrl.value = s.proxyUrl ?? ''
     lockRotation.value = s.lockRotation ?? true
+    domainGuardMode.value = s.domainGuardMode ?? 'ask'
+    accentPalette.value = s.accentPalette ?? 'default'
+    cardStyle.value = s.cardStyle ?? 'plain'
+    ambientEffect.value = s.ambientEffect ?? 'none'
+    profileEffect.value = s.profileEffect ?? 'none'
     hiddenElements.value = s.hiddenElements ?? {}
   }
 
@@ -102,32 +113,15 @@ export const useSettingsStore = defineStore('settings', () => {
     if (updates.customTitle !== undefined) customTitle.value = updates.customTitle ?? ''
     if (updates.proxyUrl !== undefined) proxyUrl.value = updates.proxyUrl ?? ''
     if (updates.lockRotation !== undefined) lockRotation.value = updates.lockRotation
+    if (updates.domainGuardMode !== undefined) domainGuardMode.value = updates.domainGuardMode
+    if (updates.accentPalette !== undefined) accentPalette.value = updates.accentPalette
+    if (updates.cardStyle !== undefined) cardStyle.value = updates.cardStyle
+    if (updates.ambientEffect !== undefined) ambientEffect.value = updates.ambientEffect
+    if (updates.profileEffect !== undefined) profileEffect.value = updates.profileEffect
     if (updates.hiddenElements !== undefined) hiddenElements.value = updates.hiddenElements ?? {}
   }
 
-  async function uploadGist(): Promise<{ success: boolean; error?: string }> {
-    const result = await api.invoke<{ success: boolean; gistId?: string; error?: string }>(
-      'gist:upload',
-      { token: githubToken.value, gistId: gistId.value }
-    )
-    if (result.success && result.gistId) {
-      gistId.value = result.gistId
-      lastGistSync.value = Date.now()
-    }
-    return result
-  }
 
-  async function downloadGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
-    const result = await api.invoke<{ success: boolean; data?: Manga[]; gistId?: string; error?: string }>(
-      'gist:download',
-      { token: githubToken.value, gistId: gistId.value }
-    )
-    if (result.success && result.gistId) {
-      gistId.value = result.gistId
-      lastGistSync.value = Date.now()
-    }
-    return result
-  }
 
   async function syncGist(): Promise<{ success: boolean; data?: Manga[]; error?: string }> {
     const result = await api.invoke<{ success: boolean; data?: Manga[]; gistId?: string; error?: string }>(
@@ -203,9 +197,14 @@ export const useSettingsStore = defineStore('settings', () => {
     gistSyncEnabled, gistAutoSync, githubToken, gistId, lastGistSync,
     profileName, profileAvatar, profileUpdatedAt, customTitle, proxyUrl,
     lockRotation,
+    domainGuardMode,
+    accentPalette,
+    cardStyle,
+    ambientEffect,
+    profileEffect,
     hiddenElements,
     loadedMods,
-    load, save, setupListeners, syncGist, uploadGist, downloadGist, testGistAuth, disconnectGist,
+    load, save, setupListeners, syncGist, testGistAuth, disconnectGist,
     fetchMods, scanMods, setModEnabled, openModsFolder
   }
 })

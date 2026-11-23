@@ -34,6 +34,10 @@ const comickHid = ref('')
 const comickTitle = ref('')
 const comickCoverUrl = ref<string | undefined>(undefined)
 const showCkModal = ref(false)
+const mangaUpdatesId = ref('')
+const mangaUpdatesTitle = ref('')
+const mangaUpdatesCoverUrl = ref<string | undefined>(undefined)
+const showMuModal = ref(false)
 const isSaving = ref(false)
 let backdropDown: boolean = false
 
@@ -42,6 +46,7 @@ function onBackdropMouseDown(event: MouseEvent): void {
 }
 const mangaDexManuallyUnlinked = ref(false)
 const comickManuallyUnlinked = ref(false)
+const mangaUpdatesManuallyUnlinked = ref(false)
 const duplicateOf = ref<import('../../types/index').Manga | null>(null)
 
 type SearchItem = { id: string; title: string; coverUrl: string | null }
@@ -80,6 +85,29 @@ async function autoLink(): Promise<void> {
           mangaDexId.value = best.item.id
           mangaDexTitle.value = best.item.title
           mangaDexCoverUrl.value = best.item.coverUrl ?? undefined
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (!mangaUpdatesId.value && !mangaUpdatesManuallyUnlinked.value) {
+    try {
+      const res = (await bridge.invoke('mangaupdates:search', { title: q })) as {
+        success: boolean
+        data?: SearchItem[]
+      }
+      if (res.success && res.data && res.data.length > 0) {
+        const best = res.data.reduce(
+          (b, item) => {
+            const s = titleSimilarity(q, item.title)
+            return s > b.score ? { score: s, item } : b
+          },
+          { score: 0, item: res.data[0] }
+        )
+        if (best.score >= 0.5) {
+          mangaUpdatesId.value = best.item.id
+          mangaUpdatesTitle.value = best.item.title
+          mangaUpdatesCoverUrl.value = best.item.coverUrl ?? undefined
         }
       }
     } catch { /* ignore */ }
@@ -132,6 +160,9 @@ watch(() => props.open, (open) => {
       comickHid.value = props.manga.comickHid ?? ''
       comickTitle.value = props.manga.comickTitle ?? ''
       comickCoverUrl.value = props.manga.comickCoverUrl
+      mangaUpdatesId.value = props.manga.mangaUpdatesId ?? ''
+      mangaUpdatesTitle.value = props.manga.mangaUpdatesTitle ?? ''
+      mangaUpdatesCoverUrl.value = props.manga.mangaUpdatesCoverUrl
     } else {
       title.value = ''
       mainUrl.value = ''
@@ -145,12 +176,17 @@ watch(() => props.open, (open) => {
       comickHid.value = ''
       comickTitle.value = ''
       comickCoverUrl.value = undefined
+      mangaUpdatesId.value = ''
+      mangaUpdatesTitle.value = ''
+      mangaUpdatesCoverUrl.value = undefined
     }
     errors.value = {}
     showMdxModal.value = false
     showCkModal.value = false
+    showMuModal.value = false
     mangaDexManuallyUnlinked.value = false
     comickManuallyUnlinked.value = false
+    mangaUpdatesManuallyUnlinked.value = false
     duplicateOf.value = null
   }
 })
@@ -174,7 +210,8 @@ function findDuplicate(): import('../../types/index').Manga | null {
       norm(m.mainUrl) === norm(mainUrl.value) ||
       m.title.toLowerCase().trim() === title.value.toLowerCase().trim() ||
       (!!mangaDexId.value && m.mangaDexId === mangaDexId.value) ||
-      (!!comickHid.value && m.comickHid === comickHid.value)
+      (!!comickHid.value && m.comickHid === comickHid.value) ||
+      (!!mangaUpdatesId.value && m.mangaUpdatesId === mangaUpdatesId.value)
     )
   }) ?? null
 }
@@ -227,6 +264,9 @@ async function handleSave(force = false): Promise<void> {
       comickHid: selectedComickHid,
       comickTitle: comickTitle.value || undefined,
       comickCoverUrl: comickCoverUrl.value || undefined,
+      mangaUpdatesId: mangaUpdatesId.value || undefined,
+      mangaUpdatesTitle: mangaUpdatesTitle.value || undefined,
+      mangaUpdatesCoverUrl: mangaUpdatesCoverUrl.value || undefined,
       tags: tags.length > 0 ? tags : undefined,
       muteNotifications: muteNotifications.value || undefined
     }
@@ -246,6 +286,12 @@ function onMdxSelect(item: { id: string; title: string; coverUrl: string | null 
   mangaDexId.value = item.id
   mangaDexTitle.value = item.title
   mangaDexCoverUrl.value = item.coverUrl ?? undefined
+}
+
+function onMuSelect(item: { id: string; title: string; coverUrl: string | null }): void {
+  mangaUpdatesId.value = item.id
+  mangaUpdatesTitle.value = item.title
+  mangaUpdatesCoverUrl.value = item.coverUrl ?? undefined
 }
 
 function onCkSelect(item: { id: string; title: string; coverUrl: string | null }): void {
@@ -341,6 +387,29 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
             </p>
           </div>
 
+          <!-- MangaUpdates Verknüpfung -->
+          <div>
+            <label class="field-label">MangaUpdates</label>
+            <div class="mdx-row">
+              <span class="mdx-status" :class="{ linked: !!mangaUpdatesId }">
+                {{ mangaUpdatesId ? '✓ ' + mangaUpdatesTitle : t('manga.muNotLinked') }}
+              </span>
+              <button
+                v-if="mangaUpdatesId"
+                type="button"
+                class="mdx-btn"
+                :title="t('manga.muUnlink')"
+                @click="mangaUpdatesId = ''; mangaUpdatesTitle = ''; mangaUpdatesCoverUrl = undefined; mangaUpdatesManuallyUnlinked = true"
+              >✕</button>
+              <button type="button" class="mdx-btn" @click="showMuModal = true">
+                {{ mangaUpdatesId ? t('manga.muChange') : t('manga.muLink') }}
+              </button>
+            </div>
+            <p v-if="!mangaUpdatesId" class="text-xs mt-1" style="color: hsl(var(--muted-foreground))">
+              {{ t('manga.muHint') }}
+            </p>
+          </div>
+
           <!-- ComicK.io Verknüpfung -->
           <div>
             <label class="field-label">ComicK.io</label>
@@ -391,6 +460,15 @@ function onCkSelect(item: { id: string; title: string; coverUrl: string | null }
     :initial-query="title"
     @close="showMdxModal = false"
     @select="onMdxSelect"
+  />
+
+  <MangaDexSearchModal
+    :open="showMuModal"
+    :initial-query="title"
+    search-channel="mangaupdates:search"
+    :modal-title="t('manga.muModalTitle')"
+    @close="showMuModal = false"
+    @select="onMuSelect"
   />
 
   <MangaDexSearchModal

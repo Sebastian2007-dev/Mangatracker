@@ -4,6 +4,7 @@ import store from '../store'
 import type { LogEntryType } from '../../types/index'
 import { getRegisteredScanners } from '../mods/mod-loader'
 import { notifyStatsUpdated } from '../stats.service'
+import { MU_USER_AGENT, muSeriesUrl, muLatestChapter } from '../../shared/mangaupdates'
 
 let pollerTimer: ReturnType<typeof setTimeout> | null = null
 let pollerWindow: BrowserWindow | null = null
@@ -64,6 +65,24 @@ async function checkMangaDex(
   return { ok: true, mangaId: manga.id, title: manga.title, newChapter: latest, statusCode: res.status, source: 'MDX' }
 }
 
+async function checkMangaUpdates(
+  manga: { id: string; title: string; currentChapter: number; mangaUpdatesId: string },
+  ses: Electron.Session
+): Promise<CheckResult> {
+  const res = await ses.fetch(muSeriesUrl(manga.mangaUpdatesId), {
+    headers: { 'User-Agent': MU_USER_AGENT },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+  })
+
+  if (!res.ok) return { ok: false, reason: `MU_ERR(HTTP_${res.status})` }
+
+  const latest = muLatestChapter(await res.json())
+  if (latest === null) return { ok: false, reason: 'MU_NO_DATA' }
+  if (latest <= manga.currentChapter) return { ok: false, reason: 'MU_SAME' }
+
+  return { ok: true, mangaId: manga.id, title: manga.title, newChapter: latest, statusCode: res.status, source: 'MU' }
+}
+
 async function checkComicK(
   manga: { id: string; title: string; currentChapter: number; comickHid: string },
   ses: Electron.Session
@@ -102,6 +121,7 @@ async function checkManga(
     currentChapter: number
     lastCheckedChapter: number
     mangaDexId?: string
+    mangaUpdatesId?: string
     comickHid?: string
   },
   ses: Electron.Session
@@ -124,9 +144,21 @@ async function checkManga(
     )
     // Neues Kapitel gefunden → sofort zurück
     if (mdxResult.ok) return mdxResult
-    // MDX_SAME: kein neues Kapitel laut MDX — aber ComicK könnte weiter sein
-    if (mdxResult.reason === 'MDX_SAME' && !manga.comickHid) return mdxResult
-    // MDX_NO_DATA, MDX_ERR oder MDX_SAME+comickHid → weiter zu ComicK
+    // MDX_SAME: kein neues Kapitel laut MDX — aber MangaUpdates/ComicK könnten weiter sein
+    if (mdxResult.reason === 'MDX_SAME' && !manga.mangaUpdatesId && !manga.comickHid) return mdxResult
+    // MDX_NO_DATA, MDX_ERR oder MDX_SAME+weitere Quelle → weiter zu MangaUpdates
+  }
+
+  if (manga.mangaUpdatesId) {
+    try {
+      const muResult = await checkMangaUpdates(
+        { id: manga.id, title: manga.title, currentChapter: manga.currentChapter, mangaUpdatesId: manga.mangaUpdatesId },
+        ses
+      )
+      if (muResult.ok) return muResult
+      if (muResult.reason === 'MU_SAME' && !manga.comickHid) return muResult
+      // MU_NO_DATA, MU_ERR oder MU_SAME+comickHid → weiter zu ComicK
+    } catch { /* Netzwerkfehler → weiter zu ComicK */ }
   }
 
   if (manga.comickHid) {
@@ -254,7 +286,7 @@ export async function runPoll(mainWindow: BrowserWindow, force = false): Promise
       } else {
         pushLog(mainWindow, 'info', `${manga.title} – kein neues Kapitel [${result.reason}]`)
       }
-      if (manga.mangaDexId || manga.comickHid) await sleep(300)
+      if (manga.mangaDexId || manga.mangaUpdatesId || manga.comickHid) await sleep(300)
     } catch (e) {
       errorCount++
       const msg = e instanceof Error ? e.message : String(e)

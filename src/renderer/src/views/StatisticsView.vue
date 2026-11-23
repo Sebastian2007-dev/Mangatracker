@@ -182,7 +182,7 @@ const statCards = computed(() => {
 
 const topTags = computed(() => {
   if (!overview.value) return []
-  const limit = skillTreeStore.isUnlocked('tag_insights') ? 15 : 6
+  const limit = 15
   return Object.entries(overview.value.tags)
     .sort((left, right) => right[1] - left[1])
     .slice(0, limit)
@@ -554,8 +554,8 @@ onMounted(async () => {
           </section>
         </div>
 
-        <!-- ── Heatmap (skill: heatmap) ───────────────────────────── -->
-        <section v-if="mode === 'game' && skillTreeStore.isUnlocked('heatmap')" class="panel heatmap-panel">
+        <!-- ── Heatmap ────────────────────────────────────────────── -->
+        <section v-if="mode === 'game'" class="panel heatmap-panel">
           <div class="panel-head">
             <p class="panel-eyebrow">{{ t('statistics.sections.heatmap') }}</p>
           </div>
@@ -572,8 +572,8 @@ onMounted(async () => {
           </div>
         </section>
 
-        <!-- ── Deep stats (skill: deep_stats) ────────────────────── -->
-        <section v-if="mode === 'game' && skillTreeStore.isUnlocked('deep_stats')" class="panel">
+        <!-- ── Deep stats ─────────────────────────────────────────── -->
+        <section v-if="mode === 'game'" class="panel">
           <div class="panel-head">
             <p class="panel-eyebrow">{{ t('statistics.sections.deepStats') }}</p>
           </div>
@@ -609,8 +609,8 @@ onMounted(async () => {
           </div>
         </section>
 
-        <!-- ── Forecast (skill: forecast) ─────────────────────────── -->
-        <section v-if="mode === 'game' && skillTreeStore.isUnlocked('forecast')" class="panel">
+        <!-- ── Forecast ───────────────────────────────────────────── -->
+        <section v-if="mode === 'game'" class="panel">
           <div class="panel-head">
             <p class="panel-eyebrow">{{ t('statistics.sections.forecast') }}</p>
           </div>

@@ -5,12 +5,15 @@
  * Wird in src/renderer/src/main.mobile.ts per setBridge() registriert.
  */
 import type { PlatformBridge } from './platform'
+import type { SkillTreeState } from '../../../types/index'
 import * as mangaService from './mobile/manga.service'
 import * as settingsService from './mobile/settings.service'
 import * as gistService from './mobile/gist.service'
 import * as statsService from './mobile/stats.service'
 import { runPoll } from './mobile/poller.service'
-import { writeMangaExportFile } from './mobile/storage.service'
+import { mangaDexGet, nativeJson } from './mobile/mangadex-http'
+import { muSearchUrl, muSearchPayload, mapMuSearch } from '../../../shared/mangaupdates'
+import { getSkillTree, setSkillTree, writeMangaExportFile } from './mobile/storage.service'
 import { Share } from '@capacitor/share'
 
 // ─── Event-Bus für interne Ereignisse (ersetzt Electron IPC events) ────────
@@ -80,18 +83,15 @@ const handlers: Record<string, Handler> = {
       `https://api.mangadex.org/manga` +
       `?title=${encodeURIComponent(title)}&limit=10&includes[]=cover_art`
     try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'MangaTracker/1.0 (personal hobby app)' }
-      })
-      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
-      const json = (await res.json()) as {
+      const res = await mangaDexGet<{
         data: {
           id: string
           attributes: { title: Record<string, string> }
           relationships: { type: string; attributes?: { fileName?: string } }[]
         }[]
-      }
-      const results = (json.data ?? []).map((item) => {
+      }>(url)
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      const results = (res.json?.data ?? []).map((item) => {
         const coverRel = item.relationships.find((r) => r.type === 'cover_art')
         const coverFile = coverRel?.attributes?.fileName
         const coverUrl = coverFile
@@ -128,13 +128,22 @@ const handlers: Record<string, Handler> = {
     }
   },
 
+  'mangaupdates:search': async (p) => {
+    const { title } = p as { title: string }
+    try {
+      const res = await nativeJson<unknown>(muSearchUrl, { method: 'POST', body: muSearchPayload(title) })
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      return { success: true, data: mapMuSearch(res.json) }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  },
+
   'mangadex:details': async (p) => {
     const { id } = p as { id: string }
     try {
       const url = `https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author&includes[]=artist`
-      const res = await fetch(url, { headers: { 'User-Agent': 'MangaTracker/1.0' } })
-      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
-      const json = (await res.json()) as {
+      const res = await mangaDexGet<{
         data: {
           attributes: {
             description: Record<string, string>
@@ -146,7 +155,9 @@ const handlers: Record<string, Handler> = {
           }
           relationships: { type: string; attributes?: { name?: string } }[]
         }
-      }
+      }>(url)
+      if (!res.ok) return { success: false, error: `HTTP ${res.status}` }
+      const json = res.json ?? ({} as typeof res.json)
       const attr = json.data?.attributes
       if (!attr) return { success: false, error: 'No data' }
       const desc = attr.description?.en ?? Object.values(attr.description ?? {})[0] ?? ''
@@ -222,10 +233,18 @@ const handlers: Record<string, Handler> = {
   'settings:get': () => settingsService.settingsGet(),
   'settings:set': (p) => settingsService.settingsSet(p as Parameters<typeof settingsService.settingsSet>[0]),
 
+  'skillTree:get': async () => ({ success: true, data: await getSkillTree() }),
+  'skillTree:set': async (p) => {
+    const state = p as SkillTreeState
+    if (!state || typeof state !== 'object' || !Array.isArray(state.unlockedSkills)) {
+      return { success: false, error: 'Invalid skill tree payload' }
+    }
+    await setSkillTree(state)
+    return { success: true }
+  },
+
   'gist:testAuth': (p) => gistService.testAuth(p),
   'gist:sync': (p) => gistService.sync(p),
-  'gist:upload': (p) => gistService.upload(p),
-  'gist:download': (p) => gistService.download(p),
   'gist:disconnect': () => gistService.disconnect(),
   'stats:getOverview': () => statsService.statsGetOverview(),
   'stats:refreshTags': () => statsService.statsRefreshTags(),

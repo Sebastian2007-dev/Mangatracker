@@ -23,6 +23,10 @@ export interface Manga {
   comickHid?: string
   comickTitle?: string
   comickCoverUrl?: string
+  /** MangaUpdates series_id (numerisch, als String gespeichert) */
+  mangaUpdatesId?: string
+  mangaUpdatesTitle?: string
+  mangaUpdatesCoverUrl?: string
   tags?: string[]
   bookmarkedChapter?: number
   note?: string
@@ -155,6 +159,8 @@ export interface StatisticsOverview {
   }
 }
 
+import type { AccentPalette, AmbientEffect, CardStyle, ProfileEffect } from '../shared/cosmetics'
+
 export type Theme = 'light' | 'dark' | 'system'
 export type Language = 'en' | 'de'
 export type ReadBehavior = 'main' | 'chapter' | 'ask'
@@ -195,6 +201,13 @@ export interface AppSettings {
   customTitle?: string
   proxyUrl?: string
   lockRotation?: boolean
+  /** Reader: Verhalten bei Navigation auf eine fremde Domain */
+  domainGuardMode?: DomainGuardMode
+  /** Kosmetik aus dem Skill-Tree — Auswahl greift nur, wenn der Skill freigeschaltet ist */
+  accentPalette?: AccentPalette
+  cardStyle?: CardStyle
+  ambientEffect?: AmbientEffect
+  profileEffect?: ProfileEffect
   /** Element Picker (F2): pro Domain persistierte CSS-Selektoren, die ausgeblendet werden */
   hiddenElements?: Record<string, string[]>
 }
@@ -205,6 +218,14 @@ export interface ReaderOpenPayload {
 }
 
 export type DomainGuardChoice = 'yes' | 'yes_always' | 'no' | 'no_block'
+
+/**
+ * Verhalten bei Navigation auf eine fremde Domain im Reader.
+ * 'ask' fragt nach, 'block' verwirft still, 'off' laesst alles durch.
+ * Automatische Umleitungen ohne Nutzergeste werden in 'ask' und 'block'
+ * immer verworfen — danach fragt niemand gern.
+ */
+export type DomainGuardMode = 'ask' | 'block' | 'off'
 
 export interface DomainGuardRequest {
   requestId: string

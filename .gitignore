@@ -15,7 +15,11 @@ android/.idea/
 android/app/*.jks
 android/app/*.keystore
 android/keystore.properties
-.vscode
-
+.vscode/*
+!.vscode/launch.json
+# Von "cap sync" generiert — nicht committen
+android/capacitor.settings.gradle
+android/app/capacitor.build.gradle
+# Lokale Account-Switcher-Skripte + Credentials
 switch-github-account.bat
 BatSwitcher/accessToken.env

@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain, session } from 'electron'
 import store from '../store'
 import { restartPoller } from '../notifications/chapterPoller'
-import type { AppSettings } from '../../types/index'
+import type { AppSettings, SkillTreeState } from '../../types/index'
 
 // Untergrenze fürs Poll-Intervall — verhindert Tight-Loops (z. B. 0 ms)
 const MIN_NOTIFICATION_INTERVAL_MS = 60_000
@@ -74,6 +74,20 @@ export function registerSettingsIpc(): void {
       await applyProxy(clean.proxyUrl)
     }
 
+    return { success: true }
+  })
+
+  ipcMain.handle('skillTree:get', () => {
+    return { success: true, data: store.get('skillTree') }
+  })
+
+  ipcMain.handle('skillTree:set', (_event, state: SkillTreeState) => {
+    if (!state || typeof state !== 'object' || !Array.isArray(state.unlockedSkills)) {
+      return { success: false, error: 'Invalid skill tree payload' }
+    }
+    const unlockedSkills = [...new Set(state.unlockedSkills.filter((id): id is string => typeof id === 'string'))]
+    const version = Number.isFinite(state.version) ? Number(state.version) : 1
+    store.set('skillTree', { unlockedSkills, version })
     return { success: true }
   })
 }

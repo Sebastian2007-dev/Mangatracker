@@ -15,14 +15,6 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: false
     },
-    BackgroundRunner: {
-      label: 'com.mangaTracker.app.background',
-      src: 'background.runner.js',
-      event: 'checkChapters',
-      repeat: true,
-      interval: 15,
-      autoStart: true
-    }
   }
 }
 

@@ -5,14 +5,15 @@ import { BookOpen, Pencil, Trash2, Star, Info, Bookmark, FileText, BellOff } fro
 import type { Manga } from '../../types/index'
 import ChapterInput from './ChapterInput.vue'
 import NewChapterBadge from './NewChapterBadge.vue'
-import MangaCover from './MangaCover.vue'
 import { useMangaStore } from '../../stores/manga.store'
 import { useReaderStore } from '../../stores/reader.store'
 import { useSettingsStore } from '../../stores/settings.store'
-import { useSkillTreeStore } from '../../stores/skill-tree.store'
 import { buildChapterUrl } from '../../composables/useChapterUrl'
+import { coverUrlFor, onCoverError } from '../../composables/useCoverUrl'
 import { isMobile } from '../../composables/usePlatform'
 import { Browser } from '@capacitor/browser'
+import { openInReader } from '../../services/mobile/reader.service'
+import { ReaderWebView } from '../../services/mobile/reader.plugin'
 import { setReadingSession, clearReadingSession } from '../../composables/useReadingSession'
 import {
   areTagListsEqual,
@@ -21,13 +22,13 @@ import {
 } from '../../services/manga-details.service'
 
 const props = defineProps<{ manga: Manga }>()
+const coverUrl = computed(() => coverUrlFor(props.manga))
 const emit = defineEmits<{ edit: [manga: Manga] }>()
 
 const { t } = useI18n()
 const mangaStore = useMangaStore()
 const readerStore = useReaderStore()
 const settingsStore = useSettingsStore()
-const skillTreeStore = useSkillTreeStore()
 
 const showNote = ref(false)
 
@@ -50,11 +51,65 @@ async function onChapterChange(chapter: number): Promise<void> {
 
 async function openUrl(url: string, trackFromChapter?: number): Promise<void> {
   if (isMobile) {
+    // Die Lese-Session bleibt als Netz fuer den Fall, dass die App abgeschossen
+    // wird, bevor der Reader ein Kapitel melden konnte.
     if (trackFromChapter !== undefined) {
       await setReadingSession({ mangaId: props.manga.id, title: props.manga.title, chapter: trackFromChapter })
+    }
+    try {
+      await openInReader(url, props.manga.id, {
+        getManga: (id) => mangaStore.items.find((m) => m.id === id),
+        onChapterDetected: (id, chapter) => mangaStore.setChapter(id, chapter),
+        onScrollPosition: (id, position) => mangaStore.update(id, { scrollPosition: position }),
+        getHiddenSelectors: (domain) => settingsStore.hiddenElements?.[domain] ?? [],
+        buildLabels: (percent) => ({
+          jump: t('reader.scrollRestoreHint', { percent }),
+          dismiss: t('reader.scrollRestoreNo')
+        }),
+        guardMode: settingsStore.domainGuardMode,
+        allowedDomains: settingsStore.domainWhitelist,
+        blockedDomains: settingsStore.domainBlocklist,
+        buildGuardLabels: (targetDomain, originDomain) => ({
+          title: t('reader.domainGuard.title'),
+          message: t('reader.domainGuard.message', { domain: targetDomain }),
+          from: t('reader.domainGuard.from', { domain: originDomain }),
+          yes: t('reader.domainGuard.yes'),
+          yesAlways: t('reader.domainGuard.yesAlways'),
+          no: t('reader.domainGuard.no'),
+          noBlock: t('reader.domainGuard.noBlock')
+        }),
+        onGuardDecision: async (domain, decision) => {
+          // Landet in denselben Listen wie auf dem Desktop — und weil beide in
+          // AppSettings stehen, gilt die Entscheidung nach dem Sync dort ebenfalls.
+          if (decision === 'allow_always') {
+            if (settingsStore.domainWhitelist.includes(domain)) return
+            await settingsStore.save({
+              domainWhitelist: [...settingsStore.domainWhitelist, domain]
+            })
+          } else {
+            if (settingsStore.domainBlocklist.includes(domain)) return
+            await settingsStore.save({
+              domainBlocklist: [...settingsStore.domainBlocklist, domain]
+            })
+          }
+          // Das Plugin haelt eigene Kopien der Listen — nachziehen, damit die
+          // Entscheidung sofort und nicht erst beim naechsten Oeffnen greift.
+          await ReaderWebView.updateGuardLists({
+            guardMode: settingsStore.domainGuardMode,
+            allowedDomains: settingsStore.domainWhitelist,
+            blockedDomains: settingsStore.domainBlocklist
+          }).catch(() => {})
+        }
+      })
+      return
+    } catch (error) {
+      // Plugin fehlt (z. B. alte APK) — auf den Systembrowser zurueckfallen,
+      // dann greift wieder der manuelle Kapitel-Dialog.
+      console.error('In-App-Reader nicht verfuegbar, nutze Systembrowser:', error)
+    }
+    if (trackFromChapter !== undefined) {
       const listener = await Browser.addListener('browserFinished', async () => {
         await listener.remove()
-        // Dialog anzeigen: bis zu welchem Kapitel hast du gelesen?
         markReadChapter.value = trackFromChapter
         showMarkReadDialog.value = true
       })
@@ -241,17 +296,10 @@ async function openChapter(): Promise<void> {
     :class="{ 'has-new': manga.hasNewChapter }"
   >
     <!-- Card inner: two-column when cover present -->
-    <div class="card-inner" :class="{ 'has-cover': manga.mangaDexCoverUrl || manga.comickCoverUrl }">
+    <div class="card-inner" :class="{ 'has-cover': coverUrl }">
       <!-- Cover panel (left column) -->
-      <div v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl" class="cover-panel">
-        <MangaCover
-          :manga-dex-cover-url="manga.mangaDexCoverUrl"
-          :comick-cover-url="manga.comickCoverUrl"
-          :alt="manga.title"
-          loading="lazy"
-        >
-          <div class="cover-fallback">{{ manga.title.charAt(0).toUpperCase() }}</div>
-        </MangaCover>
+      <div v-if="coverUrl" class="cover-panel">
+        <img :key="coverUrl" :src="coverUrl" :alt="manga.title" loading="lazy" @error="onCoverError" />
       </div>
 
       <!-- Content column -->
@@ -310,8 +358,8 @@ async function openChapter(): Promise<void> {
           </button>
         </div>
 
-        <!-- Bookmark (Lesezeichen-Skill) -->
-        <div v-if="skillTreeStore.isUnlocked('bookmark')" class="skill-row bookmark-row" @click.stop>
+        <!-- Bookmark -->
+        <div class="skill-row bookmark-row" @click.stop>
           <button
             class="skill-icon-btn"
             :class="{ 'bookmark-active': manga.bookmarkedChapter != null }"
@@ -326,8 +374,8 @@ async function openChapter(): Promise<void> {
           <span v-else class="skill-hint">Kein Lesezeichen</span>
         </div>
 
-        <!-- Note (Lesenotiz-Skill) -->
-        <div v-if="skillTreeStore.isUnlocked('note')" class="skill-row note-row" @click.stop>
+        <!-- Note -->
+        <div class="skill-row note-row" @click.stop>
           <button class="skill-icon-btn note-toggle" @click.stop="showNote = !showNote">
             <FileText :size="12" />
             <span>{{ manga.note ? t('manga.note') : t('manga.addNote') }}</span>
@@ -384,15 +432,14 @@ async function openChapter(): Promise<void> {
       <div v-if="showInfoModal" class="modal-backdrop" @mousedown="onBackdropMouseDown" @click.self="backdropDown && (showInfoModal = false)">
         <div class="modal-box info-modal-box">
           <div class="info-header">
-            <MangaCover
-              v-if="manga.mangaDexCoverUrl || manga.comickCoverUrl"
+            <img
+              v-if="coverUrl"
+              :key="coverUrl"
               class="info-cover"
-              :manga-dex-cover-url="manga.mangaDexCoverUrl"
-              :comick-cover-url="manga.comickCoverUrl"
+              :src="coverUrl"
               :alt="manga.title"
-            >
-              <div class="info-cover info-cover-fallback">{{ manga.title.charAt(0).toUpperCase() }}</div>
-            </MangaCover>
+              @error="onCoverError"
+            />
             <div class="info-header-text">
               <p class="info-title">{{ manga.title }}</p>
               <div v-if="infoData" class="info-badges">
@@ -441,6 +488,10 @@ async function openChapter(): Promise<void> {
 
 <style scoped>
 .manga-card {
+  /* Gleiche Begruendung wie bei .drag-item: die Karte darf ihre Spalte nicht
+     ueber den 1fr-Anteil hinaus aufdehnen. Kein overflow: hidden hier — das
+     wuerde die Dialoge und Auswahlfelder der Karte abschneiden. */
+  min-width: 0;
   padding: 12px;
   border-radius: 8px;
   background: hsl(var(--card));
@@ -475,16 +526,6 @@ async function openChapter(): Promise<void> {
   height: 100%;
   object-fit: cover;
   display: block;
-}
-.cover-fallback {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  font-weight: 600;
-  color: hsl(var(--muted-foreground));
 }
 .card-content {
   flex: 1;
@@ -667,15 +708,6 @@ async function openChapter(): Promise<void> {
   border-radius: 7px;
   flex-shrink: 0;
   box-shadow: 0 4px 12px hsl(0 0% 0% / 0.4);
-}
-.info-cover-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: hsl(var(--secondary));
-  font-size: 34px;
-  font-weight: 600;
-  color: hsl(var(--muted-foreground));
 }
 @media (max-width: 400px) {
   .info-modal-box {

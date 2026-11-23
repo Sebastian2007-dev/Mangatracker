@@ -2,15 +2,17 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  Target, Bookmark, FileText, History, BookMarked,
-  BarChart3, CalendarDays, TrendingUp, Telescope,
-  SearchCheck, SlidersHorizontal, Download, ScrollText,
-  Sparkles, Pen, Palette, Crown,
+  Target,
+  Flame, Waves, Trees, Crown,
+  Sparkle, Blend, Frame, Gem,
+  Grip, Sunrise, Wind, MoonStar,
+  Sparkles, Pen, Orbit,
+  Palette,
   Lock, Check, Zap, GitBranch
 } from 'lucide-vue-next'
 import { useSkillTreeStore } from '../stores/skill-tree.store'
 import { useStatisticsStore } from '../stores/statistics.store'
-import { SKILLS, SKILLS_BY_BRANCH } from '../../../shared/skill-tree'
+import { SKILLS_BY_BRANCH, TOTAL_SKILL_COST } from '../../../shared/skill-tree'
 import type { SkillDefinition } from '../../../shared/skill-tree'
 
 const { t } = useI18n()
@@ -58,13 +60,13 @@ function startLongPress(skill: SkillDefinition): void {
   }
   longPressRaf = requestAnimationFrame(tick)
 
-  longPressTimer = setTimeout(() => {
+  longPressTimer = setTimeout(async () => {
     if (longPressRaf !== null) { cancelAnimationFrame(longPressRaf); longPressRaf = null }
     longPressTimer = null
     longPressProgress.value = 0
     longPressId.value = null
     wasLongPress = true
-    const ok = skillTreeStore.unlockSkill(skill.id, level.value)
+    const ok = await skillTreeStore.unlockSkill(skill.id, level.value)
     if (ok) {
       justUnlocked.value = skill.id
       activeTooltip.value = null
@@ -84,10 +86,12 @@ onUnmounted(cancelLongPress)
 
 function getIcon(iconName: string) {
   const map: Record<string, unknown> = {
-    Target, Bookmark, FileText, History, BookMarked,
-    BarChart3, CalendarDays, TrendingUp, Telescope,
-    SearchCheck, SlidersHorizontal, Download, ScrollText,
-    Sparkles, Pen, Palette, Crown
+    Target,
+    Flame, Waves, Trees, Crown,
+    Sparkle, Blend, Frame, Gem,
+    Grip, Sunrise, Wind, MoonStar,
+    Sparkles, Pen, Orbit,
+    Palette
   }
   return map[iconName] ?? Zap
 }
@@ -100,14 +104,14 @@ function nodeState(skill: SkillDefinition): 'locked' | 'available' | 'unlocked' 
 
 
 const BRANCHES: Array<{ key: keyof typeof SKILLS_BY_BRANCH; color: string }> = [
-  { key: 'focus',     color: '#a78bfa' },
-  { key: 'archive',   color: '#60a5fa' },
-  { key: 'analytics', color: '#34d399' },
-  { key: 'library',   color: '#fb923c' },
-  { key: 'profile',   color: '#f472b6' }
+  { key: 'focus',   color: '#a78bfa' },
+  { key: 'palette', color: '#fb923c' },
+  { key: 'card',    color: '#60a5fa' },
+  { key: 'ambient', color: '#34d399' },
+  { key: 'profile', color: '#f472b6' }
 ]
 
-const totalCost = computed(() => SKILLS.reduce((s, sk) => s + sk.cost, 0))
+const totalCost = TOTAL_SKILL_COST
 
 function tooltipStyle(branchIdx: number): Record<string, string> {
   if (branchIdx === 0) return { left: '0', transform: 'none' }

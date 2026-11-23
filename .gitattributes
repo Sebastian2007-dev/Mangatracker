@@ -1,0 +1,37 @@
+# Zeilenenden verbindlich festlegen.
+#
+# Ohne diese Datei entscheidet allein core.autocrlf (hier: true). Das war die
+# Ursache der Phantom-Diffs an android/capacitor.settings.gradle und
+# android/app/capacitor.build.gradle: von "cap sync" mit LF geschrieben, im Index
+# mit CRLF — dauerhaft als geaendert gemeldet, ohne inhaltlichen Unterschied.
+#
+# text=auto normalisiert nur im Index auf LF; im Arbeitsverzeichnis bleiben die
+# plattformueblichen Enden. Bewusst ohne "eol=lf", weil das sonst bei jedem
+# Checkout alle Dateien anfassen wuerde.
+* text=auto
+
+# Generierte bzw. werkzeuggebundene Dateien, die zwingend LF brauchen
+gradlew        text eol=lf
+*.sh           text eol=lf
+*.gradle       text eol=lf
+
+# Windows-Skripte brauchen umgekehrt CRLF
+*.bat          text eol=crlf
+*.cmd          text eol=crlf
+
+# Binaerdateien nie anfassen — Normalisierung wuerde sie zerstoeren
+*.png          binary
+*.jpg          binary
+*.jpeg         binary
+*.gif          binary
+*.ico          binary
+*.webp         binary
+*.woff         binary
+*.woff2        binary
+*.ttf          binary
+*.jks          binary
+*.keystore     binary
+*.apk          binary
+*.aab          binary
+*.exe          binary
+*.dat          binary

@@ -280,7 +280,7 @@ async function execute(raw: string): Promise<void> {
             count++
           }
         })
-        skillTreeStore.save()
+        await skillTreeStore.save()
         print(`✓ Force-unlocked ${count} skill(s)`, 'ok')
         return
       }
@@ -288,12 +288,12 @@ async function execute(raw: string): Promise<void> {
       if (!skill) { print(`Error: unknown skill id "${id}"`, 'err'); return }
       if (skillTreeStore.isUnlocked(id)) { print(`Already unlocked: ${id}`, 'info'); return }
       skillTreeStore.unlockedSkills.push(id)
-      skillTreeStore.save()
+      await skillTreeStore.save()
       print(`✓ Force-unlocked: ${skill.name} [${id}]`, 'ok')
       return
     }
     if (sub === 'reset') {
-      skillTreeStore.reset()
+      await skillTreeStore.reset()
       print('✓ Skill tree reset — all skills cleared', 'ok')
       return
     }

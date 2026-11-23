@@ -5,7 +5,6 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useMangaStore } from '../../stores/manga.store'
 import { useLogStore } from '../../stores/log.store'
-import { useSkillTreeStore } from '../../stores/skill-tree.store'
 import { useAdvFilter, type FilterPreset } from '../../composables/useAdvFilter'
 import { getBridge } from '../../services/platform'
 import { isMobile } from '../../composables/usePlatform'
@@ -32,7 +31,6 @@ const currentStreak = computed(() => statisticsStore.overview?.currentStreak ?? 
 function pushError(message: string): void {
   logStore.addEntry({ id: crypto.randomUUID(), type: 'error', message, timestamp: Date.now() })
 }
-const skillTreeStore = useSkillTreeStore()
 const { filter, presets, hasFilters, toggleTag, reset, savePreset, applyPreset, deletePreset } = useAdvFilter()
 
 const isScanning = ref(false)
@@ -130,9 +128,9 @@ function handleApplyPreset(p: FilterPreset): void {
           />
         </div>
 
-        <!-- Filter toggle (adv_search skill, library page only) -->
+        <!-- Filter toggle (library page only) -->
         <button
-          v-if="skillTreeStore.isUnlocked('adv_search') && isLibraryPage"
+          v-if="isLibraryPage"
           class="filter-btn"
           :class="{ active: hasFilters, open: showFilter }"
           :title="t('manga.advFilter')"
@@ -164,20 +162,20 @@ function handleApplyPreset(p: FilterPreset): void {
         <RefreshCw :size="16" />
       </button>
 
-      <!-- Export (export_list skill) -->
-      <button v-if="skillTreeStore.isUnlocked('export_list')" class="icon-btn" :title="t('manga.export')" @click="handleExport">
+      <!-- Export -->
+      <button class="icon-btn" :title="t('manga.export')" @click="handleExport">
         <Upload :size="16" />
       </button>
 
-      <!-- Import (export_list skill) -->
-      <button v-if="skillTreeStore.isUnlocked('export_list')" class="icon-btn" :title="t('manga.import')" @click="handleImport">
+      <!-- Import -->
+      <button class="icon-btn" :title="t('manga.import')" @click="handleImport">
         <Download :size="16" />
       </button>
     </header>
 
     <!-- Filter dropdown (below header bar) -->
     <Transition name="filter-drop">
-      <div v-if="showFilter && skillTreeStore.isUnlocked('adv_search') && isLibraryPage" class="filter-panel">
+      <div v-if="showFilter && isLibraryPage" class="filter-panel">
         <div class="filter-inner">
 
           <!-- Tags -->
@@ -218,8 +216,8 @@ function handleApplyPreset(p: FilterPreset): void {
             </div>
           </div>
 
-          <!-- Presets (filter_presets skill) -->
-          <div v-if="skillTreeStore.isUnlocked('filter_presets')" class="filter-group">
+          <!-- Presets -->
+          <div class="filter-group">
             <span class="filter-label">{{ t('manga.filterPresets') }}</span>
             <div class="preset-area">
               <div class="preset-chips">

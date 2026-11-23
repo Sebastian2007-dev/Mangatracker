@@ -215,7 +215,8 @@ export const useMangaStore = defineStore('manga', () => {
           norm(a.mainUrl) === norm(b.mainUrl) ||
           a.title.toLowerCase().trim() === b.title.toLowerCase().trim() ||
           (!!a.mangaDexId && a.mangaDexId === b.mangaDexId) ||
-          (!!a.comickHid && a.comickHid === b.comickHid)
+          (!!a.comickHid && a.comickHid === b.comickHid) ||
+          (!!a.mangaUpdatesId && a.mangaUpdatesId === b.mangaUpdatesId)
         if (match) pairs.push([a, b])
       }
     }
